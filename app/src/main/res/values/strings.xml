@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">SyncWave</string>
+    <string name="share_sound">Share sound</string>
+    <string name="join_sound_room">Join Sound Room</string>
+    <string name="empty_room">Empty room</string>
+    <string name="delete_room">Delete room</string>
+    <string name="edit_room_name">Edit room name</string>
+    <string name="scan_qr_code_to_connect">Scan QR code to connect</string>
+    <string name="connected_to">Connected to</string>
+    <string name="leave_room">Leave room</string>
+
+
+
+</resources>
