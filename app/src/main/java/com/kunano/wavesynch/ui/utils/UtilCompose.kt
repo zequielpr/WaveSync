@@ -1,7 +1,11 @@
 package com.kunano.wavesynch.ui.utils
 
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,12 +23,19 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.kunano.wavesynch.R
+import kotlin.math.min
 
 @Composable
 fun CustomDialogueCompose(
@@ -132,6 +143,76 @@ fun BottomSheetSamplePreview() {
         }
     }, showSheet = true, onDismiss = {})
 }
+
+
+@Composable
+fun QrScanFrame(
+    modifier: Modifier = Modifier,
+    frameSizeRatio: Float = 0.7f,
+    cornerLength: Dp = 24.dp,
+    cornerStroke: Dp = 4.dp,
+    cornerColor: Color = MaterialTheme.colorScheme.primary,
+    overlayColor: Color = Color(0x88000000)
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+            val frameSize = min(canvasWidth, canvasHeight) * frameSizeRatio
+
+            val left = (canvasWidth - frameSize) / 2f
+            val top = (canvasHeight - frameSize) / 2f
+            val right = left + frameSize
+            val bottom = top + frameSize
+
+            // Dark overlay
+            drawRect(color = overlayColor)
+
+            // Clear scan area
+            drawRect(
+                color = Color.Transparent,
+                topLeft = Offset(left, top),
+                size = Size(frameSize, frameSize),
+                blendMode = BlendMode.Clear
+            )
+
+            val cl = cornerLength.toPx()
+            val stroke = cornerStroke.toPx()
+
+            // Corners
+            fun drawCorner(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
+                drawLine(
+                    color = cornerColor,
+                    start = Offset(x1, y1),
+                    end = Offset(x2, y2),
+                    strokeWidth = stroke
+                )
+                drawLine(
+                    color = cornerColor,
+                    start = Offset(x1, y1),
+                    end = Offset(x3, y3),
+                    strokeWidth = stroke
+                )
+            }
+
+            // TL
+            drawCorner(left, top, left + cl, top, left, top + cl)
+            // TR
+            drawCorner(right, top, right - cl, top, right, top + cl)
+            // BL
+            drawCorner(left, bottom, left + cl, bottom, left, bottom - cl)
+            // BR
+            drawCorner(right, bottom, right - cl, bottom, right, bottom - cl)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun QrScanFramePreview() {
+    QrScanFrame()
+}
+
 
 
 @Preview(showBackground = true)
