@@ -1,7 +1,19 @@
 package com.kunano.wavesynch.ui.nav
-sealed class Screen(val route: String){
-    data object MainScreen: Screen("main_screen")
-    data object ActiveRoomScreen: Screen("active_room_screen")
-    data object CurrentRoomScreen: Screen("current_room_screen") //Room to which the guest in joined
 
+import kotlinx.serialization.Serializable
+
+@Serializable
+sealed class Screen {
+
+    @Serializable
+    data object MainScreen : Screen()
+
+    @Serializable
+    data object ActiveRoomScreen : Screen()
+
+    @Serializable
+    data object JoinRoomScreen : Screen()
+
+    @Serializable
+    data object CurrentRoomScreen : Screen()
 }
