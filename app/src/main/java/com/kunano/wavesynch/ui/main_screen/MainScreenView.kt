@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
 
@@ -70,8 +71,10 @@ fun SyncWaveMainScreenWithAppBar(
 @Composable
 fun SynchWaveMainScreen(
     modifier: Modifier = Modifier,
+    viewModel: MainScreenViewModel = hiltViewModel(),
     navigateToActiveRoom: () -> Unit , navigateToJoinRoom: () -> Unit
 ) {
+    val UIState = viewModel.UIState.collectAsStateWithLifecycle()
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -91,7 +94,7 @@ fun SynchWaveMainScreen(
                 title = stringResource(id = R.string.share_sound),
                 // Replace with your real icon
                 iconPainter = painterResource(R.drawable.create_room),
-                onClick = navigateToActiveRoom
+                onClick = {viewModel.shareSound(navigateToShareSound = navigateToActiveRoom)}
             )
 
             Spacer(modifier = Modifier.height(24.dp))

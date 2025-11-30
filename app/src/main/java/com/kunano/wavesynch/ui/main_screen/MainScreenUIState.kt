@@ -1,4 +1,3 @@
 package com.kunano.wavesynch.ui.main_screen
 
-class MainScreenUIState {
-}
+data class MainScreenUIState(val isDefaultRoomCreated: Boolean = false)

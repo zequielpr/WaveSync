@@ -4,10 +4,22 @@
     <string name="join_sound_room">Join Sound Room</string>
     <string name="empty_room">Empty room</string>
     <string name="delete_room">Delete room</string>
+    <string name="room_deleted">Room deleted</string>
     <string name="edit_room_name">Edit room name</string>
     <string name="scan_qr_code_to_connect">Scan QR code to connect</string>
     <string name="connected_to">Connected to</string>
     <string name="leave_room">Leave room</string>
+    <string name="default_room_name">Room</string>
+    <string name="yes">Yes</string>
+    <string name="cancel">Cancel</string>
+    <string name="ask_to_delete_room">Are you sure you want to delete this room?</string>
+    <string name="new_room_name">New room name</string>
+    <string name="update_room_name">Update room name</string>
+    <string name="update">Update</string>
+    <string name="room_name_updated">Room name updated      </string>
+    <string name="error_deleting_room">Error deleting room</string>
+    <string name="something_went_wrong">Something went wrong</string>
+    <string name="enter_new_name">Enter new name</string>
 
 
 

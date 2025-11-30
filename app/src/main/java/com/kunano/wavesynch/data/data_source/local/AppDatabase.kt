@@ -1,4 +1,4 @@
-package com.kunano.wavesynch.data.data_source.local.entity
+package com.kunano.wavesynch.data.data_source.local
 
 import android.content.Context
 import com.kunano.wavesynch.data.data_source.local.dao.RoomDao
@@ -13,6 +13,7 @@ import javax.inject.Singleton
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.kunano.wavesynch.data.data_source.local.entity.RoomEntity
 
 @Database(
     entities = [RoomEntity::class],
