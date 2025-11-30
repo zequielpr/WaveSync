@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -21,9 +23,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,12 +47,29 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
+import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
+import com.kunano.wavesynch.ui.utils.UiEvent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is UiEvent.ShowSnackBar -> snackbarHostState.showSnackbar(event.message)
+                is UiEvent.NavigateBack ->onBack()
+                is UiEvent.NavigateTo -> {}
+            }
+        }
+    }
+
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { CustomTopAppBar(onBack = onBack) }) {
         Column(
             modifier = Modifier
@@ -69,11 +97,18 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
 @Composable
 fun CustomTopAppBar(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     TopAppBar(
-        navigationIcon = {IconButton(onClick = onBack) {Image(painter = painterResource(id = R.drawable.arrow_back_ios_48px), contentDescription = "Back") }},
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_back_ios_48px),
+                    contentDescription = "Back"
+                )
+            }
+        },
         actions = {
 
             IconButton(onClick = { viewModel.setIsPlayingInHostState(!UIState.value.playingInHost) }) {
@@ -107,7 +142,7 @@ fun CustomTopAppBar(
 
         },
         title = {
-            UIState.value.roomName?.let {
+            UIState.value.room?.name?.let {
                 Text(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -125,8 +160,67 @@ fun OverFlowMenuCompose(
 
     ) {
     val modifier: Modifier = Modifier.size(30.dp)
-    val textSyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
+    var showDeletionDialogue by remember { mutableStateOf(false) }
+    val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
+
+    //Bottom sheet properties
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val buttonColor = MaterialTheme.colorScheme.primary
+    val titleStyle: TextStyle =
+        MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    var textFieldValue: String by remember { mutableStateOf("") }
+
+    val contentModifier: Modifier = Modifier.fillMaxWidth()
+    CustomBottomSheetCompose(conetent = {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = stringResource(R.string.update_room_name), style = titleStyle)
+            Spacer(modifier = Modifier.height(20.dp))
+            TextField(
+                shape = MaterialTheme.shapes.medium,
+                colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.secondary),
+                textStyle = textStyle,
+                modifier = contentModifier,
+                onValueChange = { it -> textFieldValue = it },
+                value = textFieldValue,
+                label = { Text(text = stringResource(R.string.new_room_name)) },
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                onClick = {
+                    UIState.value.room?.id?.let { id ->
+                        viewModel.editRoomName(id, textFieldValue)
+                    }
+                    showBottomSheet = false
+                }) {
+                Text(text = stringResource(R.string.update), style = textStyle)
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+
+
+        }
+    }, showSheet = showBottomSheet, onDismiss = { showBottomSheet = false })
+
+
+
+
+
+    CustomDialogueCompose(
+        title = stringResource(R.string.delete_room),
+        text = stringResource(R.string.ask_to_delete_room),
+        onDismiss = { showDeletionDialogue = false },
+        onConfirm = { viewModel.deleteRoom(UIState.value.room?.id ?: 0) },
+        show = showDeletionDialogue
+    )
+
 
     DropdownMenu(
         expanded = UIState.value.overFlowMenuExpanded,
@@ -145,12 +239,13 @@ fun OverFlowMenuCompose(
             text = {
                 Text(
                     text = stringResource(R.string.empty_room),
-                    style = textSyle
+                    style = textStyle
                 )
             },
             onClick = {
-                UIState.value.roomId?.let { viewModel.emptyRoom(it) }
-                viewModel.setOverFlowMenuExpandedState(false)})
+                UIState.value.room?.id?.let { viewModel.emptyRoom(it) }
+                viewModel.setOverFlowMenuExpandedState(false)
+            })
 
         DropdownMenuItem(
             leadingIcon = {
@@ -163,11 +258,13 @@ fun OverFlowMenuCompose(
             text = {
                 Text(
                     text = stringResource(R.string.edit_room_name),
-                    style = textSyle
+                    style = textStyle
                 )
             },
-            onClick = { UIState.value.roomId?.let { viewModel.editRoomName(it) }
-                viewModel.setOverFlowMenuExpandedState(false)})
+            onClick = {
+                UIState.value.room?.id?.let { showBottomSheet = true }
+                viewModel.setOverFlowMenuExpandedState(false)
+            })
 
         DropdownMenuItem(
             leadingIcon = {
@@ -180,11 +277,13 @@ fun OverFlowMenuCompose(
             text = {
                 Text(
                     text = stringResource(R.string.delete_room),
-                    style = textSyle
+                    style = textStyle
                 )
             },
-            onClick = { UIState.value.roomId?.let { viewModel.deleteRoom(it) }
-                viewModel.setOverFlowMenuExpandedState(false)})
+            onClick = {
+                UIState.value.room?.id?.let { showDeletionDialogue = true }
+                viewModel.setOverFlowMenuExpandedState(false)
+            })
 
     }
 
@@ -342,8 +441,9 @@ fun GuestItem(
                 modifier = Modifier.padding(start = 16.dp)
             )
             Spacer(modifier = Modifier.weight(1f))
-            IconButton( modifier = Modifier.padding(start = 20.dp),
-                onClick = {viewModel.expelGuest(guestId = guestInfo.id)}) {
+            IconButton(
+                modifier = Modifier.padding(start = 20.dp),
+                onClick = { viewModel.expelGuest(guestId = guestInfo.id) }) {
                 Image(
                     painter = painterResource(id = R.drawable.output_48px),
                     contentDescription = "Close"

@@ -1,5 +1,6 @@
 package com.kunano.wavesynch
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +16,8 @@ import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.HiltAndroidApp
+
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

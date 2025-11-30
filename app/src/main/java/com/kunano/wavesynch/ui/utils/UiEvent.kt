@@ -1,9 +1,9 @@
 package com.kunano.wavesynch.ui.utils
 
-interface SnackBarListener {
-    fun showSnackBar(message: String)
-}
-
 sealed class UiEvent {
     data class ShowSnackBar(val message: String) : UiEvent()
+    data class NavigateBack(val route: String?) : UiEvent()
+    data class NavigateTo(val route: String): UiEvent()
 }
+
+
