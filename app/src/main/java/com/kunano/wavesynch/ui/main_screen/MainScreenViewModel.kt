@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.domain.usecase.CreateRoomUseCase
-import com.kunano.wavesynch.domain.usecase.ObserverRoomsUseCase
+import com.kunano.wavesynch.domain.usecase.room_use_cases.CreateRoomUseCase
+import com.kunano.wavesynch.domain.usecase.room_use_cases.ObserverRoomsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow

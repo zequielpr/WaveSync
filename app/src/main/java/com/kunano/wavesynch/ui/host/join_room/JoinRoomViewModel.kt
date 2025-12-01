@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import com.google.mlkit.vision.barcode.BarcodeScanner
-import com.kunano.wavesynch.domain.usecase.ProcessImageUseCase
+import com.kunano.wavesynch.domain.usecase.room_use_cases.ProcessImageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 

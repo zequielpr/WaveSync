@@ -1,6 +1,5 @@
-package com.kunano.wavesynch.domain.usecase
+package com.kunano.wavesynch.domain.usecase.room_use_cases
 
-import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.repositories.SoundRoomRepository
 import javax.inject.Inject
 

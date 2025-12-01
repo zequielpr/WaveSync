@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.domain.usecase.DeleteRoomUseCase
-import com.kunano.wavesynch.domain.usecase.EditRoomNameUseCase
-import com.kunano.wavesynch.domain.usecase.ObserverRoomsUseCase
+import com.kunano.wavesynch.domain.usecase.room_use_cases.DeleteRoomUseCase
+import com.kunano.wavesynch.domain.usecase.room_use_cases.EditRoomNameUseCase
+import com.kunano.wavesynch.domain.usecase.room_use_cases.ObserverRoomsUseCase
 import com.kunano.wavesynch.ui.utils.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
