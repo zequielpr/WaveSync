@@ -1,12 +1,12 @@
-package com.kunano.wavesynch.data.repository
+package com.kunano.wavesynch.di
 
+import com.kunano.wavesynch.data.repository.SoundRoomRepositoryImpl
 import com.kunano.wavesynch.domain.repositories.SoundRoomRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-
 
 //Module to bind interface to implementation
 @Module

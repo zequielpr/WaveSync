@@ -1,16 +1,26 @@
 package com.kunano.wavesynch.ui.guest.current_room
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kunano.wavesynch.domain.repositories.GuestRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-class CurrentRoomViewModel @Inject constructor(): ViewModel() {
+@HiltViewModel
+class CurrentRoomViewModel @Inject constructor(private val guestRepository: GuestRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(CurrentRoomUIState())
     val uiState: StateFlow<CurrentRoomUIState> = _uiState.asStateFlow()
+
+
+    init {
+        guestRepository.startReceivingAudioStream()
+    }
+
 
     fun leaveRoom() {
         viewModelScope.launch {

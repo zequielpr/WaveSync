@@ -1,4 +1,4 @@
-package com.kunano.wavesynch.domain.usecase
+package com.kunano.wavesynch.domain.usecase.room_use_cases
 
 import android.annotation.SuppressLint
 import androidx.camera.core.ImageProxy

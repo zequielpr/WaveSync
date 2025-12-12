@@ -19,7 +19,34 @@
     <string name="room_name_updated">Room name updated      </string>
     <string name="error_deleting_room">Error deleting room</string>
     <string name="something_went_wrong">Something went wrong</string>
-    <string name="enter_new_name">Enter new name</string>
+    <string name="enter_new_name">Joined room successfully</string>
+    <string name="request_declined">Request declined</string>
+    <string name="error_joining_room_guest">Error joining room guest</string>
+    <string name="success_joining_room">Success joining room</string>
+    <string name="error_updating_room_name">Error updating room name</string>
+    <string name="error_joining_room">Error joining room</string>
+    <string name="error_leaving_room">Error leaving room</string>
+    <string name="waiting_for_guests_to_join">Waiting for guests to join</string>
+    <string name="searching_for_hosts">Searching for hosts…</string>
+    <string name="available_hosts">Available hosts</string>
+    <string name="no_hosts_found">No hosts found</string>
+    <string name="join_room">Join room</string>
+    <string name="wants_to_join_room">wants to join your room</string>
+    <string name="ask_to_join_room">Do you want to join this host\'s room?</string>
+    <string name="room_is_full">Room is full</string>"
+    <string name="room_not_found">Room not found</string>
+    <string name="error_joining_room_host">Error joining room host</string>
+    <string name="error_leaving_room_host">Error leaving room host</string>
+    <string name="guest_name">Guest name</string>
+    <string name= "accept">Accept</string>
+    <string name="decline">Decline</string>
+    <string name="trust_guest">Trust guest</string>
+
+
+
+
+
+
 
 
 

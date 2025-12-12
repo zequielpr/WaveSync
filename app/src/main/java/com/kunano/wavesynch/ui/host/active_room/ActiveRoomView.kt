@@ -1,5 +1,6 @@
 package com.kunano.wavesynch.ui.host.active_room
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -47,25 +49,78 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
+import com.kunano.wavesynch.ui.utils.CustomToggleCompose
 import com.kunano.wavesynch.ui.utils.UiEvent
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 @Composable
 fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
+    var launchAudioCaptureRequest by remember { mutableStateOf(false) }
+
+
+
+
+
+
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is UiEvent.ShowSnackBar -> snackbarHostState.showSnackbar(event.message)
-                is UiEvent.NavigateBack ->onBack()
+                is UiEvent.NavigateBack -> onBack()
                 is UiEvent.NavigateTo -> {}
+                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> {
+                    viewModel.askToTrustGuestEvent = event
+                    viewModel.setShowAskTrustGuestState(true)
+                }
+
+                ActiveRoomUiEvent.StartAudioCapturer -> {
+                    launchAudioCaptureRequest = true
+                }
             }
         }
     }
+
+
+
+
+
+    //Ask to trust guest
+    if (UIState.value.showJoinRoomRequest && viewModel.askToTrustGuestEvent != null) {
+        var hostTrustGuest by remember { mutableStateOf(false) }
+        Log.d("ActiveRoomCompose", "AskToTrustGuest: ${viewModel.askToTrustGuestEvent!!.guestName}")
+        CustomDialogueCompose(
+            title = viewModel.askToTrustGuestEvent!!.deviceName + ":" + stringResource(R.string.wants_to_join_room),
+            content = {
+                Column {
+                    Text(viewModel.askToTrustGuestEvent!!.guestName + ": " + stringResource(R.string.wants_to_join_room))
+                    CustomToggleCompose(stringResource(R.string.trust_guest)) {
+                        hostTrustGuest = it
+                    }
+                }
+            },
+            acceptButtonText = stringResource(R.string.accept),
+            dismissButtonText = stringResource(R.string.decline),
+            onDismiss = {
+                viewModel.askToTrustGuestEvent!!.decision.complete(false)
+                viewModel.setShowAskTrustGuestState(false)
+            },
+            onConfirm = {
+                viewModel.askToTrustGuestEvent!!.decision.complete(true)
+                viewModel.askToTrustGuestEvent!!.guestTrusted.complete(hostTrustGuest)
+                viewModel.setShowAskTrustGuestState(false)
+            },
+            show = UIState.value.showJoinRoomRequest
+        )
+    }
+
 
 
     Scaffold(
@@ -78,13 +133,15 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(modifier = Modifier.padding(start = 30.dp, end = 30.dp)) {
+                //Launch audio capture request and start streaming
+                AudioCaptureRequestCompose()
 
-                if (UIState.value.isQRCodeExpanded) {
-                    ExpandedQRCodeCompose()
+                if (UIState.value.guests.isNotEmpty()) {
+                    GuestsListCompose(UIState.value.guests)
                 } else {
-                    ShrunkQRCodeCompose()
+                    Text(stringResource(R.string.waiting_for_guests_to_join))
                 }
-                GuestsListCompose()
+
 
             }
         }
@@ -100,56 +157,51 @@ fun CustomTopAppBar(
     onBack: () -> Unit,
 ) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-    TopAppBar(
-        navigationIcon = {
-            IconButton(onClick = onBack) {
+    TopAppBar(navigationIcon = {
+        IconButton(onClick = onBack) {
+            Image(
+                painter = painterResource(id = R.drawable.arrow_back_ios_48px),
+                contentDescription = "Back"
+            )
+        }
+    }, actions = {
+
+        IconButton(onClick = { viewModel.setIsPlayingInHostState(!UIState.value.playingInHost) }) {
+
+            if (UIState.value.playingInHost) {
                 Image(
-                    painter = painterResource(id = R.drawable.arrow_back_ios_48px),
-                    contentDescription = "Back"
+                    painter = painterResource(id = R.drawable.volume_up_48px),
+                    contentDescription = "Pause"
                 )
-            }
-        },
-        actions = {
-
-            IconButton(onClick = { viewModel.setIsPlayingInHostState(!UIState.value.playingInHost) }) {
-
-                if (UIState.value.playingInHost) {
-                    Image(
-                        painter = painterResource(id = R.drawable.volume_up_48px),
-                        contentDescription = "Pause"
-                    )
-                } else {
-                    Image(
-                        painter = painterResource(id = R.drawable.volume_off_48px),
-                        contentDescription = "Play"
-                    )
-                }
-
-
-            }
-
-            IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!UIState.value.overFlowMenuExpanded) }) {
+            } else {
                 Image(
-                    painter = painterResource(R.drawable.more_vert_48px),
-                    contentDescription = "More"
-                )
-
-
-            }
-
-            OverFlowMenuCompose()
-
-
-        },
-        title = {
-            UIState.value.room?.name?.let {
-                Text(
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                    text = it
+                    painter = painterResource(id = R.drawable.volume_off_48px),
+                    contentDescription = "Play"
                 )
             }
-        })
+
+
+        }
+
+        IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!UIState.value.overFlowMenuExpanded) }) {
+            Image(
+                painter = painterResource(R.drawable.more_vert_48px),
+                contentDescription = "More"
+            )
+
+
+        }
+
+        OverFlowMenuCompose()
+
+
+    }, title = {
+        UIState.value.room?.name?.let {
+            Text(
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), text = it
+            )
+        }
+    })
 }
 
 
@@ -235,55 +287,44 @@ fun OverFlowMenuCompose(
                     painter = painterResource(id = R.drawable.unarchive_48px),
                     contentDescription = "Empty room"
                 )
-            },
-            text = {
+            }, text = {
                 Text(
-                    text = stringResource(R.string.empty_room),
-                    style = textStyle
+                    text = stringResource(R.string.empty_room), style = textStyle
                 )
-            },
-            onClick = {
+            }, onClick = {
                 UIState.value.room?.id?.let { viewModel.emptyRoom(it) }
                 viewModel.setOverFlowMenuExpandedState(false)
             })
 
-        DropdownMenuItem(
-            leadingIcon = {
-                Image(
-                    modifier = modifier,
-                    painter = painterResource(id = R.drawable.edit_48px),
-                    contentDescription = "Edit room name"
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.edit_room_name),
-                    style = textStyle
-                )
-            },
-            onClick = {
-                UIState.value.room?.id?.let { showBottomSheet = true }
-                viewModel.setOverFlowMenuExpandedState(false)
-            })
+        DropdownMenuItem(leadingIcon = {
+            Image(
+                modifier = modifier,
+                painter = painterResource(id = R.drawable.edit_48px),
+                contentDescription = "Edit room name"
+            )
+        }, text = {
+            Text(
+                text = stringResource(R.string.edit_room_name), style = textStyle
+            )
+        }, onClick = {
+            UIState.value.room?.id?.let { showBottomSheet = true }
+            viewModel.setOverFlowMenuExpandedState(false)
+        })
 
-        DropdownMenuItem(
-            leadingIcon = {
-                Image(
-                    modifier = modifier,
-                    painter = painterResource(id = R.drawable.delete_48px),
-                    contentDescription = "Delete room"
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.delete_room),
-                    style = textStyle
-                )
-            },
-            onClick = {
-                UIState.value.room?.id?.let { showDeletionDialogue = true }
-                viewModel.setOverFlowMenuExpandedState(false)
-            })
+        DropdownMenuItem(leadingIcon = {
+            Image(
+                modifier = modifier,
+                painter = painterResource(id = R.drawable.delete_48px),
+                contentDescription = "Delete room"
+            )
+        }, text = {
+            Text(
+                text = stringResource(R.string.delete_room), style = textStyle
+            )
+        }, onClick = {
+            UIState.value.room?.id?.let { showDeletionDialogue = true }
+            viewModel.setOverFlowMenuExpandedState(false)
+        })
 
     }
 
@@ -304,15 +345,13 @@ fun ExpandedQRCodeCompose(
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
 
     Card(
-        modifier = cardModifier
-            .clickable(onClick = {}),
+        modifier = cardModifier.clickable(onClick = {}),
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
             IconButton(onClick = { viewModel.setIsQRCodeExpandedState(!UIState.value.isQRCodeExpanded) }) {
                 Image(
-                    painter = painterResource(R.drawable.hide_48px),
-                    contentDescription = "Hide"
+                    painter = painterResource(R.drawable.hide_48px), contentDescription = "Hide"
                 )
             }
         }
@@ -320,30 +359,41 @@ fun ExpandedQRCodeCompose(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    bottom = 20.dp,
-                    start = 20.dp,
-                    end = 20.dp
+                    bottom = 20.dp, start = 20.dp, end = 20.dp
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
 
-            Image(
-                modifier = Modifier
-                    .size(200.dp)
-                    .padding(0.dp),
-                alignment = Alignment.Center,
-                painter = painterResource(R.drawable.qr_code_test), contentDescription = "QR code"
-            )
-
             Text(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 30.dp),
-                text = stringResource(R.string.scan_qr_code_to_connect), style = textSyle
+                text = stringResource(R.string.scan_qr_code_to_connect),
+                style = textSyle
             )
         }
 
     }
+}
+
+
+@Composable
+fun QrCode(
+    ip: String,
+    modifier: Modifier = Modifier,
+    size: Int = 200,
+) {
+    val qrContent = remember(ip) { ip }
+
+    val qrBitmap = remember(qrContent) {
+        generateQrBitmap(qrContent, size)
+    }
+
+    Image(
+        bitmap = qrBitmap.asImageBitmap(),
+        contentDescription = "Host QR code",
+        modifier = modifier.size(size.dp)
+    )
 }
 
 @Composable
@@ -360,8 +410,7 @@ fun ShrunkQRCodeCompose(
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
 
     Card(
-        modifier = cardModifier
-            .clickable(onClick = {}),
+        modifier = cardModifier.clickable(onClick = {}),
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Row(
@@ -376,13 +425,15 @@ fun ShrunkQRCodeCompose(
                     .size(50.dp)
                     .padding(0.dp),
                 alignment = Alignment.Center,
-                painter = painterResource(R.drawable.qr_code_test), contentDescription = "QR code"
+                painter = painterResource(R.drawable.qr_code_test),
+                contentDescription = "QR code"
             )
 
             Text(
                 modifier = Modifier.padding(start = 20.dp),
                 textAlign = TextAlign.Center,
-                text = stringResource(R.string.scan_qr_code_to_connect), style = textSyle
+                text = stringResource(R.string.scan_qr_code_to_connect),
+                style = textSyle
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
@@ -399,22 +450,26 @@ fun ShrunkQRCodeCompose(
 }
 
 @Composable
-fun GuestsListCompose(viewModel: ActiveRoomViewModel = hiltViewModel()) {
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
+fun GuestsListCompose(
+    guestsList: List<Guest> = emptyList(),
+    viewModel: ActiveRoomViewModel = hiltViewModel(),
+) {
+
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 32.dp)
     ) {
-        items(UIState.value.guests) { guest ->
-            GuestItem(guestInfo = guest)
+        items(guestsList) { guest ->
+            Log.d("ActiveRoomCompose", "GuestsListCompose: $guest")
+            GuestItem(trustedGuest = guest)
         }
     }
 }
 
 @Composable
 fun GuestItem(
-    guestInfo: GuestInfo,
+    trustedGuest: Guest,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
     viewModel: ActiveRoomViewModel = hiltViewModel(),
 ) {
@@ -432,18 +487,19 @@ fun GuestItem(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.mobile_48px), // Placeholder icon
-                contentDescription = "Guest Icon",
-                modifier = Modifier.size(40.dp)
+                contentDescription = "Guest Icon", modifier = Modifier.size(40.dp)
             )
-            Text(
-                text = guestInfo.name,
-                style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
-                modifier = Modifier.padding(start = 16.dp)
-            )
+            trustedGuest.deviceName?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
                 modifier = Modifier.padding(start = 20.dp),
-                onClick = { viewModel.expelGuest(guestId = guestInfo.id) }) {
+                onClick = { viewModel.expelGuest(guestId = trustedGuest.userId) }) {
                 Image(
                     painter = painterResource(id = R.drawable.output_48px),
                     contentDescription = "Close"
@@ -458,12 +514,5 @@ fun GuestItem(
 @Composable
 fun ActiveRoomComposePreview() {
     ActiveRoomCompose(onBack = {})
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun ShrunkQRCodeComposePreview() {
-    ShrunkQRCodeCompose()
 }
 

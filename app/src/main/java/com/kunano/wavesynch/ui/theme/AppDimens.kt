@@ -6,4 +6,10 @@ object AppDimens {
     val ButtonSmall = 40.dp
     val ButtonMedium = 48.dp
     val ButtonLarge = 56.dp
+
+    object Padding {
+        val left = 16.dp
+        val right = 16.dp
+        val top = 16.dp
+    }
 }
