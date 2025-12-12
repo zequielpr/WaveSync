@@ -2,6 +2,7 @@
 
 package com.kunano.wavesynch.ui.main_screen
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,8 +48,19 @@ import com.kunano.wavesynch.ui.theme.WavesynchTheme
 @Composable
 fun SyncWaveMainScreenWithAppBar(
     textColor: Color = MaterialTheme.colorScheme.onSurface,
-    navigateToActiveRoom: () -> Unit, navigateToJoinRoom: () -> Unit
+    navigateToActiveRoom: () -> Unit, navigateToJoinRoom: () -> Unit,
 ) {
+    var granted by remember { mutableStateOf(false) }
+
+    if (!granted) {
+        Log.d("MainScreen", "Launching permission handler")
+        PermissionHandler(
+            onAllGranted = {
+                Log.d("MainScreen", "Permission granted")
+                granted = true }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -62,7 +78,11 @@ fun SyncWaveMainScreenWithAppBar(
     )
     {
         Box(modifier = Modifier.padding(it)) {
-            SynchWaveMainScreen(navigateToJoinRoom = navigateToJoinRoom, navigateToActiveRoom = navigateToActiveRoom)
+            SynchWaveMainScreen(
+                navigateToJoinRoom = {if (granted) navigateToJoinRoom()},
+                navigateToActiveRoom = {if (granted) navigateToActiveRoom() else
+                Log.d("MainScreen", "Permission not granted")}
+            )
         }
     }
 
@@ -72,10 +92,9 @@ fun SyncWaveMainScreenWithAppBar(
 fun SynchWaveMainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainScreenViewModel = hiltViewModel(),
-    navigateToActiveRoom: () -> Unit , navigateToJoinRoom: () -> Unit
+    navigateToActiveRoom: () -> Unit, navigateToJoinRoom: () -> Unit,
 ) {
     val UIState = viewModel.UIState.collectAsStateWithLifecycle()
-
     Surface(
         color = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxSize()
@@ -94,7 +113,7 @@ fun SynchWaveMainScreen(
                 title = stringResource(id = R.string.share_sound),
                 // Replace with your real icon
                 iconPainter = painterResource(R.drawable.create_room),
-                onClick = {viewModel.shareSound(navigateToShareSound = navigateToActiveRoom)}
+                onClick = { viewModel.shareSound(navigateToShareSound = navigateToActiveRoom) }
             )
 
             Spacer(modifier = Modifier.height(24.dp))

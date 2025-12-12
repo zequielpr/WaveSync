@@ -6,24 +6,37 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-// data/stream/AudioReceiver.kt
 class AudioReceiver(
-    private val jitterBuffer: JitterBuffer = JitterBuffer(capacityInPackets = 8)
+    private val jitterBuffer: JitterBuffer = JitterBuffer()
 ) {
 
     @Volatile
     private var running = false
 
+    private fun InputStream.readFully(buf: ByteArray, len: Int): Boolean {
+        var total = 0
+        while (total < len) {
+            val r = this.read(buf, total, len - total)
+            if (r <= 0) return false
+            total += r
+        }
+        return true
+    }
+
     fun start(input: InputStream) {
         if (running) return
         running = true
 
-        val minBuffer = AudioTrack.getMinBufferSize(
+        val minTrackBuffer = AudioTrack.getMinBufferSize(
             AudioStreamConstants.SAMPLE_RATE,
-            AudioFormat.CHANNEL_OUT_MONO,
+            AudioStreamConstants.CHANNEL_OUT,
             AudioStreamConstants.AUDIO_FORMAT
         )
+
+        val trackBuffer = minTrackBuffer * AudioLatencyConfig.TRACK_BUFFER_FACTOR
 
         val audioTrack = AudioTrack(
             AudioAttributes.Builder()
@@ -33,21 +46,28 @@ class AudioReceiver(
             AudioFormat.Builder()
                 .setEncoding(AudioStreamConstants.AUDIO_FORMAT)
                 .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
-                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .setChannelMask(AudioStreamConstants.CHANNEL_OUT)
                 .build(),
-            minBuffer,
+            trackBuffer,
             AudioTrack.MODE_STREAM,
             AudioManager.AUDIO_SESSION_ID_GENERATE
         )
 
-        // Reader thread
+        // ---------- Reader ----------
         Thread {
-            val buffer = ByteArray(minBuffer)
+            val header = ByteArray(4)
             try {
                 while (running) {
-                    val read = input.read(buffer)
-                    if (read <= 0) break
-                    jitterBuffer.push(buffer.copyOf(read))
+                    if (!input.readFully(header, 4)) break
+                    val size = java.nio.ByteBuffer.wrap(header)
+                        .order(java.nio.ByteOrder.BIG_ENDIAN)
+                        .int
+                    if (size <= 0 || size > 200_000) break
+
+                    val packet = ByteArray(size)
+                    if (!input.readFully(packet, size)) break
+
+                    jitterBuffer.push(packet)
                 }
             } catch (e: Exception) {
                 Log.e("AudioReceiver", "Reader error", e)
@@ -56,22 +76,29 @@ class AudioReceiver(
             }
         }.start()
 
-        // Player thread
+        // ---------- Player ----------
         Thread {
             try {
+                // warm up less aggressively
+                while (running && jitterBuffer.size() < AudioLatencyConfig.WARMUP_PACKETS) {
+                    Thread.sleep(3)
+                }
+
                 audioTrack.play()
+
                 while (running) {
                     val packet = jitterBuffer.pop()
                     if (packet != null) {
                         audioTrack.write(packet, 0, packet.size)
                     } else {
-                        Thread.sleep(5) // avoid busy loop
+                        // no data: wait a tiny bit, don't spin
+                        Thread.sleep(2)
                     }
                 }
             } catch (e: Exception) {
                 Log.e("AudioReceiver", "Player error", e)
             } finally {
-                try { audioTrack.stop() } catch (_: Exception) {}
+                try { audioTrack.stop() } catch (_: Throwable) {}
                 audioTrack.release()
             }
         }.start()

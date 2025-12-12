@@ -1,19 +1,24 @@
 package com.kunano.wavesynch.data.stream
 
-// data/stream/JitterBuffer.kt
-class JitterBuffer(
-    private val capacityInPackets: Int
-) {
-    private val queue: ArrayDeque<ByteArray> = ArrayDeque()
 
-    @Synchronized
+
+import java.util.concurrent.ArrayBlockingQueue
+
+class JitterBuffer(
+    private val capacityInPackets: Int = AudioLatencyConfig.JITTER_CAPACITY
+) {
+    private val queue = java.util.concurrent.ArrayBlockingQueue<ByteArray>(capacityInPackets)
+
     fun push(packet: ByteArray) {
-        if (queue.size >= capacityInPackets) {
-            queue.removeFirst() // drop oldest
+        // drop oldest if full to avoid unbounded latency
+        if (!queue.offer(packet)) {
+            queue.poll()
+            queue.offer(packet)
         }
-        queue.addLast(packet)
     }
 
-    @Synchronized
-    fun pop(): ByteArray? = if (queue.isEmpty()) null else queue.removeFirst()
+    fun pop(): ByteArray? = queue.poll()
+
+    fun size(): Int = queue.size
 }
+

@@ -11,7 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.kunano.wavesynch.ui.guest.current_room.CurrentRoomCompose
 import com.kunano.wavesynch.ui.host.active_room.ActiveRoomCompose
-import com.kunano.wavesynch.ui.host.join_room.JoinRoomViewCompose
+import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewCompose
 import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
@@ -20,6 +20,8 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -54,7 +56,7 @@ fun WaveSyncApp() {
         composable<Screen.JoinRoomScreen>() {
             JoinRoomViewCompose(
                 onBack = { navController.popBackStack() },
-                navigateToCurrentRoom = { navController.navigate(Screen.CurrentRoomScreen) })
+                navigateTo = { navController.navigate(it) })
         }
 
         composable<Screen.CurrentRoomScreen>() {
