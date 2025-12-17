@@ -16,7 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import com.kunano.wavesynch.AudioCaptureService
+import com.kunano.wavesynch.services.AudioCaptureService
 
 @Composable
 fun AudioCaptureRequestCompose(

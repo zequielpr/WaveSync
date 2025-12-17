@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
 import com.kunano.wavesynch.data.stream.HostStreamer
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
@@ -40,7 +41,7 @@ class HostRepositoryImpl @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.R)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     override fun startHotspot(
-        onStarted: (String, String) -> Unit,
+        onStarted: (HotspotInfo) -> Unit,
         onError: (Int) -> Unit,
     ) {
         localHotspotController.startHotspot(onStarted, onError)
@@ -52,6 +53,10 @@ class HostRepositoryImpl @Inject constructor(
 
     override fun isHotspotRunning(): Boolean {
         return localHotspotController.isHotspotRunning()
+    }
+
+    override fun getHotspotInfo(): HotspotInfo? {
+        return localHotspotController.getHotspotInfo()
     }
 
 

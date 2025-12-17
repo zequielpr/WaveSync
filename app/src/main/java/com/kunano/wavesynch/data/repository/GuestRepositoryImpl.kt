@@ -1,15 +1,19 @@
 package com.kunano.wavesynch.data.repository
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import com.kunano.wavesynch.services.AudioPlayerService
 import com.kunano.wavesynch.data.stream.AudioReceiver
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.data.wifi.client.ClientManager
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +24,7 @@ class GuestRepositoryImpl @Inject constructor(
     private val clientManager: ClientManager,
     private val audioReceiver: AudioReceiver,
     private val localHotspotController: LocalHotspotController,
-
+    @ApplicationContext private val context: Context
     ) : GuestRepository {
 
     private val _clientConnectionsStateFlow = MutableStateFlow<ClientConnectionsState>(ClientConnectionsState.Idle)
@@ -28,12 +32,12 @@ class GuestRepositoryImpl @Inject constructor(
         _clientConnectionsStateFlow
 
     override val hanShakeResponse: Flow<HandShakeResult> = clientManager.handShakeResponse
+    
     override fun startReceivingAudioStream() {
-        clientManager.inputStream?.let {
-            _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ReceivingAudioStream)
-            audioReceiver.start(it)
-        }
-
+        // Start the foreground service instead of directly starting the receiver
+        val intent = Intent(context, AudioPlayerService::class.java)
+        context.startForegroundService(intent)
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ReceivingAudioStream)
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -64,6 +68,8 @@ class GuestRepositoryImpl @Inject constructor(
 
     override fun leaveRoom(){
         _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
+        val intent = Intent(context, AudioPlayerService::class.java)
+        context.stopService(intent)
         audioReceiver.stop()
     }
 

@@ -3,6 +3,7 @@ package com.kunano.wavesynch.ui.utils
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -56,12 +57,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import com.kunano.wavesynch.R
 import java.util.concurrent.Executors
 import kotlin.math.min
@@ -393,6 +398,25 @@ fun CameraPreview(
             previewView
         }
     )
+}
+
+fun generateQrBitmap(
+    content: String,
+    size: Int = 600,
+): Bitmap {
+    val writer = QRCodeWriter()
+    val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size)
+
+    val bmp = createBitmap(size, size, Bitmap.Config.RGB_565)
+
+    for (x in 0 until size) {
+        for (y in 0 until size) {
+            bmp[x, y] =
+                if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        }
+    }
+
+    return bmp
 }
 
 @SuppressLint("UnsafeOptInUsageError")

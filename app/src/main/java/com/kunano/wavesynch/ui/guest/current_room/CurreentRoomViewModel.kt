@@ -1,10 +1,11 @@
 package com.kunano.wavesynch.ui.guest.current_room
 
-import android.util.Log
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kunano.wavesynch.domain.repositories.GuestRepository
+import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,13 +13,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class CurrentRoomViewModel @Inject constructor(private val guestRepository: GuestRepository) : ViewModel() {
+class CurrentRoomViewModel @Inject constructor(@ApplicationContext val context: Context, private val guestUseCases: GuestUseCases) : ViewModel() {
     private val _uiState = MutableStateFlow(CurrentRoomUIState())
     val uiState: StateFlow<CurrentRoomUIState> = _uiState.asStateFlow()
 
 
     init {
-        guestRepository.startReceivingAudioStream()
+        guestUseCases.startReceivingAudioStream()
+
     }
 
 

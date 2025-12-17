@@ -1,6 +1,7 @@
 package com.kunano.wavesynch.domain.usecase.host
 
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -26,11 +27,14 @@ class HostUseCases @Inject constructor(
 
     //Manage hotspot
     fun startHotspot(
-        onStarted: (String, String) -> Unit, onError: (Int) -> Unit,
+        onStarted: (HotspotInfo) -> Unit, onError: (Int) -> Unit,
     ) = hostRepository.startHotspot(onStarted, onError)
 
     fun stopHotspot() = hostRepository.stopHotspot()
     fun isHotspotRunning() = hostRepository.isHotspotRunning()
+    fun getHotspotInfo() = hostRepository.getHotspotInfo()
+
+
 
 
     //Manage rooms

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -58,16 +59,20 @@ class ActiveRoomViewModel @Inject constructor(
 
     //HotSpotImplementation
     fun startLocalHotSpot() {
-       if(!hostUseCases.isHotspotRunning()){
-           hostUseCases.startHotspot(onStarted = { ssid, password ->
-               Log.d("ActiveRoomViewModel", "startLocalHotSpot: $ssid $password")
-               setHotSpotSsidAndPassword(ssid, password)
-           }, onError = {})
-       }
+        if(hostUseCases.isHotspotRunning()){
+            val hotspotInfo = hostUseCases.getHotspotInfo()
+            setHotSpotSsidAndPassword(hotspotInfo)
+        }else{
+            hostUseCases.startHotspot(onStarted = { hotspotInfo ->
+
+                Log.d("ActiveRoomViewModel", "startLocalHotSpot: $hotspotInfo")
+                setHotSpotSsidAndPassword(hotspotInfo)
+            }, onError = {})
+        }
     }
 
-    private fun setHotSpotSsidAndPassword(ssid: String, password: String) {
-        _uiState.value = _uiState.value.copy(ssid = ssid, password = password)
+    private fun setHotSpotSsidAndPassword(hotspotInfo: HotspotInfo?) {
+        _uiState.value = _uiState.value.copy(hotspotInfo = hotspotInfo)
     }
 
 

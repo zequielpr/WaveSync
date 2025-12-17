@@ -1,4 +1,4 @@
-package com.kunano.wavesynch
+package com.kunano.wavesynch.services
 
 import android.Manifest
 import android.app.Activity
@@ -16,15 +16,22 @@ import android.os.IBinder
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
+import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
-import com.kunano.wavesynch.data.stream.HostStreamer
 import com.kunano.wavesynch.domain.repositories.HostRepository
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class AudioCaptureService : Service() {
-    @Inject lateinit var hostRepository: HostRepository
+    @Inject
+    lateinit var hostRepository: HostRepository
+
+    @Inject
+    @ApplicationContext
+    lateinit var context: Context
+
 
     companion object {
         const val EXTRA_RESULT_CODE = "resultCode"
@@ -40,7 +47,7 @@ class AudioCaptureService : Service() {
         createNotificationChannel()
     }
 
-    @androidx.annotation.RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
@@ -71,6 +78,7 @@ class AudioCaptureService : Service() {
 
 
 
+        //If the system kills the service, we want to restart it
         return START_STICKY
     }
 
@@ -81,7 +89,7 @@ class AudioCaptureService : Service() {
             "Audio Capture Service",
             NotificationManager.IMPORTANCE_DEFAULT
         )
-        val manager = getSystemService(NotificationManager::class.java)
+        val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(serviceChannel)
     }
 

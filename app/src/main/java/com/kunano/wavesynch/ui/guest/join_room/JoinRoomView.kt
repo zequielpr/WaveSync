@@ -53,9 +53,7 @@ fun JoinRoomViewCompose(
 ) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     val snackBarHostState by remember { mutableStateOf(SnackbarHostState()) }
-    var showJoinRoomRequest by remember { mutableStateOf(false) }
-    var scannedSsid by remember { mutableStateOf("") }
-    var scannedPassword by remember { mutableStateOf("") }
+
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -103,31 +101,13 @@ fun JoinRoomViewCompose(
 
 
                     if (ssid.isNotEmpty() ) {
-                        scannedSsid = ssid
-                        scannedPassword = password
-                        showJoinRoomRequest = true
+                        viewModel.connectToHotspot(ssid, password)
                     }
                     
                     Log.d("JoinRoomViewCompose", "QrScannerScreen results: $qrContent")
                 }
             )
 
-
-
-            if (showJoinRoomRequest) {
-                CustomDialogueCompose(
-                    text = stringResource(R.string.ask_to_join_room) + " $scannedSsid?",
-                    title = stringResource(R.string.join_room),
-                    onDismiss = { showJoinRoomRequest = false },
-                    onConfirm = {
-                        // TODO: Use scannedSsid and scannedPassword to connect
-                        viewModel.connectToHotspot(scannedSsid, scannedPassword)
-                        showJoinRoomRequest = false
-                    },
-
-                    show = showJoinRoomRequest,
-                )
-            }
 
         }
     }

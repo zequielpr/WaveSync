@@ -1,6 +1,7 @@
 package com.kunano.wavesynch.domain.repositories
 
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
@@ -18,10 +19,12 @@ interface HostRepository {
 
     //New hotspot implementation
     fun startHotspot(
-        onStarted: (ssid: String, password: String) -> Unit,
+        onStarted: (HotspotInfo) -> Unit,
         onError: (Int) -> Unit,)
     fun stopHotspot()
     fun isHotspotRunning(): Boolean
+    fun getHotspotInfo(): HotspotInfo?
+
 
 
 

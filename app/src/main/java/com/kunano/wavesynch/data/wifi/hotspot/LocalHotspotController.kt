@@ -41,7 +41,7 @@ class LocalHotspotController @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.R)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     fun startHotspot(
-        onStarted: (ssid: String, password: String) -> Unit,
+        onStarted: (hotspotInfo: HotspotInfo) -> Unit,
         onError: (Int) -> Unit,
     ) {
         _hotspotStateFlow.tryEmit(HotspotState.Starting)
@@ -58,7 +58,7 @@ class LocalHotspotController @Inject constructor(
                     val pass = config.passphrase ?: ""
 
                     _hotspotStateFlow.tryEmit(HotspotState.Running)
-                    onStarted(ssid, pass)
+                    onStarted(HotspotInfo(ssid, pass))
                 }
 
                 override fun onStopped() {
@@ -80,6 +80,18 @@ class LocalHotspotController @Inject constructor(
 
     fun isHotspotRunning(): Boolean {
         return reservation != null
+    }
+
+
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    fun getHotspotInfo(): HotspotInfo? {
+        if (reservation == null) return null
+        val config = reservation!!.softApConfiguration
+        val ssid = config.wifiSsid.toString()
+        val pass = config.passphrase ?: ""
+
+        return HotspotInfo(ssid, pass)
     }
 
      var hotspotNetwork: Network? = null

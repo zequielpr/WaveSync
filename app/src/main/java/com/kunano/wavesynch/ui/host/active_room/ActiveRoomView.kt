@@ -31,7 +31,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,11 +49,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.model.Guest
-import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
 import com.kunano.wavesynch.ui.utils.CustomToggleCompose
-import com.kunano.wavesynch.ui.utils.UiEvent
+import com.kunano.wavesynch.ui.utils.generateQrBitmap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
@@ -110,7 +108,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
 
                 if (UIState.value.isQRCodeExpanded) {
                     ExpandedQRCodeCompose()
-                }else{
+                } else {
                     ShrunkQRCodeCompose()
                 }
 
@@ -342,9 +340,12 @@ fun ExpandedQRCodeCompose(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if (UIState.value.ssid != null && UIState.value.password != null) {
-                QrCode(password = UIState.value.password!!, ssid = UIState.value.ssid!!)
-            }else{
+            if (UIState.value.hotspotInfo != null) {
+                QrCode(
+                    password = UIState.value.hotspotInfo!!.password,
+                    ssid = UIState.value.hotspotInfo!!.ssid
+                )
+            } else {
                 Text("Loading qr code..")
             }
 
