@@ -1,4 +1,4 @@
-package com.kunano.wavesynch.data.wifi
+package com.kunano.wavesynch.data.wifi.server
 
 sealed class RequestResult {
     data object Declined : RequestResult()

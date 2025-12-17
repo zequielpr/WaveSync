@@ -1,11 +1,13 @@
 package com.kunano.wavesynch.ui.utils
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
@@ -54,13 +56,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewModel
 import java.util.concurrent.Executors
 import kotlin.math.min
 
@@ -340,7 +342,6 @@ fun QrScannerScreen(
 fun CameraPreview(
     modifier: Modifier = Modifier,
     onQrCodeScanned: (String) -> Unit,
-    viewModel: JoinRoomViewModel = hiltViewModel(),
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -373,7 +374,7 @@ fun CameraPreview(
                 analysis.setAnalyzer(
                     Executors.newSingleThreadExecutor()
                 ) { imageProxy ->
-                    //viewModel.processImage(scanner, imageProxy, onQrCodeScanned)
+                    processImage(scanner, imageProxy, onQrCodeScanned)
                 }
 
                 try {
@@ -392,6 +393,34 @@ fun CameraPreview(
             previewView
         }
     )
+}
+
+@SuppressLint("UnsafeOptInUsageError")
+private fun processImage(
+    scanner: BarcodeScanner,
+    imageProxy: ImageProxy,
+    onQrCodeScanned: (String) -> Unit,
+) {
+    val mediaImage = imageProxy.image
+    if (mediaImage != null) {
+        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        scanner.process(image)
+            .addOnSuccessListener { barcodes ->
+                for (barcode in barcodes) {
+                    barcode.rawValue?.let {
+                        onQrCodeScanned(it)
+                    }
+                }
+            }
+            .addOnFailureListener {
+                // Handle failure
+            }
+            .addOnCompleteListener {
+                imageProxy.close()
+            }
+    } else {
+        imageProxy.close()
+    }
 }
 
 
@@ -413,4 +442,3 @@ fun CustomDialoguePreview() {
         show = true
     )
 }
-

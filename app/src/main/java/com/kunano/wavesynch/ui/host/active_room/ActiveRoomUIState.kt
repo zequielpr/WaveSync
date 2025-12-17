@@ -8,8 +8,8 @@ import com.kunano.wavesynch.domain.model.TrustedGuest
 data class ActiveRoomUIState(
     val showJoinRoomRequest: Boolean = false,
     val room: Room? = null,
-    val hostIpAddress: String? = null,
-    val port: Int = AudioStreamConstants.PORT,
+    val ssid: String? = null,
+    val password: String? = null,
     val overFlowMenuExpanded: Boolean = false,
     val playingInHost: Boolean = true,
     val isQRCodeExpanded: Boolean = true,

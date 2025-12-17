@@ -1,58 +1,78 @@
 package com.kunano.wavesynch.data.repository
 
 import android.Manifest
-import android.net.wifi.p2p.WifiP2pDevice
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioReceiver
-import com.kunano.wavesynch.data.wifi.GuestConnectionEvent
-import com.kunano.wavesynch.data.wifi.HandShakeResult
-import com.kunano.wavesynch.data.wifi.WifiP2pGuestManager
+import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.client.ClientManager
+import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
+import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import javax.inject.Inject
 
 class GuestRepositoryImpl @Inject constructor(
-    private val wifiP2pGuestManager: WifiP2pGuestManager,
-    private val audioReceiver: AudioReceiver
+    private val clientManager: ClientManager,
+    private val audioReceiver: AudioReceiver,
+    private val localHotspotController: LocalHotspotController,
 
     ) : GuestRepository {
-    override val currentPeers: Flow<List<WifiP2pDevice>> = wifiP2pGuestManager.peers
-    override val connectionEvents: SharedFlow<GuestConnectionEvent> =
-        wifiP2pGuestManager.connectionEvents
 
-    override val hanShakeResponse: SharedFlow<HandShakeResult> = wifiP2pGuestManager.handShakeResponse
+    private val _clientConnectionsStateFlow = MutableStateFlow<ClientConnectionsState>(ClientConnectionsState.Idle)
+    override val clientConnectionsStateFLow: Flow<ClientConnectionsState> =
+        _clientConnectionsStateFlow
+
+    override val hanShakeResponse: Flow<HandShakeResult> = clientManager.handShakeResponse
     override fun startReceivingAudioStream() {
-        if(wifiP2pGuestManager.socket.isConnected){
-            audioReceiver.start(wifiP2pGuestManager.socket.inputStream)
+        clientManager.inputStream?.let {
+            _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ReceivingAudioStream)
+            audioReceiver.start(it)
+        }
+
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    override fun connectToServer() {
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectingToServer)
+
+        val hotIp: String? = localHotspotController.getGatewayInfo()
+        hotIp?.let {
+            clientManager.connectToServer(it, onConnected = {
+                _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectedToServer)
+            })
         }
 
     }
 
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
-    override suspend fun discoverPeers(onStarted: (Boolean) -> Unit) {
-        wifiP2pGuestManager.startDiscovery(onResult = { result ->
-            onStarted(result)
-        })
-
+    override fun connectToHotspot(password: String, ssid: String) {
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectingToHotspot)
+        localHotspotController.connectToHotspot(
+            ssid = ssid,
+            password = password,
+            onConnected = { _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectedToHotspot) },
+            onFailed = {})
     }
 
 
-    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
-    override suspend fun connectTo(device: WifiP2pDevice): Result<Unit> {
-        return wifiP2pGuestManager.connectTo(device)
+    override fun leaveRoom(){
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
+        audioReceiver.stop()
     }
 
-    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    override suspend fun connectToHostServer(device: WifiP2pDevice) {
-        //wifiP2pGuestManager.requestConnectionToRoomServer(device)
+    override fun mute() {
+        TODO("Not yet implemented")
     }
 
-    override suspend fun leaveRoom(device: WifiP2pDevice): Result<Unit>{
-     TODO()
+    override fun unmute() {
+        TODO("Not yet implemented")
     }
 
 

@@ -1,4 +1,4 @@
-package com.kunano.wavesynch.data.wifi
+package com.kunano.wavesynch.data.wifi.server
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

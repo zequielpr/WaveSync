@@ -62,34 +62,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
-    var launchAudioCaptureRequest by remember { mutableStateOf(false) }
-
-
-
-
-
-
-
-    LaunchedEffect(Unit) {
-        viewModel.uiEvent.collect { event ->
-            when (event) {
-                is UiEvent.ShowSnackBar -> snackbarHostState.showSnackbar(event.message)
-                is UiEvent.NavigateBack -> onBack()
-                is UiEvent.NavigateTo -> {}
-                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> {
-                    viewModel.askToTrustGuestEvent = event
-                    viewModel.setShowAskTrustGuestState(true)
-                }
-
-                ActiveRoomUiEvent.StartAudioCapturer -> {
-                    launchAudioCaptureRequest = true
-                }
-            }
-        }
-    }
-
-
-
 
 
     //Ask to trust guest
@@ -135,6 +107,12 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
             Column(modifier = Modifier.padding(start = 30.dp, end = 30.dp)) {
                 //Launch audio capture request and start streaming
                 AudioCaptureRequestCompose()
+
+                if (UIState.value.isQRCodeExpanded) {
+                    ExpandedQRCodeCompose()
+                }else{
+                    ShrunkQRCodeCompose()
+                }
 
                 if (UIState.value.guests.isNotEmpty()) {
                     GuestsListCompose(UIState.value.guests)
@@ -364,7 +342,13 @@ fun ExpandedQRCodeCompose(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            if (UIState.value.ssid != null && UIState.value.password != null) {
+                QrCode(password = UIState.value.password!!, ssid = UIState.value.ssid!!)
+            }else{
+                Text("Loading qr code..")
+            }
 
+            Spacer(modifier = Modifier.weight(1f))
             Text(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 30.dp),
@@ -379,11 +363,12 @@ fun ExpandedQRCodeCompose(
 
 @Composable
 fun QrCode(
-    ip: String,
+    password: String,
+    ssid: String,
     modifier: Modifier = Modifier,
     size: Int = 200,
 ) {
-    val qrContent = remember(ip) { ip }
+    val qrContent = remember(password, ssid) { password + ssid }
 
     val qrBitmap = remember(qrContent) {
         generateQrBitmap(qrContent, size)
@@ -398,6 +383,7 @@ fun QrCode(
 
 @Composable
 fun ShrunkQRCodeCompose(
+
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     cardColor: Color = MaterialTheme.colorScheme.secondary,
     textColor: Color = MaterialTheme.colorScheme.onSurface,

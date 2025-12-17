@@ -24,10 +24,6 @@ class SoundRoomRepositoryImpl @Inject constructor(
 
     }
 
-    override suspend fun joinRoom(roomId: String) {
-
-    }
-
     override fun observerRooms(): Flow<List<Room>> {
         return roomDao.observerRooms().map { rooms ->
             rooms.map { it.toDomain() }

@@ -65,7 +65,7 @@ class AudioReceiver(
                     if (size <= 0 || size > 200_000) break
 
                     val packet = ByteArray(size)
-                    if (!input.readFully(packet, size)) break
+                     if (!input.readFully(packet, size)) break
 
                     jitterBuffer.push(packet)
                 }

@@ -19,7 +19,7 @@
     <string name="room_name_updated">Room name updated      </string>
     <string name="error_deleting_room">Error deleting room</string>
     <string name="something_went_wrong">Something went wrong</string>
-    <string name="enter_new_name">Joined room successfully</string>
+    <string name="enter_new_name">Enter new room name</string>
     <string name="request_declined">Request declined</string>
     <string name="error_joining_room_guest">Error joining room guest</string>
     <string name="success_joining_room">Success joining room</string>

@@ -4,8 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.domain.usecase.room_use_cases.CreateRoomUseCase
-import com.kunano.wavesynch.domain.usecase.room_use_cases.ObserverRoomsUseCase
+import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,8 +15,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainScreenViewModel @Inject constructor(
-    private val createRoomUseCase: CreateRoomUseCase,
-    private val observerRoomsUseCase: ObserverRoomsUseCase,
+    private val hostUseCases: HostUseCases,
     @ApplicationContext val appContext: Context,
 ) : ViewModel() {
     private val _UIState = MutableStateFlow(MainScreenUIState())
@@ -26,7 +24,7 @@ class MainScreenViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            observerRoomsUseCase().catch {
+            hostUseCases.observerRooms().catch {
                 _UIState.value = _UIState.value.copy(false)
                 it.printStackTrace()
             }.collect { rooms ->
@@ -44,7 +42,7 @@ class MainScreenViewModel @Inject constructor(
                 navigateToShareSound()
             } else {
                 val roomDefaultName = appContext.getString(R.string.default_room_name)
-                val result = createRoomUseCase("$roomDefaultName 1")
+                val result = hostUseCases.createRoom("$roomDefaultName 1")
 
                 if (result >= 1L) {
                     navigateToShareSound()

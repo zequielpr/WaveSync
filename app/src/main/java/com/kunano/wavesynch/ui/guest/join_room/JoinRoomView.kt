@@ -40,6 +40,7 @@ import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
+import com.kunano.wavesynch.ui.utils.QrScannerScreen
 import com.kunano.wavesynch.ui.utils.UiEvent
 
 
@@ -52,6 +53,9 @@ fun JoinRoomViewCompose(
 ) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     val snackBarHostState by remember { mutableStateOf(SnackbarHostState()) }
+    var showJoinRoomRequest by remember { mutableStateOf(false) }
+    var scannedSsid by remember { mutableStateOf("") }
+    var scannedPassword by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -91,84 +95,44 @@ fun JoinRoomViewCompose(
                 .padding(start = AppDimens.Padding.left, end = AppDimens.Padding.right)
         ) {
 
-            AvailableHostsList()
+            QrScannerScreen(
+                onResult = { qrContent ->
+                    // Assuming format: WIFI:S:MySSID;T:WPA;P:MyPassword;;
+                    val ssid = qrContent.split("\"")[0]
+                    val password = qrContent.split("\"")[1]
 
-        }
-    }
-}
 
-@Composable
-fun AvailableHostsList(viewModel: JoinRoomViewModel = hiltViewModel()) {
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 32.dp)
-    ) {
+                    if (ssid.isNotEmpty() ) {
+                        scannedSsid = ssid
+                        scannedPassword = password
+                        showJoinRoomRequest = true
+                    }
+                    
+                    Log.d("JoinRoomViewCompose", "QrScannerScreen results: $qrContent")
+                }
+            )
 
-        UIState.value.availableHostsList?.let {
-            Log.d("JoinRoomViewCompose", "AvailableHostsList: ${it.size}")
-            items(it) { host ->
-                HostItem(
-                    host = host,
+
+
+            if (showJoinRoomRequest) {
+                CustomDialogueCompose(
+                    text = stringResource(R.string.ask_to_join_room) + " $scannedSsid?",
+                    title = stringResource(R.string.join_room),
+                    onDismiss = { showJoinRoomRequest = false },
+                    onConfirm = {
+                        // TODO: Use scannedSsid and scannedPassword to connect
+                        viewModel.connectToHotspot(scannedSsid, scannedPassword)
+                        showJoinRoomRequest = false
+                    },
+
+                    show = showJoinRoomRequest,
                 )
             }
-        }
-    }
 
-
-}
-
-
-@Composable
-fun HostItem(
-    host: WifiP2pDevice,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-    viewModel: JoinRoomViewModel = hiltViewModel(),
-) {
-    var showJoinRoomRequest by remember { mutableStateOf(false) }
-
-    if (showJoinRoomRequest) {
-        CustomDialogueCompose(
-            text = stringResource(R.string.ask_to_join_room),
-            title = stringResource(R.string.join_room),
-            onDismiss = { showJoinRoomRequest = false },
-            onConfirm = {
-                viewModel.joinRoom(host)
-                showJoinRoomRequest = false
-            },
-
-            show = showJoinRoomRequest,
-        )
-    }
-
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable { showJoinRoomRequest = true },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.mobile_cast_48px), // Placeholder icon
-                contentDescription = "Guest Icon",
-                modifier = Modifier.size(40.dp)
-            )
-            Text(
-                text = host.deviceName,
-                style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
-                modifier = Modifier.padding(start = 16.dp)
-            )
         }
     }
 }
+
 
 
 @Preview(showBackground = true)
