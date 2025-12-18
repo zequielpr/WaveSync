@@ -31,19 +31,22 @@ class HostRepositoryImpl @Inject constructor(
     private val hostStreamer: HostStreamer,
     private  val localHotspotController: LocalHotspotController,
 
+
     ) : HostRepository {
 
+    override val hotspotInfoFlow: Flow<HotspotInfo?> = localHotspotController.hotspotInfoFLow
     override val hotSpotStateFlow: Flow<HotspotState> = localHotspotController.hotspotStateFlow
     override val connectedGuest: Flow<HashSet<Guest>?> = severManager.connectedGuests
 
 
     //Hotspot implementation
-    @RequiresApi(Build.VERSION_CODES.R)
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     override fun startHotspot(
         onStarted: (HotspotInfo) -> Unit,
         onError: (Int) -> Unit,
     ) {
+
         localHotspotController.startHotspot(onStarted, onError)
     }
 
@@ -55,6 +58,7 @@ class HostRepositoryImpl @Inject constructor(
         return localHotspotController.isHotspotRunning()
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun getHotspotInfo(): HotspotInfo? {
         return localHotspotController.getHotspotInfo()
     }
@@ -109,10 +113,7 @@ class HostRepositoryImpl @Inject constructor(
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    override fun startStreamingAsHost(capturer: HostAudioCapturer) {
-        hostStreamer.startStreaming(capturer)
 
-    }
 
     private fun addGuestToHostStreamer(guestSocket: Socket, guestId: String){
         hostStreamer.addGuest(guestId, guestSocket)
@@ -130,6 +131,7 @@ class HostRepositoryImpl @Inject constructor(
         TODO("Not yet implemented")
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override suspend fun acceptUserConnection(guest: Guest) {
         severManager.acceptUserConnection(guest)
@@ -144,6 +146,12 @@ class HostRepositoryImpl @Inject constructor(
 
     override fun closeUserSocket(userId: String) {
         severManager.closeGuestSocket(userId)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    override fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer) {
+        hostStreamer.startStreaming(hostAudioCapturer)
     }
 
 }

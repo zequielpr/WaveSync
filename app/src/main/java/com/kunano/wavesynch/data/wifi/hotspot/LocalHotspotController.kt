@@ -20,6 +20,7 @@ import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 class LocalHotspotController @Inject constructor(
@@ -29,7 +30,11 @@ class LocalHotspotController @Inject constructor(
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     private val _hotspotStateFlow = MutableStateFlow<HotspotState>(HotspotState.Idle)
-    val hotspotStateFlow = _hotspotStateFlow.asSharedFlow()
+    val hotspotStateFlow = _hotspotStateFlow.asStateFlow()
+
+    private val _hotspotInfoFLow = MutableStateFlow<HotspotInfo?>(null)
+    val hotspotInfoFLow = _hotspotInfoFLow.asStateFlow()
+
 
 
 
@@ -38,12 +43,24 @@ class LocalHotspotController @Inject constructor(
 
     //I am gonna adda a generate password and the mobile device name as the ssid
     @SuppressLint("MissingPermission")
-    @RequiresApi(Build.VERSION_CODES.R)
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     fun startHotspot(
         onStarted: (hotspotInfo: HotspotInfo) -> Unit,
         onError: (Int) -> Unit,
     ) {
+
+        if(isHotspotRunning()){
+            val hotspotInfo = getHotspotInfo()
+            if (hotspotInfo != null) {
+                onStarted(hotspotInfo)
+                _hotspotInfoFLow.tryEmit(hotspotInfo)
+            }
+            _hotspotStateFlow.tryEmit(HotspotState.Running)
+            return
+        }
+
+
         _hotspotStateFlow.tryEmit(HotspotState.Starting)
         wifiManager.startLocalOnlyHotspot(
             object : WifiManager.LocalOnlyHotspotCallback() {
@@ -56,6 +73,7 @@ class LocalHotspotController @Inject constructor(
                     val config = res.softApConfiguration
                     val ssid = config.wifiSsid.toString()
                     val pass = config.passphrase ?: ""
+                    _hotspotInfoFLow.tryEmit(HotspotInfo(ssid, pass))
 
                     _hotspotStateFlow.tryEmit(HotspotState.Running)
                     onStarted(HotspotInfo(ssid, pass))

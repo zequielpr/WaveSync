@@ -1,6 +1,7 @@
 package com.kunano.wavesynch.ui.host.active_room
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,6 +16,7 @@ import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.RoomWithTrustedGuests
 import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
+import com.kunano.wavesynch.services.StartHotspotService
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,22 +54,28 @@ class ActiveRoomViewModel @Inject constructor(
         collectServerStates()
         collectLogs()
         collectHandShakeResults()
+        startLocalHotSpot()
+        collectHotSpotInfo()
         collectHotSpotState()
 
 
     }
 
-    //HotSpotImplementation
-    fun startLocalHotSpot() {
-        if(hostUseCases.isHotspotRunning()){
-            val hotspotInfo = hostUseCases.getHotspotInfo()
-            setHotSpotSsidAndPassword(hotspotInfo)
-        }else{
-            hostUseCases.startHotspot(onStarted = { hotspotInfo ->
 
-                Log.d("ActiveRoomViewModel", "startLocalHotSpot: $hotspotInfo")
-                setHotSpotSsidAndPassword(hotspotInfo)
-            }, onError = {})
+
+    //It start the hotspot service in the background
+    fun startLocalHotSpot() {
+        val intent = Intent(appContext, StartHotspotService::class.java)
+        appContext.startForegroundService(intent)
+    }
+
+
+    private fun collectHotSpotInfo() {
+        viewModelScope.launch {
+            hostUseCases.hotspotInfoFlow.collect {
+                setHotSpotSsidAndPassword(it)
+            }
+
         }
     }
 
@@ -206,7 +214,6 @@ class ActiveRoomViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(room = it[0])
                     //Only host room if not already running/hosted to avoid re-hosting on config changes/updates
                     //Or you can rely on the repository to handle idempotency
-                    startLocalHotSpot()
                     collectRoomGuests(it[0].id)
                 }
 

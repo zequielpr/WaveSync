@@ -18,6 +18,7 @@ class HostUseCases @Inject constructor(
     private val hostRepository: HostRepository,
     private val soundRoomRepository: SoundRoomRepository,
 ) {
+    val hotspotInfoFlow: Flow<HotspotInfo?> = hostRepository.hotspotInfoFlow
     val hotSpotStateFlow: Flow<HotspotState> = hostRepository.hotSpotStateFlow
     val serverStateFlow: Flow<ServerState> = hostRepository.serverStateFlow
     val logFlow : Flow<String> = hostRepository.logFlow
@@ -54,7 +55,6 @@ class HostUseCases @Inject constructor(
     //Manage streaming
     suspend fun startServer(roomId: Long? = null) = hostRepository.startServer(roomId)
     fun stopServer() = hostRepository.stopServer()
-    fun startStreamingAsHost(capturer: HostAudioCapturer) = hostRepository.startStreamingAsHost(capturer)
     fun stopStreaming() = hostRepository.stopStreaming()
     fun startStreamingToGuest(guestId: String) = hostRepository.startStreamingToGuest(guestId)
     fun stopStreamingToGuest(guestId: String) = hostRepository.stopStreamingToGuest(guestId)

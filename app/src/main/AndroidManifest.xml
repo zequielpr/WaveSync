@@ -41,6 +41,9 @@
         android:theme="@style/Theme.Wavesynch">
 
 
+        <service android:name=".services.StartHotspotService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <service
             android:name=".services.AudioPlayerService"
             android:exported="false"

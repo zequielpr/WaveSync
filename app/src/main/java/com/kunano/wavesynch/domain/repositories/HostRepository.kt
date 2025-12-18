@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface HostRepository {
     val hotSpotStateFlow: Flow<HotspotState>
+    val hotspotInfoFlow: Flow<HotspotInfo?>
     val serverStateFlow: Flow<ServerState>
     val logFlow : Flow<String>
     val handShakeResultFlow: Flow<HandShakeResult>
@@ -43,5 +44,5 @@ interface HostRepository {
     fun startStreamingToGuest(guestId: String)
     suspend fun acceptUserConnection(guest: Guest)
     fun closeUserSocket(userId: String)
-    fun startStreamingAsHost(capturer: HostAudioCapturer)
+    fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer)
 }
