@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
+import com.kunano.wavesynch.domain.repositories.SessionRepository
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
+import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.utils.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +25,9 @@ import javax.inject.Inject
 @HiltViewModel
 class JoinRoomViewModel @Inject constructor(
     private val guestUseCases: GuestUseCases,
-    @ApplicationContext private val app: Context
+    private val sessionRepository: SessionRepository,
+    @ApplicationContext private val app: Context,
+    private val hostUseCases: HostUseCases
 ) : ViewModel() {
 
     private val _UiState = MutableStateFlow(JoinRoomUiState())
@@ -44,8 +48,12 @@ class JoinRoomViewModel @Inject constructor(
                 Log.d("JoinRoomViewModel", "collectHandShakeResults: $it")
                 when (it) {
                     is HandShakeResult.Success -> {
+                        Log.d("JoinRoomViewModel", "Handshake success ${it.handShake?.roomName}")
+                        sessionRepository.updateRoomName(it.handShake?.roomName)
+                        sessionRepository.updateHostName(it.handShake?.deviceName)
+
                         _uiEvent.send(UiEvent.NavigateTo(Screen.CurrentRoomScreen))
-                        //_uiEvent.trySend(UiEvent.ShowSnackBar(app.getString(R.string.success_joining_room)))
+                        _uiEvent.trySend(UiEvent.ShowSnackBar(app.getString(R.string.success_joining_room)))
 
                     }
 
@@ -64,6 +72,16 @@ class JoinRoomViewModel @Inject constructor(
             }
 
         }
+    }
+
+    fun checkIfHotspotIsRunning(): Boolean{
+        return hostUseCases.isHotspotRunning()
+    }
+
+
+
+    fun finishSessionAsHost(){
+        hostUseCases.finishSessionAsHost()
     }
 
 
@@ -101,7 +119,9 @@ class JoinRoomViewModel @Inject constructor(
 
 
     fun leaveRoom() {
-        guestUseCases.leaveRoom()
+        viewModelScope.launch {
+            guestUseCases.leaveRoom()
+        }
     }
 
 

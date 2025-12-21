@@ -1,6 +1,8 @@
 package com.kunano.wavesynch.data.repository
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
@@ -13,7 +15,10 @@ import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.repositories.HostRepository
+import com.kunano.wavesynch.services.StartHotspotService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +35,7 @@ class HostRepositoryImpl @Inject constructor(
     private val severManager: ServerManager,
     private val hostStreamer: HostStreamer,
     private  val localHotspotController: LocalHotspotController,
+    @ApplicationContext private val context: Context
 
 
     ) : HostRepository {
@@ -51,7 +57,8 @@ class HostRepositoryImpl @Inject constructor(
     }
 
     override fun stopHotspot() {
-        localHotspotController.stopHotspot()
+        val intent = Intent(context, StartHotspotService::class.java)
+        context.stopService(intent)
     }
 
     override fun isHotspotRunning(): Boolean {
@@ -61,6 +68,18 @@ class HostRepositoryImpl @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun getHotspotInfo(): HotspotInfo? {
         return localHotspotController.getHotspotInfo()
+    }
+
+    override fun finishSessionAsHost() {
+        hostStreamer.stopStreaming()
+        hostStreamer.stopStreaming()
+        hostStreamer.removeGuests()
+        stopHotspot()
+        severManager.closeServerSocket()
+        severManager.clearSockets()
+        severManager.clearConnectedGuests()
+
+
     }
 
 
@@ -78,10 +97,10 @@ class HostRepositoryImpl @Inject constructor(
 
 
 
-    override suspend fun startServer(roomId: Long?) {
+    override suspend fun startServer(room: Room) {
         severManager.startServerSocket(inComingHandShake = {
             CoroutineScope(Dispatchers.IO).launch {
-                performHandShake(it, roomId)
+                performHandShake(it, room)
             }
         })
     }
@@ -90,9 +109,9 @@ class HostRepositoryImpl @Inject constructor(
         severManager.closeServerSocket()
     }
 
-    suspend fun performHandShake(socket: Socket?, roomId: Long?) {
+    suspend fun performHandShake(socket: Socket?, room: Room) {
         val guestHandShake = severManager.readIncomingHandShake(socket)
-        val result = severManager.verifyHandshake(guestHandShake, roomId)
+        val result = severManager.verifyHandshake(guestHandShake, room)
         _handShakeResult.tryEmit(result)
     }
 
@@ -105,9 +124,10 @@ class HostRepositoryImpl @Inject constructor(
 
     override fun sendAnswerToGuest(
         guestId: String,
+        roomName: String?,
         answer: HandShakeResult,
     ) {
-        severManager.sendAnswerToGuest(guestId, answer)
+        severManager.sendAnswerToGuest(guestId, roomName, answer)
     }
 
 

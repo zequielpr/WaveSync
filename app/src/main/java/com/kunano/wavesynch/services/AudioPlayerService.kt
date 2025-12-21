@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.stream.AudioReceiver
@@ -63,8 +64,9 @@ class AudioPlayerService : Service() {
     }
 
     override fun onDestroy() {
-        audioReceiver.stop()
+        Log.d("AudioPlayerService", "onDestroy: ")
         super.onDestroy()
+        audioReceiver.stop()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

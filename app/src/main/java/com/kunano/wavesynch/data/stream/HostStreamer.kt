@@ -1,7 +1,6 @@
 package com.kunano.wavesynch.data.stream
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +13,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class HostStreamer(
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private val guests = HashSet<GuestStreamingData>()
 
@@ -37,8 +36,8 @@ class HostStreamer(
                     out.write(chunk)
                     //out.flush()
                 }
-            } catch (_: IOException) { }
-            finally {
+            } catch (_: IOException) {
+            } finally {
                 socket.close()
             }
         }
@@ -46,10 +45,13 @@ class HostStreamer(
         guests += GuestStreamingData(id, socket, channel, job)
     }
 
+    private var audioCapturer: HostAudioCapturer? = null
+
     @androidx.annotation.RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
-        scope.launch  {
+        scope.launch {
+            audioCapturer = capturer
             capturer.start { chunk ->
                 val copy = chunk.copyOf()
                 guests.forEach { guest ->
@@ -65,6 +67,22 @@ class HostStreamer(
         g.channel.close()
         g.job.cancel()
         g.socket.close()
+    }
+
+    fun stopStreaming() {
+        guests.forEach {
+            it.channel.close()
+            it.job.cancel()
+            it.socket.close()
+        }
+    }
+
+    fun stopCapturingAudio(){
+        audioCapturer?.stop()
+    }
+
+    fun removeGuests(){
+        guests.clear()
     }
 
 }

@@ -8,6 +8,7 @@ data class HandShake(
     val appIdentifier: String,
     val userId: String,
     val deviceName: String,
+    val roomName: String? =null,
     val protocolVersion: Int,
     var response: Int?= null
 

@@ -32,5 +32,4 @@ data class Guest(
 data class RoomWithTrustedGuests(
     val roomId: Long,
     var userId: String,
-    var isConnected: Boolean = false,
 )

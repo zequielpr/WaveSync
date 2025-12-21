@@ -103,7 +103,6 @@ fun CustomDialogueCompose(
             confirmButton = {
                 TextButton(onClick = {
                     onConfirm()
-                    onDismiss()
                 }) {
                     Text(acceptButtonText, style = buttonTextStyle)
                 }

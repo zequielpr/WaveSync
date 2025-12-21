@@ -71,9 +71,7 @@ class SoundRoomRepositoryImpl @Inject constructor(
        return trustedGuestDao.update(trustedGuest.toEntity())
     }
 
-    override suspend fun updateConnectionStatus(roomWithTrustedGuests: RoomWithTrustedGuests): Int {
-        return roomTrustedGuestCrossRefDao.updateConnectionStatus(roomWithTrustedGuests.toEntity())
-    }
+
 
 
     override fun observerRoomGuests(roomId: Long): Flow<List<TrustedGuest>> {

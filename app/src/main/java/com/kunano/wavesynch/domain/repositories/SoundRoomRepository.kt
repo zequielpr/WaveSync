@@ -18,7 +18,6 @@ interface SoundRoomRepository {
     suspend fun createTrustedGuest(trustedGuest: TrustedGuest): Long
     suspend fun deleteTrustedGuest(trustedGuest: TrustedGuest): Int
     suspend fun updateTrustedGuest(trustedGuest: TrustedGuest): Int
-    suspend fun updateConnectionStatus(roomWithTrustedGuests: RoomWithTrustedGuests): Int
     fun observerRoomGuests(roomId: Long): Flow<List<TrustedGuest>>
 }
 

@@ -33,8 +33,9 @@ abstract class HostRepositoryModule {
         @Provides
         @Singleton
         fun provideServerManager(
-            @ApplicationContext context: Context
-        ): ServerManager = ServerManager(context)
+            @ApplicationContext context: Context,
+            getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase
+        ): ServerManager = ServerManager(context, getRoomTrustedGuestsUseCase)
 
         @Provides
         @Singleton

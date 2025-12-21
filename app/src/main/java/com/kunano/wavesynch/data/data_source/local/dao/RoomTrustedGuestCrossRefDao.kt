@@ -22,10 +22,8 @@ interface RoomTrustedGuestCrossRefDao {
     @Query("SELECT userId FROM room_trusted_guest_cross_ref WHERE roomId = :roomId")
     suspend fun getTrustedGuestsForRoom(roomId: Long): List<String>
 
-    @Update
-    suspend fun updateConnectionStatus(roomTrustedGuestCrossRef: RoomTrustedGuestCrossRefEntity): Int
 
-    @Query("SELECT trusted_guest.userId, trusted_guest.userName , trusted_guest.deviceName, room_trusted_guest_cross_ref.isConnected as isConnected FROM trusted_guest LEFT JOIN room_trusted_guest_cross_ref ON" +
+    @Query("SELECT trusted_guest.userId, trusted_guest.userName , trusted_guest.deviceName FROM trusted_guest LEFT JOIN room_trusted_guest_cross_ref ON" +
             " trusted_guest.userId = room_trusted_guest_cross_ref.userId" +
             " WHERE roomId = :roomId"
     )

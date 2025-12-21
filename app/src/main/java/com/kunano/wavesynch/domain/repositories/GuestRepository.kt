@@ -15,8 +15,10 @@ interface GuestRepository{
     fun connectToHotspot(password: String, ssid: String)
     fun startReceivingAudioStream()
     fun connectToServer()
-    fun leaveRoom()
+    suspend fun leaveRoom(): Boolean
     fun mute()
     fun unmute()
+    fun isConnectedToHotspotAsGuest(): Boolean
+    fun isConnectedToAudioServer(): Boolean
 
 }

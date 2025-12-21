@@ -31,6 +31,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,9 +50,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewModel
+import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
 import com.kunano.wavesynch.ui.utils.CustomToggleCompose
+import com.kunano.wavesynch.ui.utils.UiEvent
 import com.kunano.wavesynch.ui.utils.generateQrBitmap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
@@ -60,36 +64,29 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
+    var askToTrustGuestEvent  by remember { mutableStateOf<ActiveRoomUiEvent.AskToAcceptGuestRequest?>(null) }
 
-
-    //Ask to trust guest
-    if (UIState.value.showJoinRoomRequest && viewModel.askToTrustGuestEvent != null) {
-        var hostTrustGuest by remember { mutableStateOf(false) }
-        Log.d("ActiveRoomCompose", "AskToTrustGuest: ${viewModel.askToTrustGuestEvent!!.guestName}")
-        CustomDialogueCompose(
-            title = viewModel.askToTrustGuestEvent!!.deviceName + ":" + stringResource(R.string.wants_to_join_room),
-            content = {
-                Column {
-                    Text(viewModel.askToTrustGuestEvent!!.guestName + ": " + stringResource(R.string.wants_to_join_room))
-                    CustomToggleCompose(stringResource(R.string.trust_guest)) {
-                        hostTrustGuest = it
-                    }
+    LaunchedEffect(key1 = viewModel.uiEvent) {
+        viewModel.uiEvent.collect {
+            when (it) {
+                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> {
+                    askToTrustGuestEvent = it
+                    viewModel.setShowAskTrustGuestState(true)
+                    Log.d("ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent?.guestName}")
                 }
-            },
-            acceptButtonText = stringResource(R.string.accept),
-            dismissButtonText = stringResource(R.string.decline),
-            onDismiss = {
-                viewModel.askToTrustGuestEvent!!.decision.complete(false)
-                viewModel.setShowAskTrustGuestState(false)
-            },
-            onConfirm = {
-                viewModel.askToTrustGuestEvent!!.decision.complete(true)
-                viewModel.askToTrustGuestEvent!!.guestTrusted.complete(hostTrustGuest)
-                viewModel.setShowAskTrustGuestState(false)
-            },
-            show = UIState.value.showJoinRoomRequest
-        )
+                is UiEvent.NavigateBack -> TODO()
+                is UiEvent.NavigateTo -> TODO()
+                is UiEvent.ShowSnackBar -> {
+                    snackbarHostState.showSnackbar(it.message)
+
+                }
+            }
+
+
+        }
+
     }
+
 
 
 
@@ -102,6 +99,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Column(modifier = Modifier.padding(start = 30.dp, end = 30.dp)) {
                 //Launch audio capture request and start streaming
                 AudioCaptureRequestCompose()
@@ -123,6 +121,62 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
         }
 
     }
+
+    CheckIfDeviceIsGuest (navigateBack = onBack)
+
+    //Ask to trust guest and connection request
+    if (UIState.value.showJoinRoomRequest && askToTrustGuestEvent != null) {
+        var hostTrustGuest by remember { mutableStateOf(false) }
+        Log.d("ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent!!.guestName}")
+        CustomDialogueCompose(
+            title = askToTrustGuestEvent!!.deviceName + ":" + stringResource(R.string.wants_to_join_room),
+            content = {
+                Column {
+                    Text(askToTrustGuestEvent!!.guestName + ": " + stringResource(R.string.wants_to_join_room))
+                    CustomToggleCompose(stringResource(R.string.trust_guest)) {
+                        hostTrustGuest = it
+                    }
+                }
+            },
+            acceptButtonText = stringResource(R.string.accept),
+            dismissButtonText = stringResource(R.string.decline),
+            onDismiss = {
+                askToTrustGuestEvent!!.decision.complete(false)
+                viewModel.setShowAskTrustGuestState(false)
+            },
+            onConfirm = {
+                askToTrustGuestEvent!!.decision.complete(true)
+                askToTrustGuestEvent!!.guestTrusted.complete(hostTrustGuest)
+                viewModel.setShowAskTrustGuestState(false)
+            },
+            show = UIState.value.showJoinRoomRequest
+        )
+    }
+}
+
+@Composable
+fun CheckIfDeviceIsGuest(navigateBack: () -> Unit) {
+    val viewModel: ActiveRoomViewModel = hiltViewModel()
+    val isThisDeviceHost = viewModel.checkIfDeviceIsGuest()
+    var showDialog by remember { mutableStateOf(isThisDeviceHost) }
+
+
+    CustomDialogueCompose(
+        title = stringResource(R.string.leave_room),
+        text = stringResource(R.string.you_are_joined_to_room),
+        acceptButtonText = stringResource(R.string.yes),
+        onDismiss = {
+            navigateBack()
+            showDialog = false
+        },
+        onConfirm = {
+            viewModel.stopBeingAGuest()
+            showDialog = false
+        },
+        show = showDialog,
+    )
+
+
 }
 
 

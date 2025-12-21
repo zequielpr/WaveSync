@@ -10,11 +10,13 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
+import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -24,6 +26,9 @@ class StartHotspotService: Service() {
 
     @Inject
     lateinit var localHotspotController: LocalHotspotController
+
+    @Inject
+    lateinit var guestUseCases: GuestUseCases
 
     @Inject
     @ApplicationContext
@@ -53,15 +58,18 @@ class StartHotspotService: Service() {
         )
 
         // Start hotspot using the localHotspotController
-        localHotspotController.startHotspot(onStarted = {}, onError = {})
+        localHotspotController.startHotspot(onStarted = {}, onError = {
+            Log.d("StartHotspotService", "onStartCommand: Error starting hotspot: $it")
+        })
+
 
 
         return START_STICKY
     }
 
     override fun onDestroy() {
-        localHotspotController.stopHotspot()
         super.onDestroy()
+        localHotspotController.stopHotspot()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

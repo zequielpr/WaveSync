@@ -33,7 +33,11 @@ class HostUseCases @Inject constructor(
 
     fun stopHotspot() = hostRepository.stopHotspot()
     fun isHotspotRunning() = hostRepository.isHotspotRunning()
-    fun getHotspotInfo() = hostRepository.getHotspotInfo()
+    fun finishSessionAsHost() = hostRepository.finishSessionAsHost()
+
+
+
+
 
 
 
@@ -49,11 +53,11 @@ class HostUseCases @Inject constructor(
     //Host room
 
     suspend fun expelGuest(guestId: String) = hostRepository.expelGuest(guestId)
-    suspend fun sendAnswerToGuest(guestId: String, answer: HandShakeResult) = hostRepository.sendAnswerToGuest(guestId, answer)
+    suspend fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult) = hostRepository.sendAnswerToGuest(guestId, roomName, answer)
     suspend fun acceptUserConnection(guest: Guest) = hostRepository.acceptUserConnection(guest)
 
     //Manage streaming
-    suspend fun startServer(roomId: Long? = null) = hostRepository.startServer(roomId)
+    suspend fun startServer(room: Room) = hostRepository.startServer(room)
     fun stopServer() = hostRepository.stopServer()
     fun stopStreaming() = hostRepository.stopStreaming()
     fun startStreamingToGuest(guestId: String) = hostRepository.startStreamingToGuest(guestId)
@@ -85,8 +89,7 @@ class HostUseCases @Inject constructor(
     suspend fun updateTrustedGuest(trustedGuest: TrustedGuest): Int =
         soundRoomRepository.updateTrustedGuest(trustedGuest)
 
-    suspend fun updateConnectionStatus(roomWithTrustedGuests: RoomWithTrustedGuests): Int =
-        soundRoomRepository.updateConnectionStatus(roomWithTrustedGuests)
+
 
     fun observerRoomGuests(roomId: Long): Flow<List<TrustedGuest>> =
         soundRoomRepository.observerRoomGuests(roomId)

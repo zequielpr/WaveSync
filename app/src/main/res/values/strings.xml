@@ -41,6 +41,16 @@
     <string name= "accept">Accept</string>
     <string name="decline">Decline</string>
     <string name="trust_guest">Trust guest</string>
+    <string name="stop_hosting_room">Stop hosting room</string>
+    <string name="start_hosting_room">Start hosting room</string>
+    <string name="you_are_hosting_room">You are hosting a room. Do you want to stop hosting to join another room?</string>
+    <string name="ask_to_stop_hosting_room">Are you sure you want to stop hosting this room?</string>
+    <string name="you_are_joined_to_room">You are joined to room. Do you want to leave the room start hosting your own room?</string>
+
+
+
+
+
 
 
 

@@ -15,6 +15,7 @@ import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.RoomWithTrustedGuests
 import com.kunano.wavesynch.domain.model.TrustedGuest
+import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.services.StartHotspotService
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
@@ -34,6 +35,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ActiveRoomViewModel @Inject constructor(
     private val hostUseCases: HostUseCases,
+    private val guestUseCases: GuestUseCases,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ActiveRoomUIState())
@@ -41,24 +43,39 @@ class ActiveRoomViewModel @Inject constructor(
 
     val _serverState =  hostUseCases.serverStateFlow
 
-    var askToTrustGuestEvent: ActiveRoomUiEvent.AskToAcceptGuestRequest? = null
-
-
     //UiEvents
     private val _uiEvent = Channel<UiEvent>()
     val uiEvent = _uiEvent.receiveAsFlow()
 
 
     init {
+        Log.d("ActiveRoomViewModel", "ActiveRoomViewModel init")
         retrieveRoom()
         collectServerStates()
         collectLogs()
         collectHandShakeResults()
-        startLocalHotSpot()
+        if (!checkIfDeviceIsGuest()) {
+            startLocalHotSpot()
+        }
         collectHotSpotInfo()
         collectHotSpotState()
 
 
+    }
+
+    fun checkIfDeviceIsGuest(): Boolean{
+        return guestUseCases.isConnectedToHotspotAsGuest()
+    }
+
+
+    fun stopBeingAGuest(){
+        viewModelScope.launch {
+            val roomLeftSuccessfully = guestUseCases.leaveRoom()
+            Log.d("ActiveRoomViewModel", "stopBeingAGuest: $roomLeftSuccessfully")
+            if (roomLeftSuccessfully){
+                startLocalHotSpot()
+            }
+        }
     }
 
 
@@ -85,6 +102,8 @@ class ActiveRoomViewModel @Inject constructor(
 
 
 
+
+
     private fun collectHandShakeResults() {
         viewModelScope.launch {
             hostUseCases.handShakeResultFlow.collect { answer ->
@@ -94,19 +113,21 @@ class ActiveRoomViewModel @Inject constructor(
                             val guest = Guest(it.deviceName, it.userId, it.deviceName)
                             hostUseCases.acceptUserConnection(guest)
                         }
-                        //startStreamingAsHostUseCase()
                         answer.handShake?.let {
-                            hostUseCases.sendAnswerToGuest(it.userId, answer)
+                            val roomName = uiState.value.room?.name
+                            hostUseCases.sendAnswerToGuest(it.userId, roomName, answer)
                         }
 
                     }
 
                     is HandShakeResult.HostApprovalRequired -> {
-                        Log.d(
-                            "ActiveRoomViewModel", "collectHandShakeResults: Host approval required"
-                        )
+                        answer.handShake?.copy(roomName = uiState.value.room?.name)
+
                         answer.handShake?.let {
                             onRequestHostApproval(handShake = answer.handShake)
+                            Log.d(
+                                "ActiveRoomViewModel", "collectHandShakeResults: Host approval required"
+                            )
                         }
                     }
 
@@ -147,13 +168,14 @@ class ActiveRoomViewModel @Inject constructor(
 
                 val guest = Guest(handShake.deviceName, handShake.userId, handShake.deviceName)
                 hostUseCases.acceptUserConnection(guest)
+                val roomName = uiState.value.room?.name
                 hostUseCases.sendAnswerToGuest(
-                    handShake.userId, HandShakeResult.Success()
+                    handShake.userId, roomName, HandShakeResult.Success()
                 )
 
             } else {
                 handShake.response = HandShakeResult.DeclinedByHost().intValue
-                hostUseCases.sendAnswerToGuest(handShake.userId, HandShakeResult.DeclinedByHost())
+                hostUseCases.sendAnswerToGuest(guestId = handShake.userId, answer = HandShakeResult.DeclinedByHost())
             }
         }
     }
@@ -175,7 +197,7 @@ class ActiveRoomViewModel @Inject constructor(
             if (result >= 1) {
                 currentRoomId?.let {
                     val roomWithTrustedGuest =
-                        RoomWithTrustedGuests(it, handShake.userId, isConnected = true)
+                        RoomWithTrustedGuests(it, handShake.userId)
                     val result =  hostUseCases.addTrustedGuest(roomWithTrustedGuest)
 
                     if (result >= 1) {
@@ -322,12 +344,15 @@ class ActiveRoomViewModel @Inject constructor(
     //When the hotspot is activated, the server is started, otherwise the server is shutdown
     fun collectHotSpotState() {
         viewModelScope.launch {
-            hostUseCases.hotSpotStateFlow.collect {
+            hostUseCases.hotSpotStateFlow.collect { it ->
                 when (it) {
                     HotspotState.Idle -> hostUseCases.stopServer()
 
                     HotspotState.Running -> {
-                        hostUseCases.startServer(_uiState.value.room?.id)
+                        _uiState.value.room?.let { romId ->
+                            hostUseCases.startServer(romId)
+                        }
+
                         Log.d("ActiveRoomViewModel", "collectHotSpotState: Running")
                     }
 

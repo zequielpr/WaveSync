@@ -22,7 +22,11 @@ class GuestUseCases @Inject constructor(
         guestRepository.connectToHotspot(password, ssid)
     fun connectToServer() = guestRepository.connectToServer()
 
-    fun leaveRoom() = guestRepository.leaveRoom()
+
+    fun isConnectedToHotspotAsGuest(): Boolean = guestRepository.isConnectedToHotspotAsGuest()
+    fun isConnectedToAudioServer(): Boolean = guestRepository.isConnectedToAudioServer()
+
+    suspend fun leaveRoom(): Boolean = guestRepository.leaveRoom()
     fun mute() = guestRepository.mute()
     fun unmute() = guestRepository.unmute()
 

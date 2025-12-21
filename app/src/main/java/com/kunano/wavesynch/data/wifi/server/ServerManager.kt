@@ -8,6 +8,7 @@ import androidx.annotation.RequiresApi
 import com.kunano.wavesynch.AppIdProvider
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.usecase.host.GetRoomTrustedGuestsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,8 @@ import javax.inject.Inject
 // data/wifi/WifiDirectManager.kt
 @SuppressLint("MissingPermission")
 class ServerManager(
-    private val context: Context
+    private val context: Context,
+    private val getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase
 ) {
     val PROTOCOL_VERSION = 1
 
@@ -47,6 +49,8 @@ class ServerManager(
 
     private val _connectedGuests = MutableSharedFlow<HashSet<Guest>?>(replay = 1)
     val connectedGuests: Flow<HashSet<Guest>?> = _connectedGuests.asSharedFlow()
+
+
     val connectedGuestList: HashSet<Guest> = HashSet()
 
 
@@ -54,18 +58,30 @@ class ServerManager(
 
 
 
+    var isServerRunning = false
+
 
     fun startServerSocket(inComingHandShake: (socket: Socket?) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             if (serverSocket == null) {
                 serverSocket = ServerSocket(AudioStreamConstants.PORT)
                 _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
-
+                isServerRunning = true
                 _serverStateFlow.tryEmit(ServerState.Running)
                 //this block is an infinite loop
-                while (true) {
-                    val clientSocket = serverSocket?.accept()  // blocks until a Guest connects
-                    inComingHandShake(clientSocket)
+                while (isServerRunning) {
+                    if (serverSocket?.isClosed != true){
+                        // blocks until a Guest connects
+                        try {
+                            val clientSocket = serverSocket?.accept()
+                            inComingHandShake(clientSocket)
+                        }catch (e: Exception){
+                            Log.d("ServerManager", "startServerSocket: ${e.message}")
+                        }
+
+
+                    }
+
                 }
             }
         }
@@ -73,8 +89,10 @@ class ServerManager(
 
     fun closeServerSocket() {
         try {
+            isServerRunning = false
             serverSocket?.close()
             _serverStateFlow.tryEmit(ServerState.Idle)
+            serverSocket = null
         } catch (_: Exception) {
         }
     }
@@ -107,7 +125,7 @@ class ServerManager(
         return guestHandShake
     }
 
-    fun sendAnswerToGuest(guestId: String, answer: HandShakeResult) {
+    fun sendAnswerToGuest(guestId: String, roomName: String?, answer: HandShakeResult) {
 
         CoroutineScope(Dispatchers.IO).launch {
             val socket = socketList[guestId]
@@ -119,6 +137,7 @@ class ServerManager(
                 appIdentifier = AppIdProvider.APP_ID,
                 userId = AppIdProvider.getUserId(context),
                 deviceName = Build.MODEL,
+                roomName = roomName,
                 protocolVersion = 1,
                 response = answer.intValue
             )
@@ -133,9 +152,9 @@ class ServerManager(
     }
 
 
-    suspend fun verifyHandshake(handshake: HandShake, roomId: Long?): HandShakeResult {
+    suspend fun verifyHandshake(handshake: HandShake, room: Room): HandShakeResult {
 
-        if (roomId == null) {
+        if (room.id == null) {
             return HandShakeResult.InvalidHandshake(handshake)
         }
         if (handshake.appIdentifier != AppIdProvider.APP_ID) {
@@ -148,22 +167,23 @@ class ServerManager(
         /*Both app are the same and share the same protocol so
             it proceeds to check if the guest is trusted
              */
-        return checkIfUserIsTrusted(handShake = handshake, roomId = roomId)
+        return checkIfUserIsTrusted(handShake = handshake, room)
 
     }
 
-    private suspend fun checkIfUserIsTrusted(handShake: HandShake, roomId: Long): HandShakeResult {
-        //val trustedGuestsList =  getRoomTrustedGuestsUseCase(roomId = roomId)
+    private suspend fun checkIfUserIsTrusted(handShake: HandShake, room: Room): HandShakeResult {
+        val trustedGuestsList =  getRoomTrustedGuestsUseCase(roomId = room.id!!)
 
-        val isGuestTrusted =  true//trustedGuestsList.contains(handShake.userId)
+        val isGuestTrusted =  trustedGuestsList.contains(handShake.userId)
+        Log.d("ServerManager", "checkIfUserIsTrusted: $isGuestTrusted")
 
-        if (isGuestTrusted) {
-            return HandShakeResult.Success(handShake)
+        return if (isGuestTrusted) {
+            HandShakeResult.Success(handShake)
             //Proceed to streaming audio
 
         } else {
             //Ask is the user wants to trust this guest
-            return HandShakeResult.HostApprovalRequired(handShake)
+            HandShakeResult.HostApprovalRequired(handShake)
         }
     }
 
@@ -199,5 +219,15 @@ class ServerManager(
         } else {
             _logFlow.tryEmit("Guest socket not found")
         }
+    }
+
+    fun clearConnectedGuests(){
+        connectedGuestList.clear()
+        _connectedGuests.tryEmit(null)
+    }
+
+    fun clearSockets(){
+        socketList.clear()
+
     }
 }

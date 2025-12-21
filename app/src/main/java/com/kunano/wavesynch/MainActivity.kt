@@ -10,8 +10,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.kunano.wavesynch.ui.guest.current_room.CurrentRoomCompose
-import com.kunano.wavesynch.ui.host.active_room.ActiveRoomCompose
 import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewCompose
+import com.kunano.wavesynch.ui.host.active_room.ActiveRoomCompose
 import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
@@ -44,10 +44,13 @@ fun WaveSyncApp() {
         composable<Screen.MainScreen>() {
             SyncWaveMainScreenWithAppBar(
                 navigateToActiveRoom = { navController.navigate(Screen.ActiveRoomScreen) },
-                navigateToJoinRoom = { navController.navigate(Screen.JoinRoomScreen) })
+                navigateToJoinRoom = { navController.navigate(Screen.JoinRoomScreen) },
+                navigateToCurrentRoom = { navController.navigate(Screen.CurrentRoomScreen) }
+            )
         }
 
         composable<Screen.ActiveRoomScreen>() {
+
             ActiveRoomCompose(onBack = { navController.popBackStack() })
 
         }
@@ -60,7 +63,7 @@ fun WaveSyncApp() {
         }
 
         composable<Screen.CurrentRoomScreen>() {
-            CurrentRoomCompose(onBack = { navController.popBackStack() })
+            CurrentRoomCompose(onBack = { navController.navigate(Screen.MainScreen) })
         }
 
     }
@@ -74,6 +77,9 @@ fun WaveSyncApp() {
 fun WavesynchThemePreview() {
     WavesynchTheme(darkTheme = false) {
 
-        SyncWaveMainScreenWithAppBar(navigateToActiveRoom = {}, navigateToJoinRoom = {})
+        SyncWaveMainScreenWithAppBar(
+            navigateToActiveRoom = {},
+            navigateToJoinRoom = {},
+            navigateToCurrentRoom = {})
     }
 }

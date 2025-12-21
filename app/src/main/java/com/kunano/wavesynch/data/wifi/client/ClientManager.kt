@@ -38,20 +38,24 @@ class ClientManager(
     var inputStream: InputStream? = null
 
 
+    var socket: Socket? = null
+
 
     /** Open TCP socket to host and do handshake */
     fun connectToServer(hostIp: String, onConnected: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             runCatching {
                 // Create a new socket for each connection attempt
-                val socket = Socket()
-                socket.connect(InetSocketAddress(hostIp, AudioStreamConstants.PORT), 5000)
+                socket = Socket()
+                socket?.connect(InetSocketAddress(hostIp, AudioStreamConstants.PORT), 5000)
 
-                inputStream = socket.getInputStream()
+                inputStream = socket?.getInputStream()
 
-                sendHandShake(socket)
+                socket?.let {
+                    sendHandShake(it)
+                    receiveHandShakeResponse(it)
+                }
 
-                receiveHandShakeResponse(socket)
                 onConnected
             }.onFailure { e ->
                 Log.e(TAG, "Error connecting to server", e)
@@ -91,18 +95,22 @@ class ClientManager(
 
             when (handShake.response) {
                 HandShakeResult.DeclinedByHost().intValue -> _handShakeResponseFlow.tryEmit(
-                    HandShakeResult.DeclinedByHost()
+                    HandShakeResult.DeclinedByHost(handShake)
                 )
 
-                HandShakeResult.Success().intValue -> _handShakeResponseFlow.tryEmit(HandShakeResult.Success())
+                HandShakeResult.Success().intValue -> _handShakeResponseFlow.tryEmit(HandShakeResult.Success(handShake))
                 HandShakeResult.HostApprovalRequired().intValue -> _handShakeResponseFlow.tryEmit(
-                    HandShakeResult.HostApprovalRequired()
+                    HandShakeResult.HostApprovalRequired(handShake)
                 )
 
             }
 
 
         }
+    }
+
+    fun disconnectFromServer() {
+        socket?.close()
     }
 
 

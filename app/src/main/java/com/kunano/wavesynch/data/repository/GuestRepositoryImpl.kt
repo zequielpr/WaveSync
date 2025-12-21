@@ -14,10 +14,12 @@ import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 
 class GuestRepositoryImpl @Inject constructor(
@@ -66,11 +68,19 @@ class GuestRepositoryImpl @Inject constructor(
     }
 
 
-    override fun leaveRoom(){
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override suspend fun leaveRoom(): Boolean{
         _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
         val intent = Intent(context, AudioPlayerService::class.java)
         context.stopService(intent)
-        audioReceiver.stop()
+        clientManager.disconnectFromServer()
+
+        val result = localHotspotController.disconnectFromHotspot()
+
+        localHotspotController.setIsConnectedToHotspotAsGuest(!result)
+
+        return result
+
     }
 
     override fun mute() {
@@ -79,6 +89,14 @@ class GuestRepositoryImpl @Inject constructor(
 
     override fun unmute() {
         TODO("Not yet implemented")
+    }
+
+    override fun isConnectedToHotspotAsGuest(): Boolean {
+        return localHotspotController.isConnectedToHotspotAsGuest
+    }
+
+    override fun isConnectedToAudioServer(): Boolean {
+        TODO()
     }
 
 
