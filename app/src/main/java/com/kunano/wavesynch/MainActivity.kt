@@ -63,7 +63,9 @@ fun WaveSyncApp() {
         }
 
         composable<Screen.CurrentRoomScreen>() {
-            CurrentRoomCompose(onBack = { navController.navigate(Screen.MainScreen) })
+            CurrentRoomCompose(
+                onBack = { navController.navigate(Screen.MainScreen) },
+                navigateTo = { navController.navigate(it) })
         }
 
     }

@@ -1,5 +1,6 @@
 package com.kunano.wavesynch.ui.guest.current_room
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -30,15 +36,41 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.ui.nav.Screen
+import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
+import com.kunano.wavesynch.ui.utils.BlockingLoadingOverlay
+import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
+import com.kunano.wavesynch.ui.utils.UiEvent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CurrentRoomCompose(viewModel: CurrentRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
+fun CurrentRoomCompose(viewModel: CurrentRoomViewModel = hiltViewModel(), onBack: () -> Unit, navigateTo: (screen: Screen) -> Unit) {
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-    Scaffold(topBar = {
+    var askToLeaveRoom by remember { mutableStateOf(false) }
+    val snackBarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+
+    BackHandler(enabled = true) {
+        viewModel.navigateBack()
+    }
+
+    LaunchedEffect("CurrentRoomCompose") {
+        viewModel.uiEvents.collect { event ->
+            when (event) {
+                is UiEvent.ShowSnackBar -> snackBarHostState.showSnackbar(event.message)
+                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> TODO()
+                is UiEvent.NavigateBack -> TODO()
+                is UiEvent.NavigateTo -> navigateTo(event.screen)
+                is UiEvent.ShowSnackBar -> TODO()
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackBarHostState) },
+        topBar = {
         TopAppBar(
             navigationIcon = {
-                IconButton(onClick = onBack) {
+                IconButton(onClick = {viewModel.navigateBack()}) {
                     Image(
                         painter = painterResource(id = R.drawable.arrow_back_ios_48px),
                         contentDescription = "Back"
@@ -72,7 +104,7 @@ fun CurrentRoomCompose(viewModel: CurrentRoomViewModel = hiltViewModel(), onBack
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
                 ),
-                onClick = viewModel::leaveRoom
+                onClick = { askToLeaveRoom = true }
             ) {
                 Text(
                     text = stringResource(R.string.leave_room),
@@ -82,6 +114,28 @@ fun CurrentRoomCompose(viewModel: CurrentRoomViewModel = hiltViewModel(), onBack
 
         }
     }
+
+    AskToLeaveRoomCompose(askToLeaveRoom, onDismiss = { askToLeaveRoom = false }, onConfirm = {
+        viewModel.leaveRoom()
+        askToLeaveRoom = false
+    })
+
+    //Show a loading screen while the the guest is leaving the room
+    BlockingLoadingOverlay(isLoading = UIState.value.isLoading)
+}
+
+@Composable
+fun AskToLeaveRoomCompose(show: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    CustomDialogueCompose(
+        title = stringResource(R.string.leave_room),
+        text = stringResource(R.string.are_you_sure_you_want_to_leave_this_room),
+        acceptButtonText = stringResource(R.string.yes),
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+        show = show,
+    )
+
+
 }
 
 
@@ -129,5 +183,5 @@ fun CurrentRoomCardCompose(viewModel: CurrentRoomViewModel = hiltViewModel()) {
 @Preview(showBackground = true)
 @Composable
 fun CurrentRoomComposePreview() {
-    CurrentRoomCompose(onBack = {})
+    CurrentRoomCompose(onBack = {}, navigateTo = {})
 }

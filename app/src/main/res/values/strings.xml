@@ -9,6 +9,7 @@
     <string name="scan_qr_code_to_connect">Scan QR code to connect</string>
     <string name="connected_to">Connected to</string>
     <string name="leave_room">Leave room</string>
+    <string name="are_you_sure_you_want_to_leave_this_room">Are you sure you want to leave this room?</string>
     <string name="default_room_name">Room</string>
     <string name="yes">Yes</string>
     <string name="cancel">Cancel</string>
@@ -46,6 +47,8 @@
     <string name="you_are_hosting_room">You are hosting a room. Do you want to stop hosting to join another room?</string>
     <string name="ask_to_stop_hosting_room">Are you sure you want to stop hosting this room?</string>
     <string name="you_are_joined_to_room">You are joined to room. Do you want to leave the room start hosting your own room?</string>
+    <string name="room_left_successfully">Room left successfully</string>
+
 
 
 
