@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -21,6 +22,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -50,7 +53,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.model.Guest
-import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewModel
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
@@ -62,18 +64,29 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 @Composable
 fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
+    val UIState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
-    var askToTrustGuestEvent  by remember { mutableStateOf<ActiveRoomUiEvent.AskToAcceptGuestRequest?>(null) }
+    var askToTrustGuestEvent by remember {
+        mutableStateOf<ActiveRoomUiEvent.AskToAcceptGuestRequest?>(
+            null
+        )
+    }
 
-    LaunchedEffect(key1 = viewModel.uiEvent) {
+    LaunchedEffect(UIState.guests) {
+        Log.d("UI", "Guests: ${UIState.guests.map { it.userId to it.isPlaying }}")
+    }
+    LaunchedEffect(key1 = Unit) {
         viewModel.uiEvent.collect {
             when (it) {
                 is ActiveRoomUiEvent.AskToAcceptGuestRequest -> {
                     askToTrustGuestEvent = it
                     viewModel.setShowAskTrustGuestState(true)
-                    Log.d("ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent?.guestName}")
+                    Log.d(
+                        "ActiveRoomCompose",
+                        "AskToTrustGuest: ${askToTrustGuestEvent?.guestName}"
+                    )
                 }
+
                 is UiEvent.NavigateBack -> TODO()
                 is UiEvent.NavigateTo -> TODO()
                 is UiEvent.ShowSnackBar -> {
@@ -92,7 +105,8 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { CustomTopAppBar(onBack = onBack) }) {
+        topBar = { CustomTopAppBar(onBack = onBack) },
+        floatingActionButton = { AudioCaptureRequestCompose() }) {
         Column(
             modifier = Modifier
                 .padding(it)
@@ -102,30 +116,38 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
 
             Column(modifier = Modifier.padding(start = 30.dp, end = 30.dp)) {
                 //Launch audio capture request and start streaming
-                AudioCaptureRequestCompose()
 
-                if (UIState.value.isQRCodeExpanded) {
+
+                if (UIState.isQRCodeExpanded) {
                     ExpandedQRCodeCompose()
                 } else {
                     ShrunkQRCodeCompose()
                 }
 
-                if (UIState.value.guests.isNotEmpty()) {
-                    GuestsListCompose(UIState.value.guests)
-                } else {
-                    Text(stringResource(R.string.waiting_for_guests_to_join))
-                }
-
+                GuestsListCompose(UIState.guests)
 
             }
         }
 
     }
 
-    CheckIfDeviceIsGuest (navigateBack = onBack)
+    // Floating button overlay
+   @Composable
+   fun FloatingButtonOverlay() {
+
+    }
+
+    CheckIfDeviceIsGuest(navigateBack = onBack)
+    AskToStopStreaming()
+    AskToEmptyRoom()
+    AskToExpelGuest(
+        show = UIState.showAskToExpelGuest,
+        onConfirm = viewModel::expelGuest,
+        onDismiss = {viewModel.setShowAskToExpelGuestState(false, null)}
+    )
 
     //Ask to trust guest and connection request
-    if (UIState.value.showJoinRoomRequest && askToTrustGuestEvent != null) {
+    if (UIState.showJoinRoomRequest && askToTrustGuestEvent != null) {
         var hostTrustGuest by remember { mutableStateOf(false) }
         Log.d("ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent!!.guestName}")
         CustomDialogueCompose(
@@ -149,7 +171,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
                 askToTrustGuestEvent!!.guestTrusted.complete(hostTrustGuest)
                 viewModel.setShowAskTrustGuestState(false)
             },
-            show = UIState.value.showJoinRoomRequest
+            show = UIState.showJoinRoomRequest
         )
     }
 }
@@ -179,6 +201,46 @@ fun CheckIfDeviceIsGuest(navigateBack: () -> Unit) {
 
 }
 
+@Composable
+fun AskToStopStreaming() {
+    val viewModel: ActiveRoomViewModel = hiltViewModel()
+    val uIState by viewModel.uiState.collectAsStateWithLifecycle()
+
+
+    CustomDialogueCompose(
+        title = stringResource(R.string.stop_streaming),
+        text = stringResource(R.string.are_you_sure_you_stop_streaming),
+        acceptButtonText = stringResource(R.string.yes),
+        onDismiss = {
+            viewModel.setShowAskStopStreaming(false)
+        },
+        onConfirm = { viewModel.stopStreaming()
+            viewModel.setShowAskStopStreaming(false)},
+        show = uIState.showAskToStopStreaming,
+    )
+}
+
+@Composable
+fun AskToEmptyRoom() {
+    val viewModel: ActiveRoomViewModel = hiltViewModel()
+    val uIState by viewModel.uiState.collectAsStateWithLifecycle()
+
+
+    CustomDialogueCompose(
+        title = stringResource(R.string.empty_room),
+        text = stringResource(R.string.are_you_sure_you_empty_room),
+        acceptButtonText = stringResource(R.string.yes),
+        onDismiss = {
+            viewModel.setShowAskToEmptyRoom(false)
+        },
+        onConfirm = { viewModel.emptyRoom()
+            viewModel.setShowAskToEmptyRoom(false)},
+        show = uIState.showAskToEmptyRoom,
+    )
+
+
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -195,23 +257,6 @@ fun CustomTopAppBar(
             )
         }
     }, actions = {
-
-        IconButton(onClick = { viewModel.setIsPlayingInHostState(!UIState.value.playingInHost) }) {
-
-            if (UIState.value.playingInHost) {
-                Image(
-                    painter = painterResource(id = R.drawable.volume_up_48px),
-                    contentDescription = "Pause"
-                )
-            } else {
-                Image(
-                    painter = painterResource(id = R.drawable.volume_off_48px),
-                    contentDescription = "Play"
-                )
-            }
-
-
-        }
 
         IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!UIState.value.overFlowMenuExpanded) }) {
             Image(
@@ -322,7 +367,7 @@ fun OverFlowMenuCompose(
                     text = stringResource(R.string.empty_room), style = textStyle
                 )
             }, onClick = {
-                UIState.value.room?.id?.let { viewModel.emptyRoom(it) }
+                UIState.value.room?.id?.let { viewModel.setShowAskToEmptyRoom(true) }
                 viewModel.setOverFlowMenuExpandedState(false)
             })
 
@@ -493,24 +538,25 @@ fun ShrunkQRCodeCompose(
 @Composable
 fun GuestsListCompose(
     guestsList: List<Guest> = emptyList(),
-    viewModel: ActiveRoomViewModel = hiltViewModel(),
 ) {
 
     LazyColumn(
+
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 32.dp)
     ) {
-        items(guestsList) { guest ->
+
+        items(guestsList, key = { it.userId }) { guest ->
             Log.d("ActiveRoomCompose", "GuestsListCompose: $guest")
-            GuestItem(trustedGuest = guest)
+            GuestItem(guest = guest)
         }
     }
 }
 
 @Composable
 fun GuestItem(
-    trustedGuest: Guest,
+    guest: Guest,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
     viewModel: ActiveRoomViewModel = hiltViewModel(),
 ) {
@@ -530,24 +576,60 @@ fun GuestItem(
                 painter = painterResource(id = R.drawable.mobile_48px), // Placeholder icon
                 contentDescription = "Guest Icon", modifier = Modifier.size(40.dp)
             )
-            trustedGuest.deviceName?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
-                    modifier = Modifier.padding(start = 16.dp)
-                )
-            }
+            Text(
+                text = guest.deviceName,
+                style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+                modifier = Modifier.padding(start = 16.dp)
+            )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
                 modifier = Modifier.padding(start = 20.dp),
-                onClick = { viewModel.expelGuest(guestId = trustedGuest.userId) }) {
+                onClick = {
+                    if (guest.isPlaying) {
+                        viewModel.pauseGuest(guestId = guest.userId)
+                    } else {
+                        viewModel.playGuest(guestId = guest.userId)
+                    }
+                }) {
+                if (guest.isPlaying) {
+                    Image(
+                        painter = painterResource(id = R.drawable.pause_48px),
+                        contentDescription = "Pause"
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.play_arrow_48px),
+                        contentDescription = "play"
+                    )
+                }
+
+            }
+
+            Spacer(modifier = Modifier.weight(0.05f))
+            IconButton(
+                modifier = Modifier.padding(start = 20.dp),
+                onClick = { viewModel.setShowAskToExpelGuestState(true, guest) }) {
                 Image(
                     painter = painterResource(id = R.drawable.output_48px),
-                    contentDescription = "Close"
+                    contentDescription = "Expel"
                 )
             }
         }
     }
+}
+
+@Composable
+fun AskToExpelGuest(show: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    CustomDialogueCompose(
+        title = stringResource(R.string.expel),
+        text = stringResource(R.string.are_you_sure_to_expel),
+        acceptButtonText = stringResource(R.string.yes),
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+        show = show,
+    )
+
+
 }
 
 

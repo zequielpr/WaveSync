@@ -1,6 +1,12 @@
 <resources>
+    <string name="expel">Expel guest</string>
+    <string name="are_you_sure_to_expel">Are you sure you want to expel this guest?</string>
+    <string name="guest_expelled">Guest expelled successfully</string>
+    <string name="pause">Pause</string>
+    <string name="play">Play</string>
     <string name="app_name">SyncWave</string>
-    <string name="share_sound">Share sound</string>
+    <string name="start_streaming">Start streaming</string>
+     <string name="share_sound">Share sound</string>
     <string name="join_sound_room">Join Sound Room</string>
     <string name="empty_room">Empty room</string>
     <string name="delete_room">Delete room</string>
@@ -48,19 +54,10 @@
     <string name="ask_to_stop_hosting_room">Are you sure you want to stop hosting this room?</string>
     <string name="you_are_joined_to_room">You are joined to room. Do you want to leave the room start hosting your own room?</string>
     <string name="room_left_successfully">Room left successfully</string>
-
-
-
-
-
-
-
-
-
-
-
-
-
+    <string name="stop_streaming">Stop streaming</string>
+    <string name="you_have_stopped_streaming">You have stopped streaming</string>
+    <string name="are_you_sure_you_stop_streaming">Are you sure you want to stop streaming</string>
+    <string name="are_you_sure_you_empty_room">Are you sure you want to empty this room</string>
 
 
 </resources>

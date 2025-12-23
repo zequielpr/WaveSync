@@ -6,17 +6,17 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.stream.HostAudioCapturer
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.RoomWithTrustedGuests
 import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
+import com.kunano.wavesynch.services.AudioCaptureService
 import com.kunano.wavesynch.services.StartHotspotService
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.UiEvent
@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,7 +42,7 @@ class ActiveRoomViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ActiveRoomUIState())
     val uiState: StateFlow<ActiveRoomUIState> = _uiState.asStateFlow()
 
-    val _serverState =  hostUseCases.serverStateFlow
+    val _serverState = hostUseCases.serverStateFlow
 
     //UiEvents
     private val _uiEvent = Channel<UiEvent>()
@@ -63,21 +64,21 @@ class ActiveRoomViewModel @Inject constructor(
 
     }
 
-    fun checkIfDeviceIsGuest(): Boolean{
+
+    fun checkIfDeviceIsGuest(): Boolean {
         return guestUseCases.isConnectedToHotspotAsGuest()
     }
 
 
-    fun stopBeingAGuest(){
+    fun stopBeingAGuest() {
         viewModelScope.launch {
             val roomLeftSuccessfully = guestUseCases.leaveRoom()
             Log.d("ActiveRoomViewModel", "stopBeingAGuest: $roomLeftSuccessfully")
-            if (roomLeftSuccessfully){
+            if (roomLeftSuccessfully) {
                 startLocalHotSpot()
             }
         }
     }
-
 
 
     //It start the hotspot service in the background
@@ -99,9 +100,6 @@ class ActiveRoomViewModel @Inject constructor(
     private fun setHotSpotSsidAndPassword(hotspotInfo: HotspotInfo?) {
         _uiState.value = _uiState.value.copy(hotspotInfo = hotspotInfo)
     }
-
-
-
 
 
     private fun collectHandShakeResults() {
@@ -126,7 +124,8 @@ class ActiveRoomViewModel @Inject constructor(
                         answer.handShake?.let {
                             onRequestHostApproval(handShake = answer.handShake)
                             Log.d(
-                                "ActiveRoomViewModel", "collectHandShakeResults: Host approval required"
+                                "ActiveRoomViewModel",
+                                "collectHandShakeResults: Host approval required"
                             )
                         }
                     }
@@ -141,7 +140,6 @@ class ActiveRoomViewModel @Inject constructor(
             }
         }
     }
-
 
 
     fun onRequestHostApproval(handShake: HandShake) {
@@ -175,12 +173,13 @@ class ActiveRoomViewModel @Inject constructor(
 
             } else {
                 handShake.response = HandShakeResult.DeclinedByHost().intValue
-                hostUseCases.sendAnswerToGuest(guestId = handShake.userId, answer = HandShakeResult.DeclinedByHost())
+                hostUseCases.sendAnswerToGuest(
+                    guestId = handShake.userId,
+                    answer = HandShakeResult.DeclinedByHost()
+                )
             }
         }
     }
-
-
 
 
     private fun addTrustedGuest(handShake: HandShake) {
@@ -191,14 +190,14 @@ class ActiveRoomViewModel @Inject constructor(
                 userName = handShake.deviceName,
                 deviceName = handShake.deviceName
             )
-            val result =  hostUseCases.createTrustedGuest(trustedGuest)
+            val result = hostUseCases.createTrustedGuest(trustedGuest)
 
 
             if (result >= 1) {
                 currentRoomId?.let {
                     val roomWithTrustedGuest =
                         RoomWithTrustedGuests(it, handShake.userId)
-                    val result =  hostUseCases.addTrustedGuest(roomWithTrustedGuest)
+                    val result = hostUseCases.addTrustedGuest(roomWithTrustedGuest)
 
                     if (result >= 1) {
                         Log.d("ActiveRoomViewModel", "addTrustedGuest: Trusted guest added")
@@ -211,8 +210,6 @@ class ActiveRoomViewModel @Inject constructor(
     }
 
 
-
-
     private fun collectLogs() {
         viewModelScope.launch {
             hostUseCases.logFlow.collect {
@@ -221,8 +218,6 @@ class ActiveRoomViewModel @Inject constructor(
             }
         }
     }
-
-
 
 
     private fun retrieveRoom() {
@@ -248,24 +243,34 @@ class ActiveRoomViewModel @Inject constructor(
     private fun collectRoomGuests(romId: Long?) {
         viewModelScope.launch {
             romId?.let {
-                hostUseCases.connectedGuest.collect {
+                hostUseCases.connectedGuest.collect { it ->
                     Log.d("ActiveRoomViewModel", "collectRoomGuests: $it")
                     if (it != null) {
-                        Log.d("ActiveRoomViewModel", "collectRoomGuests: $it")
-                        _uiState.value = _uiState.value.copy(guests = it.toList())
+
+                        val newGuests = it.toList()
+                        _uiState.update { uIState ->
+                            uIState.copy(guests = newGuests)
+                        }
                     }
                 }
-            }
 
+            }
+        }
+
+    }
+    fun setShowAskToEmptyRoom(show: Boolean){
+        _uiState.update { uIState ->
+            uIState.copy(showAskToEmptyRoom = show)
         }
     }
 
-    fun emptyRoom(roomId: Long) {
-
+    fun emptyRoom() {
+        hostUseCases.emptyRoom()
     }
 
     fun deleteRoom(roomId: Long) {
         viewModelScope.launch {
+            hostUseCases.finishSessionAsHost()
             val result = hostUseCases.deleteRoom(roomId)
             if (result >= 1) {
                 _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_deleted)))
@@ -305,25 +310,56 @@ class ActiveRoomViewModel @Inject constructor(
 
     }
 
-    fun expelGuest(guestId: String) {
 
+    fun setShowAskToExpelGuestState(state: Boolean, guest: Guest?) {
+        _uiState.update { uIState ->
+            uIState.copy(showAskToExpelGuest = state)
+        }
+
+        _uiState.update { uIState ->
+            uIState.copy(guestToBeExpelled = guest)
+        }
     }
+
+    fun expelGuest() {
+        val guestToExpel = _uiState.value.guestToBeExpelled
+        guestToExpel?.let {
+            hostUseCases.expelGuest(it.userId)
+        }
+
+        setShowAskToExpelGuestState(false, null)
+        _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.guest_expelled)))
+    }
+
+    fun playGuest(guestId: String) {
+        hostUseCases.playGuest(guestId)
+    }
+
+    fun pauseGuest(guestId: String) {
+        hostUseCases.pauseGuest(guestId)
+    }
+
+
+
+
 
     fun setShowAskTrustGuestState(state: Boolean) {
-        _uiState.value = _uiState.value.copy(showJoinRoomRequest = state)
-    }
-
-    fun setIsPlayingInHostState(state: Boolean) {
-        _uiState.value = _uiState.value.copy(playingInHost = state)
+        _uiState.update { uIState ->
+            uIState.copy(showJoinRoomRequest = state)
+        }
     }
 
     fun setOverFlowMenuExpandedState(state: Boolean) {
-        _uiState.value = _uiState.value.copy(overFlowMenuExpanded = state)
+        _uiState.update { uIState ->
+            uIState.copy(overFlowMenuExpanded = state)
+        }
     }
 
 
     fun setIsQRCodeExpandedState(state: Boolean) {
-        _uiState.value = _uiState.value.copy(isQRCodeExpanded = state)
+        _uiState.update { uIState ->
+            uIState.copy(isQRCodeExpanded = state)
+        }
     }
 
 
@@ -356,20 +392,25 @@ class ActiveRoomViewModel @Inject constructor(
                         Log.d("ActiveRoomViewModel", "collectHotSpotState: Running")
                     }
 
-                    HotspotState.Starting -> {Log.d("ActiveRoomViewModel", "collectHotSpotState: Starting")}}
+                    HotspotState.Starting -> {
+                        Log.d("ActiveRoomViewModel", "collectHotSpotState: Starting")
+                    }
                 }
+            }
 
 
         }
     }
 
 
-
     private fun collectServerStates() {
         viewModelScope.launch {
             _serverState.collect {
                 when (it) {
-                    ServerState.Starting -> {Log.d("ActiveRoomViewModel", "server state: Starting")}
+                    ServerState.Starting -> {
+                        Log.d("ActiveRoomViewModel", "server state: Starting")
+                    }
+
                     ServerState.Running -> {
                         Log.d("ActiveRoomViewModel", "server state: Running")
 
@@ -379,14 +420,36 @@ class ActiveRoomViewModel @Inject constructor(
                         Log.d("ActiveRoomViewModel", "server state: ${it.message}")
                     }
 
-                    ServerState.Idle -> {Log.d("ActiveRoomViewModel", "server state: Idle")}
-                    ServerState.Streaming -> {
-                        Log.d("ActiveRoomViewModel", "server state: Streaming")
-                    }
+                    ServerState.Idle -> setHostStreamingState(false)
+
+                    ServerState.Streaming -> setHostStreamingState(true)
+
+                    ServerState.Stopped -> setHostStreamingState(false)
+
+                    ServerState.Stopping -> {}
                 }
             }
         }
     }
+
+    fun setHostStreamingState(state: Boolean) {
+        _uiState.update { uIState ->
+            uIState.copy(isHostStreaming = state)
+        }
+    }
+
+    fun setShowAskStopStreaming(show: Boolean){
+        _uiState.update { uIState ->
+            uIState.copy(showAskToStopStreaming = show)
+        }
+    }
+
+    fun stopStreaming() {
+        val intent = Intent(appContext, AudioCaptureService::class.java)
+        appContext.stopService(intent)
+        _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.you_have_stopped_streaming)))
+    }
+
 
 
 }

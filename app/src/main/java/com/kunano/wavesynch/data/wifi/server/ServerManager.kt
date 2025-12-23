@@ -25,13 +25,12 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.ServerSocket
 import java.net.Socket
-import javax.inject.Inject
 
 // data/wifi/WifiDirectManager.kt
 @SuppressLint("MissingPermission")
 class ServerManager(
     private val context: Context,
-    private val getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase
+    private val getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase,
 ) {
     val PROTOCOL_VERSION = 1
 
@@ -41,8 +40,7 @@ class ServerManager(
     private val _logFlow = MutableSharedFlow<String>(extraBufferCapacity = 20)
     val logFlow: SharedFlow<String> = _logFlow
 
-    private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Idle)
-    val serverStateFlow: Flow<ServerState> = _serverStateFlow .asStateFlow()
+
 
 
     var socketList: HashMap<String, Socket> = HashMap()
@@ -51,11 +49,7 @@ class ServerManager(
     val connectedGuests: Flow<HashSet<Guest>?> = _connectedGuests.asSharedFlow()
 
 
-    val connectedGuestList: HashSet<Guest> = HashSet()
-
-
-
-
+    var connectedGuestList: HashSet<Guest> = HashSet()
 
 
     var isServerRunning = false
@@ -67,15 +61,14 @@ class ServerManager(
                 serverSocket = ServerSocket(AudioStreamConstants.PORT)
                 _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
                 isServerRunning = true
-                _serverStateFlow.tryEmit(ServerState.Running)
                 //this block is an infinite loop
                 while (isServerRunning) {
-                    if (serverSocket?.isClosed != true){
+                    if (serverSocket?.isClosed != true) {
                         // blocks until a Guest connects
                         try {
                             val clientSocket = serverSocket?.accept()
                             inComingHandShake(clientSocket)
-                        }catch (e: Exception){
+                        } catch (e: Exception) {
                             Log.d("ServerManager", "startServerSocket: ${e.message}")
                         }
 
@@ -91,7 +84,6 @@ class ServerManager(
         try {
             isServerRunning = false
             serverSocket?.close()
-            _serverStateFlow.tryEmit(ServerState.Idle)
             serverSocket = null
         } catch (_: Exception) {
         }
@@ -172,9 +164,9 @@ class ServerManager(
     }
 
     private suspend fun checkIfUserIsTrusted(handShake: HandShake, room: Room): HandShakeResult {
-        val trustedGuestsList =  getRoomTrustedGuestsUseCase(roomId = room.id!!)
+        val trustedGuestsList = getRoomTrustedGuestsUseCase(roomId = room.id!!)
 
-        val isGuestTrusted =  trustedGuestsList.contains(handShake.userId)
+        val isGuestTrusted = trustedGuestsList.contains(handShake.userId)
         Log.d("ServerManager", "checkIfUserIsTrusted: $isGuestTrusted")
 
         return if (isGuestTrusted) {
@@ -188,10 +180,9 @@ class ServerManager(
     }
 
 
-
     fun acceptUserConnection(guest: Guest) {
 
-        connectedGuestList.add(guest)
+        connectedGuestList.add(guest.copy(isPlaying = true))
         _connectedGuests.tryEmit(connectedGuestList)
         val guestSocket = socketList[guest.userId]
         if (guestSocket != null) {
@@ -202,6 +193,17 @@ class ServerManager(
             // Handle the case where the guestSocket is null
         }
     }
+
+    fun setGuestPlayingState(guestId: String, state: Boolean) {
+        val updated = connectedGuestList.map { guest ->
+            if (guest.userId == guestId)
+                guest.copy(isPlaying = state)
+            else guest
+        }.toHashSet()
+
+        _connectedGuests.tryEmit(updated)
+    }
+
 
     fun closeGuestSocket(guestId: String) {
 
@@ -221,12 +223,12 @@ class ServerManager(
         }
     }
 
-    fun clearConnectedGuests(){
+    fun clearConnectedGuests() {
         connectedGuestList.clear()
-        _connectedGuests.tryEmit(null)
+        _connectedGuests.tryEmit(connectedGuestList)
     }
 
-    fun clearSockets(){
+    fun clearSockets() {
         socketList.clear()
 
     }

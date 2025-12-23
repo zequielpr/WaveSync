@@ -1,5 +1,6 @@
 package com.kunano.wavesynch.domain.usecase.host
 
+import com.android.identity.flow.annotation.FlowState
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
@@ -12,6 +13,7 @@ import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.repositories.HostRepository
 import com.kunano.wavesynch.domain.repositories.SoundRoomRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 class HostUseCases @Inject constructor(
@@ -34,6 +36,8 @@ class HostUseCases @Inject constructor(
     fun stopHotspot() = hostRepository.stopHotspot()
     fun isHotspotRunning() = hostRepository.isHotspotRunning()
     fun finishSessionAsHost() = hostRepository.finishSessionAsHost()
+    fun isHostStreaming() = hostRepository.isHostStreaming()
+
 
 
 
@@ -52,7 +56,9 @@ class HostUseCases @Inject constructor(
 
     //Host room
 
-    suspend fun expelGuest(guestId: String) = hostRepository.expelGuest(guestId)
+    fun playGuest(guestId: String) = hostRepository.playGuest(guestId)
+    fun pauseGuest(guestId: String) = hostRepository.pauseGuest(guestId)
+    fun expelGuest(guestId: String) = hostRepository.expelGuest(guestId)
     suspend fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult) = hostRepository.sendAnswerToGuest(guestId, roomName, answer)
     suspend fun acceptUserConnection(guest: Guest) = hostRepository.acceptUserConnection(guest)
 
@@ -60,8 +66,6 @@ class HostUseCases @Inject constructor(
     suspend fun startServer(room: Room) = hostRepository.startServer(room)
     fun stopServer() = hostRepository.stopServer()
     fun stopStreaming() = hostRepository.stopStreaming()
-    fun startStreamingToGuest(guestId: String) = hostRepository.startStreamingToGuest(guestId)
-    fun stopStreamingToGuest(guestId: String) = hostRepository.stopStreamingToGuest(guestId)
     fun closeUserSocket(userId: String) = hostRepository.closeUserSocket(userId)
 
 
@@ -93,6 +97,11 @@ class HostUseCases @Inject constructor(
 
     fun observerRoomGuests(roomId: Long): Flow<List<TrustedGuest>> =
         soundRoomRepository.observerRoomGuests(roomId)
+
+    fun emptyRoom()  = hostRepository.emptyRoom()
+
+
+
 
 
 }

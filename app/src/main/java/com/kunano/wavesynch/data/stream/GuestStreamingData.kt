@@ -8,5 +8,6 @@ data class GuestStreamingData (
     val id: String,
     val socket: Socket,
     val channel: Channel<ByteArray>,   // audio chunks to send
-    val job: Job                       // coroutine that writes to socket
+    val job: Job,
+    var isPlaying: Boolean = false
 )

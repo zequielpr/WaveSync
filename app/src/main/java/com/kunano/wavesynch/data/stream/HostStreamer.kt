@@ -15,7 +15,9 @@ import java.nio.ByteOrder
 class HostStreamer(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
-    private val guests = HashSet<GuestStreamingData>()
+    private val guests: HashMap<String, GuestStreamingData> = hashMapOf()
+    private var isHostStreaming = false
+
 
     fun addGuest(id: String, socket: Socket) {
         val channel = Channel<ByteArray>(capacity = 16)
@@ -42,7 +44,8 @@ class HostStreamer(
             }
         }
 
-        guests += GuestStreamingData(id, socket, channel, job)
+        //Add guest
+        guests[id] = GuestStreamingData(id, socket, channel, job, isPlaying = true)
     }
 
     private var audioCapturer: HostAudioCapturer? = null
@@ -51,26 +54,44 @@ class HostStreamer(
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
         scope.launch {
+            isHostStreaming = true
             audioCapturer = capturer
             capturer.start { chunk ->
                 val copy = chunk.copyOf()
-                guests.forEach { guest ->
-                    guest.channel.trySend(copy)
+                guests.values.forEach { guest ->
+                    if (guest.isPlaying){
+                        guest.channel.trySend(copy)
+                    }
+
                 }
             }
         }
     }
 
+    fun pauseGuest(id: String) {
+        guests[id]?.isPlaying = false
+    }
+
+    fun resumeGuest(id: String) {
+        guests[id]?.isPlaying = true
+    }
+
     fun removeGuest(id: String) {
-        val g = guests.firstOrNull { it.id == id } ?: return
-        guests -= g
+        val g = guests[id] ?: return
+        guests.remove(id)
         g.channel.close()
         g.job.cancel()
         g.socket.close()
     }
 
+    fun pauseStreaming(){
+        stopCapturingAudio()
+    }
+
     fun stopStreaming() {
-        guests.forEach {
+        isHostStreaming = false
+        stopCapturingAudio()
+        guests.values.forEach {
             it.channel.close()
             it.job.cancel()
             it.socket.close()
@@ -81,8 +102,14 @@ class HostStreamer(
         audioCapturer?.stop()
     }
 
-    fun removeGuests(){
+    fun removeAllGuests(){
         guests.clear()
     }
+
+    fun isHostStreaming(): Boolean {
+        return isHostStreaming
+    }
+
+
 
 }

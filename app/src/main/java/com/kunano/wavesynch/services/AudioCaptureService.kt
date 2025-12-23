@@ -120,8 +120,8 @@ class AudioCaptureService : Service() {
     }
 
     override fun onDestroy() {
-        // stop capture, release projection, etc.
-        hostAudioCapturer?.stop()
+        //Stop streaming
+        hostRepository.stopStreaming()
         super.onDestroy()
     }
 }
