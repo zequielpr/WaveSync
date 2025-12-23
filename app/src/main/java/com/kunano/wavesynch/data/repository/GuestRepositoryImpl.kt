@@ -16,10 +16,7 @@ import com.kunano.wavesynch.domain.repositories.GuestRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 
 class GuestRepositoryImpl @Inject constructor(
@@ -83,12 +80,14 @@ class GuestRepositoryImpl @Inject constructor(
 
     }
 
-    override fun mute() {
-        TODO("Not yet implemented")
+    override fun pauseAudio() {
+        audioReceiver.pause()
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Idle)
     }
 
-    override fun unmute() {
-        TODO("Not yet implemented")
+    override fun resumeAudio() {
+        audioReceiver.resume()
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ReceivingAudioStream)
     }
 
     override fun isConnectedToHotspotAsGuest(): Boolean {

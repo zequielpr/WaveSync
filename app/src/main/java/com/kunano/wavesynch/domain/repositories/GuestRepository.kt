@@ -16,8 +16,8 @@ interface GuestRepository{
     fun startReceivingAudioStream()
     fun connectToServer()
     suspend fun leaveRoom(): Boolean
-    fun mute()
-    fun unmute()
+    fun pauseAudio()
+    fun resumeAudio()
     fun isConnectedToHotspotAsGuest(): Boolean
     fun isConnectedToAudioServer(): Boolean
 

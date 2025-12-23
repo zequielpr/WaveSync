@@ -270,9 +270,10 @@ class ActiveRoomViewModel @Inject constructor(
 
     fun deleteRoom(roomId: Long) {
         viewModelScope.launch {
-            hostUseCases.finishSessionAsHost()
+
             val result = hostUseCases.deleteRoom(roomId)
             if (result >= 1) {
+                hostUseCases.finishSessionAsHost()
                 _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_deleted)))
                 _uiEvent.send(UiEvent.NavigateBack(null)) //Navigate back to main screen
             } else {

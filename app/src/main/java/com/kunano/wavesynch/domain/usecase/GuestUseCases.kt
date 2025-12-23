@@ -1,12 +1,9 @@
 package com.kunano.wavesynch.domain.usecase
 
-import androidx.camera.core.ImageProxy
-import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharedFlow
 import javax.inject.Inject
 
 class GuestUseCases @Inject constructor(
@@ -27,8 +24,8 @@ class GuestUseCases @Inject constructor(
     fun isConnectedToAudioServer(): Boolean = guestRepository.isConnectedToAudioServer()
 
     suspend fun leaveRoom(): Boolean = guestRepository.leaveRoom()
-    fun mute() = guestRepository.mute()
-    fun unmute() = guestRepository.unmute()
+    fun pauseAudio() = guestRepository.pauseAudio()
+    fun resumeAudio() = guestRepository.resumeAudio()
 
 
 }

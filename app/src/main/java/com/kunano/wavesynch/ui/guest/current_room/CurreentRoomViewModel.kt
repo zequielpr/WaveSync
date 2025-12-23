@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.domain.repositories.SessionRepository
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.ui.nav.Screen
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,6 +27,7 @@ class CurrentRoomViewModel @Inject constructor(
     private val guestUseCases: GuestUseCases,
     private val sessionRepository: SessionRepository,
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(CurrentRoomUIState())
     val uiState: StateFlow<CurrentRoomUIState> = _uiState.asStateFlow()
 
@@ -35,7 +38,10 @@ class CurrentRoomViewModel @Inject constructor(
     init {
         guestUseCases.startReceivingAudioStream()
         populateCurrentRoom()
+        collectConnectionEvents()
     }
+
+
 
     private fun populateCurrentRoom() {
         viewModelScope.launch {
@@ -46,32 +52,50 @@ class CurrentRoomViewModel @Inject constructor(
 
     }
 
-    fun navigateBack(){
-        Log.d("CurrentRoomViewModel", "navigateBack: ")
-        viewModelScope.launch {
-            if (guestUseCases.isConnectedToHotspotAsGuest()) {
-                _uIEvents.emit(UiEvent.NavigateTo(Screen.MainScreen))
-            }else{
-                _uIEvents.emit(UiEvent.NavigateBack(""))
-            }
+    fun pauseAudio() {
+        guestUseCases.pauseAudio()
 
-        }
+    }
+
+    fun resumeAudio() {
+        guestUseCases.resumeAudio()
+    }
+
+    fun setReceivingAudio(status: Boolean){
+        _uiState.update { it.copy(isReceivingAudio = status) }
     }
 
 
     fun leaveRoom() {
         viewModelScope.launch {
+            sessionRepository.clear()
             _uiState.value = _uiState.value.copy(isLoading = true)
             val result = guestUseCases.leaveRoom()
             _uiState.value = _uiState.value.copy(isLoading = false)
             if (result) {
-                _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.room_left_successfully  )))
+                _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.room_left_successfully)))
                 _uIEvents.emit(UiEvent.NavigateTo(Screen.MainScreen))
             } else {
                 _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.error_leaving_room)))
             }
             Log.d("CurrentRoomViewModel", "leaveRoom: $result")
 
+        }
+    }
+
+    private fun collectConnectionEvents() {
+        viewModelScope.launch {
+            guestUseCases.connectionEvents.collect {
+                when (it) {
+                    ClientConnectionsState.ConnectedToHotspot -> {}
+                    ClientConnectionsState.ConnectedToServer -> {}
+                    ClientConnectionsState.ConnectingToHotspot -> {}
+                    ClientConnectionsState.ConnectingToServer -> {}
+                    ClientConnectionsState.Disconnected -> {}
+                    ClientConnectionsState.Idle -> setReceivingAudio(false)
+                    ClientConnectionsState.ReceivingAudioStream -> setReceivingAudio(true)
+                }
+            }
         }
     }
 
@@ -82,7 +106,7 @@ class CurrentRoomViewModel @Inject constructor(
 data class CurrentRoomUIState(
     val hostName: String? = null,
     val roomName: String? = null,
-    val playingTrackName: String? = "Giving it all",
     val isLoading: Boolean = false,
+    var isReceivingAudio: Boolean = false,
 )
 

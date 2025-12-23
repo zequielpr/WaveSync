@@ -13,6 +13,7 @@ class AudioReceiver(
 
     @Volatile
     private var running = false
+    private var isOnPause = false
 
     private fun InputStream.readFully(buf: ByteArray, len: Int): Boolean {
         var total = 0
@@ -84,6 +85,7 @@ class AudioReceiver(
 
                 while (running) {
                     val packet = jitterBuffer.pop()
+                    if (isOnPause) continue
                     if (packet != null) {
                         audioTrack.write(packet, 0, packet.size)
                     } else {
@@ -105,5 +107,13 @@ class AudioReceiver(
 
     fun stop() {
         running = false
+    }
+
+    fun pause(){
+        isOnPause = true
+    }
+
+    fun resume(){
+       isOnPause = false
     }
 }

@@ -87,7 +87,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
                     )
                 }
 
-                is UiEvent.NavigateBack -> TODO()
+                is UiEvent.NavigateBack -> onBack()
                 is UiEvent.NavigateTo -> TODO()
                 is UiEvent.ShowSnackBar -> {
                     snackbarHostState.showSnackbar(it.message)
@@ -287,7 +287,7 @@ fun OverFlowMenuCompose(
 
     ) {
     val modifier: Modifier = Modifier.size(30.dp)
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
+    val UIState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeletionDialogue by remember { mutableStateOf(false) }
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
 
@@ -323,7 +323,7 @@ fun OverFlowMenuCompose(
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                 onClick = {
-                    UIState.value.room?.id?.let { id ->
+                    UIState.room?.id?.let { id ->
                         viewModel.editRoomName(id, textFieldValue)
                     }
                     showBottomSheet = false
@@ -344,13 +344,14 @@ fun OverFlowMenuCompose(
         title = stringResource(R.string.delete_room),
         text = stringResource(R.string.ask_to_delete_room),
         onDismiss = { showDeletionDialogue = false },
-        onConfirm = { viewModel.deleteRoom(UIState.value.room?.id ?: 0) },
+        onConfirm = { viewModel.deleteRoom(UIState.room?.id ?: 0)
+                    showDeletionDialogue = false},
         show = showDeletionDialogue
     )
 
 
     DropdownMenu(
-        expanded = UIState.value.overFlowMenuExpanded,
+        expanded = UIState.overFlowMenuExpanded,
         onDismissRequest = { viewModel.setOverFlowMenuExpandedState(false) },
 
         ) {
@@ -367,7 +368,7 @@ fun OverFlowMenuCompose(
                     text = stringResource(R.string.empty_room), style = textStyle
                 )
             }, onClick = {
-                UIState.value.room?.id?.let { viewModel.setShowAskToEmptyRoom(true) }
+                UIState.room?.id?.let { viewModel.setShowAskToEmptyRoom(true) }
                 viewModel.setOverFlowMenuExpandedState(false)
             })
 
@@ -382,7 +383,7 @@ fun OverFlowMenuCompose(
                 text = stringResource(R.string.edit_room_name), style = textStyle
             )
         }, onClick = {
-            UIState.value.room?.id?.let { showBottomSheet = true }
+            UIState.room?.id?.let { showBottomSheet = true }
             viewModel.setOverFlowMenuExpandedState(false)
         })
 
@@ -397,7 +398,7 @@ fun OverFlowMenuCompose(
                 text = stringResource(R.string.delete_room), style = textStyle
             )
         }, onClick = {
-            UIState.value.room?.id?.let { showDeletionDialogue = true }
+            UIState.room?.id?.let { showDeletionDialogue = true }
             viewModel.setOverFlowMenuExpandedState(false)
         })
 
