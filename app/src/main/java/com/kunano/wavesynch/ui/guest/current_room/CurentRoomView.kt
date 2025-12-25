@@ -65,7 +65,7 @@ fun CurrentRoomCompose(
                 is UiEvent.ShowSnackBar -> snackBarHostState.showSnackbar(event.message)
                 is ActiveRoomUiEvent.AskToAcceptGuestRequest -> TODO()
                 is UiEvent.NavigateBack -> TODO()
-                is UiEvent.NavigateTo -> TODO()
+                is UiEvent.NavigateTo -> navigateTo(event.screen)
             }
         }
     }

@@ -58,6 +58,7 @@
     <string name="you_have_stopped_streaming">You have stopped streaming</string>
     <string name="are_you_sure_you_stop_streaming">Are you sure you want to stop streaming</string>
     <string name="are_you_sure_you_empty_room">Are you sure you want to empty this room</string>
+    <string name="playing_audio_from">Playing audio from</string>
 
 
 </resources>

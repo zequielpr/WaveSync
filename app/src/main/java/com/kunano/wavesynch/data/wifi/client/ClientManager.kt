@@ -36,7 +36,7 @@ class ClientManager(
     val handShakeResponse: SharedFlow<HandShakeResult> = _handShakeResponseFlow.asSharedFlow()
 
     var inputStream: InputStream? = null
-
+    var handShakeFromHost: HandShake? = null
 
     var socket: Socket? = null
 
@@ -84,8 +84,11 @@ class ClientManager(
         val input = BufferedReader(InputStreamReader(socket.getInputStream()))
         val hostJson = input.readLine()
         Log.d(TAG, "Received host handshake: $hostJson")
-        val hostHandshake = parseHandshake(hostJson)
-        processHandshakeResponse(hostHandshake)
+        handShakeFromHost = parseHandshake(hostJson)
+        handShakeFromHost?.let {
+            processHandshakeResponse(it)
+        }
+
     }
 
 

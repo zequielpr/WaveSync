@@ -17,15 +17,19 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 class GuestRepositoryImpl @Inject constructor(
     private val clientManager: ClientManager,
     private val audioReceiver: AudioReceiver,
     private val localHotspotController: LocalHotspotController,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+
+
     ) : GuestRepository {
 
+    override val isPlayingState: StateFlow<Boolean> = audioReceiver.isPlayingState
     private val _clientConnectionsStateFlow = MutableStateFlow<ClientConnectionsState>(ClientConnectionsState.Idle)
     override val clientConnectionsStateFLow: Flow<ClientConnectionsState> =
         _clientConnectionsStateFlow

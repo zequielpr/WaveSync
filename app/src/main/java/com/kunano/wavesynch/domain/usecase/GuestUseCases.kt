@@ -4,11 +4,13 @@ import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 class GuestUseCases @Inject constructor(
     private val guestRepository: GuestRepository
 ) {
+    val isPlayingState: StateFlow<Boolean> = guestRepository.isPlayingState
     val connectionEvents: Flow<ClientConnectionsState> = guestRepository.clientConnectionsStateFLow
     val hanShakeResponse: Flow<HandShakeResult> = guestRepository.hanShakeResponse
 

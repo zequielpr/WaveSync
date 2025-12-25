@@ -39,8 +39,19 @@ class CurrentRoomViewModel @Inject constructor(
         guestUseCases.startReceivingAudioStream()
         populateCurrentRoom()
         collectConnectionEvents()
+        collectIsPlayingState()
+
     }
 
+    private fun collectIsPlayingState() {
+        viewModelScope.launch {
+            guestUseCases.isPlayingState.collect {
+
+                setReceivingAudio(it)
+            }
+
+        }
+    }
 
 
     private fun populateCurrentRoom() {
@@ -61,7 +72,7 @@ class CurrentRoomViewModel @Inject constructor(
         guestUseCases.resumeAudio()
     }
 
-    fun setReceivingAudio(status: Boolean){
+    fun setReceivingAudio(status: Boolean) {
         _uiState.update { it.copy(isReceivingAudio = status) }
     }
 
@@ -92,8 +103,8 @@ class CurrentRoomViewModel @Inject constructor(
                     ClientConnectionsState.ConnectingToHotspot -> {}
                     ClientConnectionsState.ConnectingToServer -> {}
                     ClientConnectionsState.Disconnected -> {}
-                    ClientConnectionsState.Idle -> setReceivingAudio(false)
-                    ClientConnectionsState.ReceivingAudioStream -> setReceivingAudio(true)
+                    ClientConnectionsState.Idle -> {}
+                    ClientConnectionsState.ReceivingAudioStream -> {}
                 }
             }
         }

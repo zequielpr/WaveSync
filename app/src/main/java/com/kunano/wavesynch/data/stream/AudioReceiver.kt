@@ -5,11 +5,17 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.InputStream
 
 class AudioReceiver(
     private val jitterBuffer: JitterBuffer = JitterBuffer(),
 ) {
+    var _isPlayingState: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isPlayingState = _isPlayingState.asStateFlow()
+
+
 
     @Volatile
     private var running = false
@@ -27,6 +33,7 @@ class AudioReceiver(
 
     fun start(input: InputStream) {
         if (running) return
+        _isPlayingState.tryEmit(true)
         running = true
 
         val minTrackBuffer = AudioTrack.getMinBufferSize(
@@ -107,13 +114,17 @@ class AudioReceiver(
 
     fun stop() {
         running = false
+        _isPlayingState.tryEmit(false)
     }
 
     fun pause(){
         isOnPause = true
+        _isPlayingState.tryEmit(false)
     }
 
     fun resume(){
        isOnPause = false
+        _isPlayingState.tryEmit(true)
+
     }
 }

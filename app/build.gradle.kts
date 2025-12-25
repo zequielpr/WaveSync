@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.play.services.cast)
     implementation(libs.processor.annotations.jvm)
+    implementation(libs.androidx.media3.session)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
