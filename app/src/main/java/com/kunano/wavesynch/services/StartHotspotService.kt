@@ -88,8 +88,8 @@ class StartHotspotService: Service() {
 
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Local hotspot")
-            .setContentText("Local hotspot is running...")
+            .setContentTitle(context.getString(R.string.room_ready))
+            .setContentText(context.getString(R.string.waiting_for_guest))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()

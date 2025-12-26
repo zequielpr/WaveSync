@@ -143,13 +143,31 @@ class AudioPlayerService : Service() {
     override fun onDestroy() {
         Log.d("AudioPlayerService", "onDestroy: ")
         audioReceiver.stop()
-        mediaSession.release()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        killMediaSessionFully()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
+    }
+    private fun killMediaSessionFully() {
+        // Make it look non-resumable + inactive
+        mediaSession.setPlaybackState(
+            PlaybackStateCompat.Builder()
+                .setActions(0)
+                .setState(PlaybackStateCompat.STATE_NONE, 0L, 0f)
+                .build()
+        )
+        mediaSession.setMetadata(null)
+        mediaSession.setCallback(null)
+        mediaSession.isActive = false
+        mediaSession.release() // This is the crucial final step
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }else{
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
     }
 
     private fun createNotificationChannel() {

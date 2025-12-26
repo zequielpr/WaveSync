@@ -95,8 +95,8 @@ class AudioCaptureService : Service() {
 
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Audio Capture")
-            .setContentText("Capturing audio for streaming...")
+            .setContentTitle(context.getString(R.string.audio_capture_service))
+            .setContentText(context.getString(R.string.streaming_audio))
             .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your icon
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

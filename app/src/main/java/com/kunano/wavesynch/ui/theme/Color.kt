@@ -17,6 +17,7 @@ val SurfaceColor = Color(0xFFF7F7F7)
 val TextColor = Color(0xFF2E2E2E)
 val redAccent = Color(0xFFFF7A7A)
 val greenAccent = Color(0xFF1DB954)
+val transParent = Color(0x00000000)
 
 
 val Purple40 = Color(0xFF6650a4)
