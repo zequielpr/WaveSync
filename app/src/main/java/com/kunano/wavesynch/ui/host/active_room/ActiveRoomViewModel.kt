@@ -265,7 +265,10 @@ class ActiveRoomViewModel @Inject constructor(
     }
 
     fun emptyRoom() {
-        hostUseCases.emptyRoom()
+        viewModelScope.launch {
+            hostUseCases.emptyRoom()
+            _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_emptied)))
+        }
     }
 
     fun deleteRoom(roomId: Long) {

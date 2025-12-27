@@ -14,6 +14,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,6 +53,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -72,7 +74,9 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.kunano.wavesynch.R
 import java.util.concurrent.Executors
 import kotlin.math.min
@@ -405,10 +409,14 @@ fun CameraPreview(
     )
 }
 
+
 fun generateQrBitmap(
     content: String,
     size: Int = 600,
+    bgColor: Color = Color.White,
+    fgColor: Color = Color.Black
 ): Bitmap {
+
     val writer = QRCodeWriter()
     val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size)
 
@@ -417,12 +425,24 @@ fun generateQrBitmap(
     for (x in 0 until size) {
         for (y in 0 until size) {
             bmp[x, y] =
-                if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+                if (bitMatrix[x, y]) fgColor.toArgb() else bgColor.toArgb()
         }
     }
 
     return bmp
 }
+
+private fun makeQrMatrix(content: String, size: Int, marginModules: Int = 2) =
+    QRCodeWriter().encode(
+        content,
+        BarcodeFormat.QR_CODE,
+        size,
+        size,
+        mapOf(
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
+            EncodeHintType.MARGIN to marginModules
+        )
+    )
 
 @SuppressLint("UnsafeOptInUsageError")
 private fun processImage(
@@ -470,7 +490,7 @@ fun BlockingLoadingOverlay(
             // clickable with no indication consumes all pointer input
             .clickable(
                 indication = null,
-                interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                interactionSource = remember { MutableInteractionSource() }
             ) { /* consume clicks */ }
             .semantics { contentDescription = "Loading" },
         contentAlignment = Alignment.Center
@@ -495,6 +515,7 @@ fun BlockingLoadingOverlay(
         }
     }
 }
+
 
 
 @Preview(showBackground = true)

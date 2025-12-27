@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -20,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -57,6 +59,7 @@ fun OnboardingScreen(navigateToMainScreen: () -> Unit = {}) {
             modifier = Modifier
                 .align(Alignment.TopEnd).padding(top = 80.dp, end = 30.dp)) {
             Image(
+                colorFilter = ColorFilter.tint(color = MaterialTheme.colorScheme.surface),
                 painter = painterResource(if (isMuted) R.drawable.volume_off_48px else R.drawable.volume_up_48px),
                 contentDescription = null
             )
@@ -65,6 +68,7 @@ fun OnboardingScreen(navigateToMainScreen: () -> Unit = {}) {
 
         FloatingActionButton(
             shape = androidx.compose.material3.MaterialTheme.shapes.small,
+            containerColor = MaterialTheme.colorScheme.secondary,
             onClick = navigateToMainScreen,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -73,7 +77,8 @@ fun OnboardingScreen(navigateToMainScreen: () -> Unit = {}) {
         ) {
 
             Text(
-                stringResource(R.string.start),
+                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                text = stringResource(R.string.start),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )

@@ -1,12 +1,27 @@
 package com.kunano.wavesynch.ui.host.active_room
 
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,16 +29,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +56,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
@@ -48,11 +65,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
@@ -64,7 +83,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 @Composable
 fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
-    val UIState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
     var askToTrustGuestEvent by remember {
         mutableStateOf<ActiveRoomUiEvent.AskToAcceptGuestRequest?>(
@@ -72,8 +91,8 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
         )
     }
 
-    LaunchedEffect(UIState.guests) {
-        Log.d("UI", "Guests: ${UIState.guests.map { it.userId to it.isPlaying }}")
+    LaunchedEffect(uIState.guests) {
+        Log.d("UI", "Guests: ${uIState.guests.map { it.userId to it.isPlaying }}")
     }
     LaunchedEffect(key1 = Unit) {
         viewModel.uiEvent.collect {
@@ -82,8 +101,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
                     askToTrustGuestEvent = it
                     viewModel.setShowAskTrustGuestState(true)
                     Log.d(
-                        "ActiveRoomCompose",
-                        "AskToTrustGuest: ${askToTrustGuestEvent?.guestName}"
+                        "ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent?.guestName}"
                     )
                 }
 
@@ -107,24 +125,24 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { CustomTopAppBar(onBack = onBack) },
         floatingActionButton = { AudioCaptureRequestCompose() }) {
-        Column(
+        Box(
+
             modifier = Modifier
+                .background(color = MaterialTheme.colorScheme.surface)
                 .padding(it)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
         ) {
 
-            Column(modifier = Modifier.padding(start = 30.dp, end = 30.dp)) {
+            Column(
+                modifier = Modifier.padding(
+                    start = AppDimens.Padding.right, end = AppDimens.Padding.left
+                )
+            ) {
                 //Launch audio capture request and start streaming
 
+                QrCardCompose()
 
-                if (UIState.isQRCodeExpanded) {
-                    ExpandedQRCodeCompose()
-                } else {
-                    ShrunkQRCodeCompose()
-                }
-
-                GuestsListCompose(UIState.guests)
+                GuestsListCompose(uIState.guests)
 
             }
         }
@@ -132,8 +150,8 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
     }
 
     // Floating button overlay
-   @Composable
-   fun FloatingButtonOverlay() {
+    @Composable
+    fun FloatingButtonOverlay() {
 
     }
 
@@ -141,13 +159,12 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
     AskToStopStreaming()
     AskToEmptyRoom()
     AskToExpelGuest(
-        show = UIState.showAskToExpelGuest,
+        show = uIState.showAskToExpelGuest,
         onConfirm = viewModel::expelGuest,
-        onDismiss = {viewModel.setShowAskToExpelGuestState(false, null)}
-    )
+        onDismiss = { viewModel.setShowAskToExpelGuestState(false, null) })
 
     //Ask to trust guest and connection request
-    if (UIState.showJoinRoomRequest && askToTrustGuestEvent != null) {
+    if (uIState.showJoinRoomRequest && askToTrustGuestEvent != null) {
         var hostTrustGuest by remember { mutableStateOf(false) }
         Log.d("ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent!!.guestName}")
         CustomDialogueCompose(
@@ -171,7 +188,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
                 askToTrustGuestEvent!!.guestTrusted.complete(hostTrustGuest)
                 viewModel.setShowAskTrustGuestState(false)
             },
-            show = UIState.showJoinRoomRequest
+            show = uIState.showJoinRoomRequest
         )
     }
 }
@@ -214,8 +231,10 @@ fun AskToStopStreaming() {
         onDismiss = {
             viewModel.setShowAskStopStreaming(false)
         },
-        onConfirm = { viewModel.stopStreaming()
-            viewModel.setShowAskStopStreaming(false)},
+        onConfirm = {
+            viewModel.stopStreaming()
+            viewModel.setShowAskStopStreaming(false)
+        },
         show = uIState.showAskToStopStreaming,
     )
 }
@@ -233,8 +252,10 @@ fun AskToEmptyRoom() {
         onDismiss = {
             viewModel.setShowAskToEmptyRoom(false)
         },
-        onConfirm = { viewModel.emptyRoom()
-            viewModel.setShowAskToEmptyRoom(false)},
+        onConfirm = {
+            viewModel.emptyRoom()
+            viewModel.setShowAskToEmptyRoom(false)
+        },
         show = uIState.showAskToEmptyRoom,
     )
 
@@ -248,8 +269,15 @@ fun CustomTopAppBar(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     onBack: () -> Unit,
 ) {
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-    TopAppBar(navigationIcon = {
+    val uIState = viewModel.uiState.collectAsStateWithLifecycle()
+    TopAppBar(
+        colors = TopAppBarColors(
+        containerColor = MaterialTheme.colorScheme.surface,
+        scrolledContainerColor = MaterialTheme.colorScheme.surface,
+        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        actionIconContentColor = MaterialTheme.colorScheme.onSurface
+    ), navigationIcon = {
         IconButton(onClick = onBack) {
             Image(
                 painter = painterResource(id = R.drawable.arrow_back_ios_48px),
@@ -258,7 +286,7 @@ fun CustomTopAppBar(
         }
     }, actions = {
 
-        IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!UIState.value.overFlowMenuExpanded) }) {
+        IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!uIState.value.overFlowMenuExpanded) }) {
             Image(
                 painter = painterResource(R.drawable.more_vert_48px),
                 contentDescription = "More"
@@ -271,7 +299,7 @@ fun CustomTopAppBar(
 
 
     }, title = {
-        UIState.value.room?.name?.let {
+        uIState.value.room?.name?.let {
             Text(
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), text = it
             )
@@ -290,6 +318,7 @@ fun OverFlowMenuCompose(
     val UIState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeletionDialogue by remember { mutableStateOf(false) }
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
+    val buttonTextStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.surface)
 
     //Bottom sheet properties
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -328,7 +357,7 @@ fun OverFlowMenuCompose(
                     }
                     showBottomSheet = false
                 }) {
-                Text(text = stringResource(R.string.update), style = textStyle)
+                Text(text = stringResource(R.string.update), style = buttonTextStyle)
             }
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -344,8 +373,10 @@ fun OverFlowMenuCompose(
         title = stringResource(R.string.delete_room),
         text = stringResource(R.string.ask_to_delete_room),
         onDismiss = { showDeletionDialogue = false },
-        onConfirm = { viewModel.deleteRoom(UIState.room?.id ?: 0)
-                    showDeletionDialogue = false},
+        onConfirm = {
+            viewModel.deleteRoom(UIState.room?.id ?: 0)
+            showDeletionDialogue = false
+        },
         show = showDeletionDialogue
     )
 
@@ -408,61 +439,6 @@ fun OverFlowMenuCompose(
 
 
 @Composable
-fun ExpandedQRCodeCompose(
-    viewModel: ActiveRoomViewModel = hiltViewModel(),
-    cardColor: Color = MaterialTheme.colorScheme.secondary,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-) {
-    val textSyle: TextStyle = MaterialTheme.typography.titleLarge.copy(color = textColor)
-    val cardModifier: Modifier = Modifier
-        .fillMaxWidth()
-        .height(420.dp)
-        .padding(top = 60.dp)
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-
-    Card(
-        modifier = cardModifier.clickable(onClick = {}),
-        colors = CardDefaults.cardColors(containerColor = cardColor)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-            IconButton(onClick = { viewModel.setIsQRCodeExpandedState(!UIState.value.isQRCodeExpanded) }) {
-                Image(
-                    painter = painterResource(R.drawable.hide_48px), contentDescription = "Hide"
-                )
-            }
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    bottom = 20.dp, start = 20.dp, end = 20.dp
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            if (UIState.value.hotspotInfo != null) {
-                QrCode(
-                    password = UIState.value.hotspotInfo!!.password,
-                    ssid = UIState.value.hotspotInfo!!.ssid
-                )
-            } else {
-                Text("Loading qr code..")
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 30.dp),
-                text = stringResource(R.string.scan_qr_code_to_connect),
-                style = textSyle
-            )
-        }
-
-    }
-}
-
-
-@Composable
 fun QrCode(
     password: String,
     ssid: String,
@@ -470,70 +446,17 @@ fun QrCode(
     size: Int = 200,
 ) {
     val qrContent = remember(password, ssid) { password + ssid }
-
+    val qrBackgroundColor = MaterialTheme.colorScheme.surface
     val qrBitmap = remember(qrContent) {
-        generateQrBitmap(qrContent, size)
+        generateQrBitmap(qrContent, size, bgColor = qrBackgroundColor)
     }
+
 
     Image(
         bitmap = qrBitmap.asImageBitmap(),
         contentDescription = "Host QR code",
-        modifier = modifier.size(size.dp)
+        modifier = modifier.size(size.dp).clip(RoundedCornerShape(16.dp))
     )
-}
-
-@Composable
-fun ShrunkQRCodeCompose(
-
-    viewModel: ActiveRoomViewModel = hiltViewModel(),
-    cardColor: Color = MaterialTheme.colorScheme.secondary,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-) {
-    val textSyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
-    val cardModifier: Modifier = Modifier
-        .fillMaxWidth()
-        .height(180.dp)
-        .padding(top = 60.dp)
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-
-    Card(
-        modifier = cardModifier.clickable(onClick = {}),
-        colors = CardDefaults.cardColors(containerColor = cardColor)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp)
-        ) {
-
-            Image(
-                modifier = Modifier
-                    .size(50.dp)
-                    .padding(0.dp),
-                alignment = Alignment.Center,
-                painter = painterResource(R.drawable.qr_code_test),
-                contentDescription = "QR code"
-            )
-
-            Text(
-                modifier = Modifier.padding(start = 20.dp),
-                textAlign = TextAlign.Center,
-                text = stringResource(R.string.scan_qr_code_to_connect),
-                style = textSyle
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(
-                onClick = { viewModel.setIsQRCodeExpandedState(!UIState.value.isQRCodeExpanded) },
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.open_in_full_48px),
-                    contentDescription = "Open fully"
-                )
-            }
-        }
-
-    }
 }
 
 @Composable
@@ -584,8 +507,7 @@ fun GuestItem(
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
-                modifier = Modifier.padding(start = 20.dp),
-                onClick = {
+                modifier = Modifier.padding(start = 20.dp), onClick = {
                     if (guest.isPlaying) {
                         viewModel.pauseGuest(guestId = guest.userId)
                     } else {
@@ -618,6 +540,133 @@ fun GuestItem(
         }
     }
 }
+
+
+@Composable
+fun QrCardCompose(
+    viewModel: ActiveRoomViewModel = hiltViewModel(),
+    cardColor: Color = MaterialTheme.colorScheme.secondary,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val expanded = uiState.isQRCodeExpanded
+    val ssid = uiState.hotspotInfo?.ssid ?: ""
+    val password = uiState.hotspotInfo?.password ?: ""
+
+
+
+    val animSpec: TweenSpec<Dp> = tween<Dp>(durationMillis = 260, easing = FastOutSlowInEasing)
+
+    val cardHeight by animateDpAsState(
+        targetValue = if (expanded) 420.dp else 180.dp,
+        animationSpec = animSpec,
+        label = "cardHeight"
+    )
+
+    val columnPadding by animateDpAsState(
+        targetValue = if (expanded) 0.dp else 20.dp,
+        animationSpec = animSpec,
+        label = "columnPadding"
+    )
+
+    val qrSize by animateDpAsState(
+        targetValue = if (expanded) 200.dp else 80.dp, animationSpec = animSpec, label = "qrSize"
+    )
+
+
+    val textStyleBig: TextStyle = MaterialTheme.typography.titleLarge.copy(color = textColor)
+    val textStyleSmall: TextStyle = MaterialTheme.typography.labelSmall.copy(color = textColor)
+
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(cardHeight)
+            .padding(top = 60.dp)
+            .clickable { viewModel.setIsQRCodeExpandedState(!expanded) },
+        colors = CardDefaults.cardColors(containerColor = cardColor)
+    ) {
+       Column(verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxHeight().padding(columnPadding) ) {
+           AnimatedVisibility(
+               visible = !expanded,
+               enter = fadeIn(tween(120)) + expandVertically(tween(220)),
+               exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
+           ) {
+               Row(
+                   modifier = Modifier
+                       .fillMaxWidth(),
+                   verticalAlignment = Alignment.CenterVertically
+               ) {
+                   if (ssid.isNotEmpty()) {
+                       QrCode(ssid = ssid, password = password, size = qrSize.value.toInt())
+                   } else {
+                       CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                   }
+
+                   Text(
+                       modifier = Modifier.padding(start = 20.dp),
+                       textAlign = TextAlign.Start,
+                       text = stringResource(R.string.scan_qr_code_to_connect),
+                       style = textStyleSmall
+                   )
+
+                   Spacer(modifier = Modifier.weight(1f))
+
+                   IconButton(onClick = { viewModel.setIsQRCodeExpandedState(true) }) {
+                       Image(
+                           painter = painterResource(R.drawable.open_in_full_48px),
+                           contentDescription = "Expand"
+                       )
+                   }
+               }
+           }
+
+           // EXPANDED CONTENT (only exists when expanded)
+           AnimatedVisibility(
+               visible = expanded,
+               enter = fadeIn(tween(120)) + expandVertically(tween(220)),
+               exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
+           ) {
+               Column(
+                   modifier = Modifier
+                       .fillMaxSize()
+                       .padding(bottom = 20.dp, start = 20.dp, end = 20.dp),
+                   horizontalAlignment = Alignment.CenterHorizontally,
+                   verticalArrangement = Arrangement.Center
+               ) {
+                   Row(
+                       modifier = Modifier
+                           .fillMaxWidth(),
+                       horizontalArrangement = Arrangement.End
+                   ) {
+                       IconButton(onClick = { viewModel.setIsQRCodeExpandedState(false) }) {
+                           Image(
+                               painter = painterResource(
+                                   R.drawable.hide_48px
+                               ), contentDescription = "Hide"
+                           )
+                       }
+                   }
+                   if (ssid.isNotEmpty()) {
+                       QrCode(ssid = ssid, password = password)
+                   } else {
+                       CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                   }
+
+                   Text(
+                       modifier = Modifier.padding(top = 30.dp),
+                       textAlign = TextAlign.Center,
+                       text = stringResource(R.string.scan_qr_code_to_connect),
+                       style = textStyleBig
+                   )
+               }
+           }
+
+       }
+
+    }
+}
+
 
 @Composable
 fun AskToExpelGuest(show: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {

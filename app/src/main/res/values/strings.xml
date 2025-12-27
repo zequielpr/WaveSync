@@ -64,6 +64,7 @@
     <string name="room_ready">Room ready</string>
     <string name="waiting_for_guest">Waiting for guests</string>
     <string name="start">Start</string>
+    <string name="room_emptied">Room emptied</string>
 
 
 </resources>
