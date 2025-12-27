@@ -26,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.services.AudioCaptureService
+import com.kunano.wavesynch.ui.theme.StreamingButtons
 
 @Composable
 fun AudioCaptureRequestCompose(
@@ -53,7 +54,7 @@ fun AudioCaptureRequestCompose(
 
     ExtendedFloatingActionButton(
         contentColor = MaterialTheme.colorScheme.onSurface,
-        containerColor = MaterialTheme.colorScheme.secondary,
+        containerColor = StreamingButtons,
         shape = ShapeDefaults.Large,
         modifier = Modifier.padding(bottom = 50.dp),
         onClick = {

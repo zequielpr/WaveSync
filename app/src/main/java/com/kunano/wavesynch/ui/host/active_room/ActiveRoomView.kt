@@ -318,7 +318,7 @@ fun OverFlowMenuCompose(
     val UIState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeletionDialogue by remember { mutableStateOf(false) }
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
-    val buttonTextStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.surface)
+
 
     //Bottom sheet properties
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -357,7 +357,7 @@ fun OverFlowMenuCompose(
                     }
                     showBottomSheet = false
                 }) {
-                Text(text = stringResource(R.string.update), style = buttonTextStyle)
+                Text(text = stringResource(R.string.update), style = textStyle)
             }
             Spacer(modifier = Modifier.height(20.dp))
 
