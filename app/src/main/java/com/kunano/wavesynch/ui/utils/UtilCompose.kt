@@ -163,6 +163,8 @@ fun CustomBottomSheetCompose(
     // Sheet
     if (showSheet) {
         ModalBottomSheet(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = onDismiss,
             sheetState = sheetState
         ) {

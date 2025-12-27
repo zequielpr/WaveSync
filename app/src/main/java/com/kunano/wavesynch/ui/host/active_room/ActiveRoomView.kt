@@ -136,7 +136,7 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
             Column(
                 modifier = Modifier.padding(
                     start = AppDimens.Padding.right, end = AppDimens.Padding.left
-                )
+                ).fillMaxHeight()
             ) {
                 //Launch audio capture request and start streaming
 
@@ -382,6 +382,7 @@ fun OverFlowMenuCompose(
 
 
     DropdownMenu(
+        containerColor = MaterialTheme.colorScheme.surface,
         expanded = UIState.overFlowMenuExpanded,
         onDismissRequest = { viewModel.setOverFlowMenuExpandedState(false) },
 
