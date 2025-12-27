@@ -16,7 +16,6 @@ sealed class ActiveRoomUiEvent: UiEvent() {
         val decision: CompletableDeferred<Boolean>,
         val guestTrusted: CompletableDeferred<Boolean>
     ) : ActiveRoomUiEvent()
-    object StartAudioCapturer : ActiveRoomUiEvent()
 }
 
 

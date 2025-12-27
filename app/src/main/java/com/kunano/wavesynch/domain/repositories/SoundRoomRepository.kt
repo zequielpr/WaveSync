@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface SoundRoomRepository {
     suspend fun createRoom(roomName: String):Long
-    suspend fun joinRoom(roomId: String)
     fun observerRooms(): Flow<List<Room>>
     suspend fun deleteRoom(roomId: Long): Int
     suspend fun editRoomName(roomId: Long, newName: String): Int
@@ -19,7 +18,6 @@ interface SoundRoomRepository {
     suspend fun createTrustedGuest(trustedGuest: TrustedGuest): Long
     suspend fun deleteTrustedGuest(trustedGuest: TrustedGuest): Int
     suspend fun updateTrustedGuest(trustedGuest: TrustedGuest): Int
-    suspend fun updateConnectionStatus(roomWithTrustedGuests: RoomWithTrustedGuests): Int
     fun observerRoomGuests(roomId: Long): Flow<List<TrustedGuest>>
 }
 

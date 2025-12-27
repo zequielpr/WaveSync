@@ -1,128 +1,159 @@
 package com.kunano.wavesynch.data.repository
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import com.android.identity.flow.annotation.FlowState
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
 import com.kunano.wavesynch.data.stream.HostStreamer
-import com.kunano.wavesynch.data.wifi.HandShakeResult
-import com.kunano.wavesynch.data.wifi.WifiDirectManager
-import com.kunano.wavesynch.data.wifi.ServerState
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
+import com.kunano.wavesynch.data.wifi.server.HandShakeResult
+import com.kunano.wavesynch.data.wifi.server.ServerState
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
+import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
+import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.repositories.HostRepository
+import com.kunano.wavesynch.services.StartHotspotService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
 import java.net.Socket
 import javax.inject.Inject
 
 // data/stream/AudioStreamRepositoryImpl.kt
 // data/stream/AudioStreamRepositoryImpl.kt
 class HostRepositoryImpl @Inject constructor(
-    private val wifi: WifiDirectManager,
+    private val serverManager: ServerManager,
     private val hostStreamer: HostStreamer,
+    private  val localHotspotController: LocalHotspotController,
+    @ApplicationContext private val context: Context
+
+
     ) : HostRepository {
 
-    override val connectedGuest: Flow<HashSet<Guest>?> = wifi.connectedGuests
+    override val hotspotInfoFlow: Flow<HotspotInfo?> = localHotspotController.hotspotInfoFLow
+    override val hotSpotStateFlow: Flow<HotspotState> = localHotspotController.hotspotStateFlow
+    override val connectedGuest: Flow<HashSet<Guest>?> = serverManager.connectedGuests
 
+    private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
 
+    override val serverStateFlow: Flow<ServerState> =  _serverStateFlow.asStateFlow()
 
-    private val _state = MutableStateFlow<ServerState>(ServerState.Idle)
-    override val serverStateFlow: Flow<ServerState> = _state.asStateFlow()
-
-    override val logFlow: Flow<String> = wifi.logFlow
+    override val logFlow: Flow<String> = serverManager.logFlow
 
     private val _handShakeResult = MutableSharedFlow<HandShakeResult>(extraBufferCapacity = 20)
     override val handShakeResultFlow: Flow<HandShakeResult> = _handShakeResult.asSharedFlow()
 
-
-
-
-
-
-
-
-    override suspend fun hostRoom(roomId: Long?) {
-        collectServerState()
-        _state.value = ServerState.Starting
-        val res = wifi.createGroupAsHost()
-        if (res.isFailure) {
-            _state.value = ServerState.Error(res.exceptionOrNull()?.message ?: "Host failed")
-            return
-        }else{
-            wifi.startServerSocket(inComingHandShake = {
-                CoroutineScope(Dispatchers.IO).launch {
-                    performHandShake(it, roomId)
-                }
-            })
-        }
+    override fun isHostStreaming(): Boolean {
+        return hostStreamer.isHostStreaming()
     }
 
-    suspend fun performHandShake(socket: Socket?, roomId: Long?) {
-        val guestHandShake = wifi.readIncomingHandShake(socket)
-        val result = wifi.verifyHandshake(guestHandShake, roomId)
+    //Hotspot implementation
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
+    override fun startHotspot(
+        onStarted: (HotspotInfo) -> Unit,
+        onError: (Int) -> Unit,
+    ) {
+
+        localHotspotController.startHotspot(onStarted, onError)
+    }
+
+    override fun stopHotspot() {
+        val intent = Intent(context, StartHotspotService::class.java)
+        context.stopService(intent)
+    }
+
+    override fun isHotspotRunning(): Boolean {
+        return localHotspotController.isHotspotRunning()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    override fun getHotspotInfo(): HotspotInfo? {
+        return localHotspotController.getHotspotInfo()
+    }
+
+    override fun finishSessionAsHost() {
+        hostStreamer.stopStreaming()
+        stopHotspot()
+        serverManager.closeServerSocket()
+        emptyRoom()
+
+
+    }
+
+
+
+
+
+
+
+    override suspend fun startServer(room: Room) {
+        _serverStateFlow.tryEmit(ServerState.Starting)
+        serverManager.startServerSocket(inComingHandShake = {
+            CoroutineScope(Dispatchers.IO).launch {
+                performHandShake(it, room)
+            }
+        })
+        _serverStateFlow.tryEmit(ServerState.Running)
+    }
+
+    override fun stopServer() {
+        serverManager.closeServerSocket()
+        _serverStateFlow.tryEmit(ServerState.Stopped)
+    }
+
+    suspend fun performHandShake(socket: Socket?, room: Room) {
+        val guestHandShake = serverManager.readIncomingHandShake(socket)
+        val result = serverManager.verifyHandshake(guestHandShake, room)
         _handShakeResult.tryEmit(result)
     }
 
 
 
 
-    private fun collectServerState() {
-        CoroutineScope(Dispatchers.IO).launch {
-            wifi.isServerRunning.collect {
-                if (it) {
-                    _state.value = ServerState.Running
-                } else {
-                    _state.value = ServerState.Idle
-                }
-            }
-        }
 
-    }
-
-    override suspend fun expelGuest(guestId: String) {
+    override  fun expelGuest(guestId: String) {
+        hostStreamer.removeGuest(guestId)
+        serverManager.closeGuestSocket(guestId)
     }
 
     override fun sendAnswerToGuest(
         guestId: String,
+        roomName: String?,
         answer: HandShakeResult,
     ) {
-        wifi.sendAnswerToGuest(guestId, answer)
+        serverManager.sendAnswerToGuest(guestId, roomName, answer)
     }
 
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    override fun startStreamingAsHost(capturer: HostAudioCapturer) {
-        hostStreamer.startStreaming(capturer)
 
-    }
 
     private fun addGuestToHostStreamer(guestSocket: Socket, guestId: String){
         hostStreamer.addGuest(guestId, guestSocket)
     }
 
-    override suspend fun stopStreaming() {
-        _state.tryEmit(ServerState.Idle)
 
-    }
-
-    override fun stopStreamingToGuest(guestId: String) {
-        hostStreamer.removeGuest(guestId)
-    }
-
+    @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override suspend fun acceptUserConnection(guest: Guest) {
-        wifi.acceptUserConnection(guest)
-        val guestSocket = wifi.socketList[guest.userId]
+        serverManager.acceptUserConnection(guest)
+        val guestSocket = serverManager.socketList[guest.userId]
         if (guestSocket != null) {
             guestSocket.tcpNoDelay = true
             addGuestToHostStreamer(guestSocket, guest.userId)
@@ -132,7 +163,38 @@ class HostRepositoryImpl @Inject constructor(
     }
 
     override fun closeUserSocket(userId: String) {
-        wifi.closeGuestSocket(userId)
+        serverManager.closeGuestSocket(userId)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    override fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer) {
+        hostStreamer.startStreaming(hostAudioCapturer)
+        _serverStateFlow.tryEmit(ServerState.Streaming)
+    }
+
+    override fun playGuest(guestId: String){
+
+        serverManager.setGuestPlayingState(guestId, true)
+        hostStreamer.resumeGuest(guestId)
+    }
+
+    override fun pauseGuest(guestId: String){
+        hostStreamer.pauseGuest(guestId)
+        serverManager.setGuestPlayingState(guestId, false)
+    }
+
+    override fun stopStreaming(){
+        hostStreamer.pauseStreaming()
+        _serverStateFlow.tryEmit(ServerState.Idle)
+
+    }
+
+    override fun emptyRoom() {
+        hostStreamer.removeAllGuests()
+        serverManager.clearSockets()
+        serverManager.clearConnectedGuests()
+
     }
 
 }

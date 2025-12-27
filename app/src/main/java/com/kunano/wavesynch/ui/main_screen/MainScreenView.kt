@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,13 +43,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
+import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
+import com.kunano.wavesynch.ui.utils.UiEvent
 
 
 @Composable
 fun SyncWaveMainScreenWithAppBar(
     textColor: Color = MaterialTheme.colorScheme.onSurface,
-    navigateToActiveRoom: () -> Unit, navigateToJoinRoom: () -> Unit,
+    navigateToActiveRoom: () -> Unit,
+    navigateToJoinRoom: () -> Unit,
+    navigateToCurrentRoom: () -> Unit,
+    viewModel: MainScreenViewModel = hiltViewModel(),
 ) {
     var granted by remember { mutableStateOf(false) }
 
@@ -57,8 +64,29 @@ fun SyncWaveMainScreenWithAppBar(
         PermissionHandler(
             onAllGranted = {
                 Log.d("MainScreen", "Permission granted")
-                granted = true }
+                granted = true
+            }
         )
+    }
+
+    LaunchedEffect("NavigateToJoinRoomOCurrentRoom") {
+        viewModel.uiEvent.collect {
+            when (it) {
+                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> TODO()
+                is UiEvent.NavigateBack -> TODO()
+                is UiEvent.NavigateTo -> {
+                    if (it.screen is Screen.CurrentRoomScreen) {
+                        navigateToCurrentRoom()
+                    } else {
+                        navigateToJoinRoom()
+                    }
+                }
+
+                is UiEvent.ShowSnackBar -> TODO()
+            }
+
+        }
+
     }
 
     Scaffold(
@@ -79,9 +107,11 @@ fun SyncWaveMainScreenWithAppBar(
     {
         Box(modifier = Modifier.padding(it)) {
             SynchWaveMainScreen(
-                navigateToJoinRoom = {if (granted) navigateToJoinRoom()},
-                navigateToActiveRoom = {if (granted) navigateToActiveRoom() else
-                Log.d("MainScreen", "Permission not granted")}
+                navigateToJoinRoom = { if (granted) viewModel.joinRoom() },
+                navigateToActiveRoom = {
+                    if (granted) navigateToActiveRoom() else
+                        Log.d("MainScreen", "Permission not granted")
+                }
             )
         }
     }
@@ -179,6 +209,6 @@ private fun MainActionCard(
 fun WavesynchThemePreview() {
     WavesynchTheme(darkTheme = false) {
 
-        SyncWaveMainScreenWithAppBar(navigateToActiveRoom = {}, navigateToJoinRoom = {})
+        SyncWaveMainScreenWithAppBar(navigateToActiveRoom = {}, navigateToJoinRoom = {}, navigateToCurrentRoom = {})
     }
 }

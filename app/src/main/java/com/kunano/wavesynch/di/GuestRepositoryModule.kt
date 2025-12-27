@@ -3,7 +3,7 @@ package com.kunano.wavesynch.di
 import android.content.Context
 import com.kunano.wavesynch.data.repository.GuestRepositoryImpl
 import com.kunano.wavesynch.data.stream.AudioReceiver
-import com.kunano.wavesynch.data.wifi.WifiP2pGuestManager
+import com.kunano.wavesynch.data.wifi.client.ClientManager
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import dagger.Binds
 import dagger.Module
@@ -29,9 +29,9 @@ abstract class GuestRepositoryModule {
     companion object {
         @Provides
         @Singleton
-        fun provideWifiP2pGuestManager(
+        fun provideClientManager(
             @ApplicationContext context: Context
-        ): WifiP2pGuestManager = WifiP2pGuestManager(
+        ): ClientManager = ClientManager(
             context,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         )

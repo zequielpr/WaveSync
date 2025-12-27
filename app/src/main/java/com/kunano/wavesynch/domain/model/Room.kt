@@ -6,31 +6,22 @@ data class Room(
     val name: String,
 )
 
- data class TrustedGuest(
-    var userName: String?,
-    var userId: String,
-    var deviceName: String?,
-    var isConnected: Boolean = false,
+data class TrustedGuest(
+    val userName: String?,
+    val userId: String,
+    val deviceName: String?,
+    val isConnected: Boolean = false,
 )
 
 data class Guest(
-    var userName: String,
-    var userId: String,
-    var deviceName: String,
-){
-    // Force equality only by userId
-    override fun equals(other: Any?): Boolean {
-        return other is Guest && other.userId == this.userId
-    }
-
-    override fun hashCode(): Int {
-        return userId.hashCode()
-    }
-}
+    val userName: String,
+    val userId: String,
+    val deviceName: String,
+    val isPlaying: Boolean = false,
+)
 
 
 data class RoomWithTrustedGuests(
     val roomId: Long,
     var userId: String,
-    var isConnected: Boolean = false,
 )

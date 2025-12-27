@@ -1,21 +1,11 @@
 package com.kunano.wavesynch.ui.guest.join_room
 
-import android.net.wifi.p2p.WifiP2pDevice
 import android.util.Log
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -27,19 +17,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
+import com.kunano.wavesynch.ui.utils.QrScannerScreen
 import com.kunano.wavesynch.ui.utils.UiEvent
 
 
@@ -53,13 +41,17 @@ fun JoinRoomViewCompose(
     val UIState = viewModel.uiState.collectAsStateWithLifecycle()
     val snackBarHostState by remember { mutableStateOf(SnackbarHostState()) }
 
+
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             Log.d("JoinRoomViewCompose", "LaunchedEffect: $event")
             when (event) {
                 is UiEvent.ShowSnackBar -> snackBarHostState.showSnackbar(event.message)
                 is UiEvent.NavigateBack -> onBack()
-                is UiEvent.NavigateTo -> {navigateTo(event.screen)}
+                is UiEvent.NavigateTo -> {
+                    navigateTo(event.screen)
+                }
+
                 else -> {}
             }
         }
@@ -90,84 +82,48 @@ fun JoinRoomViewCompose(
                 .padding(it)
                 .padding(start = AppDimens.Padding.left, end = AppDimens.Padding.right)
         ) {
+            CheckIfDeviceIsHost(navigateBack = onBack)
+            QrScannerScreen(
+                onResult = { qrContent ->
+                    val ssid = qrContent.split("\"")[0]
+                    val password = qrContent.split("\"")[1]
 
-            AvailableHostsList()
+
+                    if (ssid.isNotEmpty()) {
+                        viewModel.connectToHotspot(ssid, password)
+                    }
+                }
+            )
+
 
         }
     }
 }
 
-@Composable
-fun AvailableHostsList(viewModel: JoinRoomViewModel = hiltViewModel()) {
-    val UIState = viewModel.uiState.collectAsStateWithLifecycle()
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 32.dp)
-    ) {
-
-        UIState.value.availableHostsList?.let {
-            Log.d("JoinRoomViewCompose", "AvailableHostsList: ${it.size}")
-            items(it) { host ->
-                HostItem(
-                    host = host,
-                )
-            }
-        }
-    }
-
-
-}
-
 
 @Composable
-fun HostItem(
-    host: WifiP2pDevice,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-    viewModel: JoinRoomViewModel = hiltViewModel(),
-) {
-    var showJoinRoomRequest by remember { mutableStateOf(false) }
-
-    if (showJoinRoomRequest) {
-        CustomDialogueCompose(
-            text = stringResource(R.string.ask_to_join_room),
-            title = stringResource(R.string.join_room),
-            onDismiss = { showJoinRoomRequest = false },
-            onConfirm = {
-                viewModel.joinRoom(host)
-                showJoinRoomRequest = false
-            },
-
-            show = showJoinRoomRequest,
-        )
-    }
+fun CheckIfDeviceIsHost(navigateBack: () -> Unit) {
+    val viewModel: JoinRoomViewModel = hiltViewModel()
+    val isThisDeviceHost = viewModel.checkIfHotspotIsRunning()
+    var showDialog by remember { mutableStateOf(isThisDeviceHost) }
 
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable { showJoinRoomRequest = true },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.mobile_cast_48px), // Placeholder icon
-                contentDescription = "Guest Icon",
-                modifier = Modifier.size(40.dp)
-            )
-            Text(
-                text = host.deviceName,
-                style = MaterialTheme.typography.bodyMedium.copy(color = textColor),
-                modifier = Modifier.padding(start = 16.dp)
-            )
-        }
-    }
+    CustomDialogueCompose(
+        title = stringResource(R.string.stop_hosting_room),
+        text = stringResource(R.string.you_are_hosting_room),
+        acceptButtonText = stringResource(R.string.yes),
+        onDismiss = {
+            navigateBack()
+            showDialog = false
+        },
+        onConfirm = {
+            viewModel.finishSessionAsHost()
+            showDialog = false
+        },
+        show = showDialog,
+    )
+
+
 }
 
 

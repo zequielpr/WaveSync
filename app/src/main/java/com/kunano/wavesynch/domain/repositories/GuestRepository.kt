@@ -1,22 +1,26 @@
 package com.kunano.wavesynch.domain.repositories
 
-import android.net.wifi.p2p.WifiP2pDevice
-import com.kunano.wavesynch.data.wifi.GuestConnectionEvent
-import com.kunano.wavesynch.data.wifi.HandShakeResult
+import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 
 interface GuestRepository{
-    val currentPeers: Flow<List<WifiP2pDevice>>
-    val connectionEvents: SharedFlow<GuestConnectionEvent>
-    val hanShakeResponse: SharedFlow<HandShakeResult>
+    val isPlayingState: StateFlow<Boolean>
+    val hanShakeResponse: Flow<HandShakeResult>
+    val clientConnectionsStateFLow: Flow<ClientConnectionsState>
 
 
 
+
+    fun connectToHotspot(password: String, ssid: String)
     fun startReceivingAudioStream()
-    suspend fun discoverPeers(onStarted: (Boolean) -> Unit = {})
-    suspend fun connectTo(device: WifiP2pDevice): Result<Unit>
-    suspend fun connectToHostServer(device: WifiP2pDevice)
-    suspend fun leaveRoom(device: WifiP2pDevice): Result<Unit>
+    fun connectToServer()
+    suspend fun leaveRoom(): Boolean
+    fun pauseAudio()
+    fun resumeAudio()
+    fun isConnectedToHotspotAsGuest(): Boolean
+    fun isConnectedToAudioServer(): Boolean
 
 }

@@ -24,10 +24,6 @@ class SoundRoomRepositoryImpl @Inject constructor(
 
     }
 
-    override suspend fun joinRoom(roomId: String) {
-
-    }
-
     override fun observerRooms(): Flow<List<Room>> {
         return roomDao.observerRooms().map { rooms ->
             rooms.map { it.toDomain() }
@@ -75,9 +71,7 @@ class SoundRoomRepositoryImpl @Inject constructor(
        return trustedGuestDao.update(trustedGuest.toEntity())
     }
 
-    override suspend fun updateConnectionStatus(roomWithTrustedGuests: RoomWithTrustedGuests): Int {
-        return roomTrustedGuestCrossRefDao.updateConnectionStatus(roomWithTrustedGuests.toEntity())
-    }
+
 
 
     override fun observerRoomGuests(roomId: Long): Flow<List<TrustedGuest>> {

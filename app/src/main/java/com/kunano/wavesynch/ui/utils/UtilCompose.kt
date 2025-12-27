@@ -1,15 +1,20 @@
 package com.kunano.wavesynch.ui.utils
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,13 +23,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -45,8 +53,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,13 +65,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewModel
 import java.util.concurrent.Executors
 import kotlin.math.min
 
@@ -96,7 +113,6 @@ fun CustomDialogueCompose(
             confirmButton = {
                 TextButton(onClick = {
                     onConfirm()
-                    onDismiss()
                 }) {
                     Text(acceptButtonText, style = buttonTextStyle)
                 }
@@ -340,7 +356,6 @@ fun QrScannerScreen(
 fun CameraPreview(
     modifier: Modifier = Modifier,
     onQrCodeScanned: (String) -> Unit,
-    viewModel: JoinRoomViewModel = hiltViewModel(),
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -373,7 +388,7 @@ fun CameraPreview(
                 analysis.setAnalyzer(
                     Executors.newSingleThreadExecutor()
                 ) { imageProxy ->
-                    //viewModel.processImage(scanner, imageProxy, onQrCodeScanned)
+                    processImage(scanner, imageProxy, onQrCodeScanned)
                 }
 
                 try {
@@ -395,6 +410,123 @@ fun CameraPreview(
 }
 
 
+fun generateQrBitmap(
+    content: String,
+    size: Int = 600,
+    bgColor: Color = Color.White,
+    fgColor: Color = Color.Black
+): Bitmap {
+
+    val writer = QRCodeWriter()
+    val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size)
+
+    val bmp = createBitmap(size, size, Bitmap.Config.RGB_565)
+
+    for (x in 0 until size) {
+        for (y in 0 until size) {
+            bmp[x, y] =
+                if (bitMatrix[x, y]) fgColor.toArgb() else bgColor.toArgb()
+        }
+    }
+
+    return bmp
+}
+
+private fun makeQrMatrix(content: String, size: Int, marginModules: Int = 2) =
+    QRCodeWriter().encode(
+        content,
+        BarcodeFormat.QR_CODE,
+        size,
+        size,
+        mapOf(
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
+            EncodeHintType.MARGIN to marginModules
+        )
+    )
+
+@SuppressLint("UnsafeOptInUsageError")
+private fun processImage(
+    scanner: BarcodeScanner,
+    imageProxy: ImageProxy,
+    onQrCodeScanned: (String) -> Unit,
+) {
+    val mediaImage = imageProxy.image
+    if (mediaImage != null) {
+        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        scanner.process(image)
+            .addOnSuccessListener { barcodes ->
+                for (barcode in barcodes) {
+                    barcode.rawValue?.let {
+                        onQrCodeScanned(it)
+                    }
+                }
+            }
+            .addOnFailureListener {
+                // Handle failure
+            }
+            .addOnCompleteListener {
+                imageProxy.close()
+            }
+    } else {
+        imageProxy.close()
+    }
+}
+
+
+
+@Composable
+fun BlockingLoadingOverlay(
+    isLoading: Boolean,
+    message: String? = null,
+    modifier: Modifier = Modifier
+) {
+    if (!isLoading) return
+
+    // Full-screen overlay that blocks interactions behind it
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            // clickable with no indication consumes all pointer input
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { /* consume clicks */ }
+            .semantics { contentDescription = "Loading" },
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                if (message != null) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+
+@Preview(showBackground = true)
+@Composable
+fun BlockingLoadingOverlayPreview() {
+    BlockingLoadingOverlay(isLoading = true)
+}
+
+
+
+
 @Preview(showBackground = true)
 @Composable
 fun QrScanFramePreview() {
@@ -413,4 +545,3 @@ fun CustomDialoguePreview() {
         show = true
     )
 }
-

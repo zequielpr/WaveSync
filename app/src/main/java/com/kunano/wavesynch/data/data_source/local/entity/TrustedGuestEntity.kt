@@ -10,6 +10,5 @@ data class TrustedGuestEntity(
 
     var userName: String?,
     var deviceName: String?,
-    var isConnected: Boolean = false
 )
 

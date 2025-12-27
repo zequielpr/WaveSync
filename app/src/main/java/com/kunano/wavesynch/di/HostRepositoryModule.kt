@@ -1,11 +1,15 @@
 package com.kunano.wavesynch.di
 
 import android.content.Context
+import android.net.wifi.WifiManager
 import com.kunano.wavesynch.data.repository.HostRepositoryImpl
 import com.kunano.wavesynch.data.stream.HostStreamer
-import com.kunano.wavesynch.data.wifi.WifiDirectManager
+import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
+import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.domain.repositories.HostRepository
-import com.kunano.wavesynch.domain.usecase.trusted_guest_use_cases.GetRoomTrustedGuestsUseCase
+import com.kunano.wavesynch.domain.repositories.SoundRoomRepository
+import com.kunano.wavesynch.domain.usecase.host.HostUseCases
+import com.kunano.wavesynch.domain.usecase.host.GetRoomTrustedGuestsUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -22,22 +26,46 @@ abstract class HostRepositoryModule {
     @Binds
     @Singleton
     abstract fun bindHostRepository(
-        impl: HostRepositoryImpl
+        impl: HostRepositoryImpl,
     ): HostRepository
 
     companion object {
         @Provides
         @Singleton
-        fun provideWifiDirectManager(
+        fun provideServerManager(
             @ApplicationContext context: Context,
             getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase
-        ): WifiDirectManager = WifiDirectManager(context, getRoomTrustedGuestsUseCase)
+        ): ServerManager = ServerManager(context, getRoomTrustedGuestsUseCase)
 
         @Provides
         @Singleton
         fun provideHostStreamer(
-            @ApplicationContext context: Context,
         ): HostStreamer = HostStreamer()
+
+        @Provides
+        @Singleton
+        fun provideWifiManager(
+            @ApplicationContext context: Context,
+        ): WifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+
+
+        @Provides
+        @Singleton
+        fun provideHostUseCase(
+            hostRepository: HostRepository,
+            soundRoomRepository: SoundRoomRepository,
+        ): HostUseCases =
+            HostUseCases(hostRepository = hostRepository, soundRoomRepository = soundRoomRepository)
+
+
+        //hotSpotImplementation
+        @Provides
+        @Singleton
+        fun provideLocalHotSpotController(
+            wifiManager: WifiManager,
+            @ApplicationContext context: Context,
+        ): LocalHotspotController = LocalHotspotController(wifiManager, context)
+
     }
 }
-

@@ -23,8 +23,7 @@ fun Room.toEntity() = RoomEntity(
 fun TrustedGuestEntity.toDomain() = TrustedGuest(
     userName = userName,
     userId = userId,
-    deviceName = deviceName,
-    isConnected = isConnected
+    deviceName = deviceName
 )
 
 fun TrustedGuest.toEntity() = TrustedGuestEntity(
@@ -37,12 +36,10 @@ fun TrustedGuest.toEntity() = TrustedGuestEntity(
 //Room with trusted guests mapper
 fun RoomTrustedGuestCrossRefEntity.toDomain() = RoomWithTrustedGuests(
     roomId = roomId,
-    userId = userId,
-    isConnected = isConnected
+    userId = userId
 )
 
 fun RoomWithTrustedGuests.toEntity() = RoomTrustedGuestCrossRefEntity(
     roomId = roomId,
-    userId = userId,
-    isConnected = isConnected
+    userId = userId
 )
