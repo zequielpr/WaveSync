@@ -1,6 +1,12 @@
 <resources>
-    <string name="app_name">SyncWave</string>
-    <string name="share_sound">Share sound</string>
+    <string name="expel">Expel guest</string>
+    <string name="are_you_sure_to_expel">Are you sure you want to expel this guest?</string>
+    <string name="guest_expelled">Guest expelled successfully</string>
+    <string name="pause">Pause</string>
+    <string name="play">Play</string>
+    <string name="app_name">WaveSync</string>
+    <string name="start_streaming">Start streaming</string>
+     <string name="share_sound">Share sound</string>
     <string name="join_sound_room">Join Sound Room</string>
     <string name="empty_room">Empty room</string>
     <string name="delete_room">Delete room</string>
@@ -9,6 +15,7 @@
     <string name="scan_qr_code_to_connect">Scan QR code to connect</string>
     <string name="connected_to">Connected to</string>
     <string name="leave_room">Leave room</string>
+    <string name="are_you_sure_you_want_to_leave_this_room">Are you sure you want to leave this room?</string>
     <string name="default_room_name">Room</string>
     <string name="yes">Yes</string>
     <string name="cancel">Cancel</string>
@@ -19,8 +26,45 @@
     <string name="room_name_updated">Room name updated      </string>
     <string name="error_deleting_room">Error deleting room</string>
     <string name="something_went_wrong">Something went wrong</string>
-    <string name="enter_new_name">Enter new name</string>
-
+    <string name="enter_new_name">Enter new room name</string>
+    <string name="request_declined">Request declined</string>
+    <string name="error_joining_room_guest">Error joining room guest</string>
+    <string name="success_joining_room">Success joining room</string>
+    <string name="error_updating_room_name">Error updating room name</string>
+    <string name="error_joining_room">Error joining room</string>
+    <string name="error_leaving_room">Error leaving room</string>
+    <string name="waiting_for_guests_to_join">Waiting for guests to join</string>
+    <string name="searching_for_hosts">Searching for hosts…</string>
+    <string name="available_hosts">Available hosts</string>
+    <string name="no_hosts_found">No hosts found</string>
+    <string name="join_room">Join room</string>
+    <string name="wants_to_join_room">wants to join your room</string>
+    <string name="ask_to_join_room">Do you want to join this host\'s room?</string>
+    <string name="room_is_full">Room is full</string>"
+    <string name="room_not_found">Room not found</string>
+    <string name="error_joining_room_host">Error joining room host</string>
+    <string name="error_leaving_room_host">Error leaving room host</string>
+    <string name="guest_name">Guest name</string>
+    <string name= "accept">Accept</string>
+    <string name="decline">Decline</string>
+    <string name="trust_guest">Trust guest</string>
+    <string name="stop_hosting_room">Stop hosting room</string>
+    <string name="start_hosting_room">Start hosting room</string>
+    <string name="you_are_hosting_room">You are hosting a room. Do you want to stop hosting to join another room?</string>
+    <string name="ask_to_stop_hosting_room">Are you sure you want to stop hosting this room?</string>
+    <string name="you_are_joined_to_room">You are joined to room. Do you want to leave the room start hosting your own room?</string>
+    <string name="room_left_successfully">Room left successfully</string>
+    <string name="stop_streaming">Stop streaming</string>
+    <string name="you_have_stopped_streaming">You have stopped streaming</string>
+    <string name="are_you_sure_you_stop_streaming">Are you sure you want to stop streaming</string>
+    <string name="are_you_sure_you_empty_room">Are you sure you want to empty this room</string>
+    <string name="playing_audio_from">Playing audio from</string>
+    <string name="audio_capture_service">Audio Capturer</string>
+    <string name="streaming_audio">Streaming audio</string>
+    <string name="room_ready">Room ready</string>
+    <string name="waiting_for_guest">Waiting for guests</string>
+    <string name="start">Start</string>
+    <string name="room_emptied">Room emptied</string>
 
 
 </resources>
