@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.ui.nav.Screen
@@ -32,7 +33,6 @@ class MainScreenViewModel @Inject constructor(
     val uiEvent = _uiEven.asSharedFlow()
 
 
-
     init {
         viewModelScope.launch {
             hostUseCases.observerRooms().catch {
@@ -42,9 +42,19 @@ class MainScreenViewModel @Inject constructor(
                 _UIState.value = _UIState.value.copy(!rooms.isEmpty())
 
             }
+
         }
 
     }
+
+
+    private fun navigateTo(screen: Screen){
+        viewModelScope.launch {
+            _uiEven.emit(UiEvent.NavigateTo(screen))
+        }
+
+    }
+
 
 
     fun shareSound(navigateToShareSound: () -> Unit) {
@@ -65,17 +75,11 @@ class MainScreenViewModel @Inject constructor(
 
 
     fun joinRoom() {
-        viewModelScope.launch {
-
-            val result = guestUseCases.isConnectedToHotspotAsGuest()
-            Log.d("MainScreen", "already joined: $result")
-            if (result) {
-                _uiEven.emit(UiEvent.NavigateTo(Screen.CurrentRoomScreen))
-            }else{
-                _uiEven.emit(UiEvent.NavigateTo(Screen.JoinRoomScreen))
-            }
-
-
+        val isConnectedToHostServer = guestUseCases.isConnectedToServer()
+        if (isConnectedToHostServer) {
+            navigateTo(Screen.CurrentRoomScreen)
+        } else {
+            navigateTo(Screen.JoinRoomScreen)
         }
     }
 }

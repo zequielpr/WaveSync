@@ -11,10 +11,16 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,10 +55,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -60,6 +71,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -78,6 +90,7 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.ui.theme.OverlayColor
 import java.util.concurrent.Executors
 import kotlin.math.min
 
@@ -141,8 +154,6 @@ fun CustomToggleCompose(labelName: String, onChange: (state: Boolean) -> Unit) {
         )
         Spacer(Modifier.width(8.dp))
         Text(labelName)
-
-
 
 
     }
@@ -226,7 +237,7 @@ fun QrScanFrame(
     cornerLength: Dp = 24.dp,
     cornerStroke: Dp = 4.dp,
     cornerColor: Color = MaterialTheme.colorScheme.primary,
-    overlayColor: Color = Color(0x88000000),
+    overlayColor: Color = OverlayColor,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -253,30 +264,59 @@ fun QrScanFrame(
             val cl = cornerLength.toPx()
             val stroke = cornerStroke.toPx()
 
-            // Corners
-            fun drawCorner(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
-                drawLine(
+            fun drawCornerRounded(
+                xA: Float,
+                yA: Float,
+                xCorner: Float,
+                yCorner: Float,
+                xB: Float,
+                yB: Float,
+            ) {
+                val path = Path().apply {
+                    moveTo(xA, yA)
+                    lineTo(xCorner, yCorner)
+                    lineTo(xB, yB)
+                }
+
+                drawPath(
+                    path = path,
                     color = cornerColor,
-                    start = Offset(x1, y1),
-                    end = Offset(x2, y2),
-                    strokeWidth = stroke
-                )
-                drawLine(
-                    color = cornerColor,
-                    start = Offset(x1, y1),
-                    end = Offset(x3, y3),
-                    strokeWidth = stroke
+                    style = Stroke(
+                        width = stroke,
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
                 )
             }
 
-            // TL
-            drawCorner(left, top, left + cl, top, left, top + cl)
-            // TR
-            drawCorner(right, top, right - cl, top, right, top + cl)
-            // BL
-            drawCorner(left, bottom, left + cl, bottom, left, bottom - cl)
-            // BR
-            drawCorner(right, bottom, right - cl, bottom, right, bottom - cl)
+            // TL (from right -> corner -> down)
+            drawCornerRounded(
+                xA = left + cl, yA = top,
+                xCorner = left, yCorner = top,
+                xB = left, yB = top + cl
+            )
+
+            // TR (from left -> corner -> down)
+            drawCornerRounded(
+                xA = right - cl, yA = top,
+                xCorner = right, yCorner = top,
+                xB = right, yB = top + cl
+            )
+
+            // BL (from right -> corner -> up)
+            drawCornerRounded(
+                xA = left + cl, yA = bottom,
+                xCorner = left, yCorner = bottom,
+                xB = left, yB = bottom - cl
+            )
+
+            // BR (from left -> corner -> up)
+            drawCornerRounded(
+                xA = right - cl, yA = bottom,
+                xCorner = right, yCorner = bottom,
+                xB = right, yB = bottom - cl
+            )
+
         }
     }
 }
@@ -416,7 +456,7 @@ fun generateQrBitmap(
     content: String,
     size: Int = 600,
     bgColor: Color = Color.White,
-    fgColor: Color = Color.Black
+    fgColor: Color = Color.Black,
 ): Bitmap {
 
     val writer = QRCodeWriter()
@@ -434,17 +474,7 @@ fun generateQrBitmap(
     return bmp
 }
 
-private fun makeQrMatrix(content: String, size: Int, marginModules: Int = 2) =
-    QRCodeWriter().encode(
-        content,
-        BarcodeFormat.QR_CODE,
-        size,
-        size,
-        mapOf(
-            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
-            EncodeHintType.MARGIN to marginModules
-        )
-    )
+
 
 @SuppressLint("UnsafeOptInUsageError")
 private fun processImage(
@@ -475,12 +505,11 @@ private fun processImage(
 }
 
 
-
 @Composable
 fun BlockingLoadingOverlay(
     isLoading: Boolean,
     message: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     if (!isLoading) return
 
@@ -498,17 +527,26 @@ fun BlockingLoadingOverlay(
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 6.dp
+            shape = MaterialTheme.shapes.medium,
+            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surface
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .height(60.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
                 if (message != null) {
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.weight(0.3f))
                     Text(
+                        textAlign = TextAlign.Center,
                         text = message,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -518,15 +556,32 @@ fun BlockingLoadingOverlay(
     }
 }
 
+@Composable
+fun PulsingDots() {
+    val transition = rememberInfiniteTransition(label = "dots")
+    val alpha by transition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    Text(
+        text = "Waiting…",
+        modifier = Modifier.alpha(alpha),
+        style = MaterialTheme.typography.bodyMedium
+    )
+}
 
 
 @Preview(showBackground = true)
 @Composable
 fun BlockingLoadingOverlayPreview() {
-    BlockingLoadingOverlay(isLoading = true)
+    BlockingLoadingOverlay(isLoading = true, message = "Loading...")
 }
-
-
 
 
 @Preview(showBackground = true)

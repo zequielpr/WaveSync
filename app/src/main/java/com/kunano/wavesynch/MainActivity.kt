@@ -2,7 +2,6 @@ package com.kunano.wavesynch
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -75,9 +74,7 @@ class MainActivity : ComponentActivity() {
         NavHost(navController = navController, startDestination = Screen.MainScreen) {
             composable<Screen.MainScreen>() {
                 SyncWaveMainScreenWithAppBar(
-                    navigateToActiveRoom = { navController.navigate(Screen.ActiveRoomScreen) },
-                    navigateToJoinRoom = { navController.navigate(Screen.JoinRoomScreen) },
-                    navigateToCurrentRoom = { navController.navigate(Screen.CurrentRoomScreen) })
+                    navigateTo = { navController.navigate(it)})
             }
 
             composable<Screen.ActiveRoomScreen>() {
@@ -89,13 +86,13 @@ class MainActivity : ComponentActivity() {
 
             composable<Screen.JoinRoomScreen>() {
                 JoinRoomViewCompose(
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) },
                     navigateTo = { navController.navigate(it) })
             }
 
             composable<Screen.CurrentRoomScreen>() {
                 CurrentRoomCompose(
-                    onBack = { navController.navigate(Screen.MainScreen) },
+                    onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) },
                     navigateTo = { navController.navigate(it) })
             }
 
@@ -127,8 +124,6 @@ fun WavesynchThemePreview() {
     WavesynchTheme(darkTheme = false) {
 
         SyncWaveMainScreenWithAppBar(
-            navigateToActiveRoom = {},
-            navigateToJoinRoom = {},
-            navigateToCurrentRoom = {})
+            navigateTo = {})
     }
 }

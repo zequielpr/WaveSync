@@ -39,10 +39,19 @@ class ClientManager(
     var handShakeFromHost: HandShake? = null
 
     var socket: Socket? = null
+    var isConnectedToHostServer: Boolean = false
+
+    private var sessionData: SessionData? = null
+
+    val sessionInfo: SessionData?
+        get() = sessionData
+
+
+
 
 
     /** Open TCP socket to host and do handshake */
-    fun connectToServer(hostIp: String, onConnected: () -> Unit) {
+    fun connectToServer(hostIp: String, onConnecting: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             runCatching {
                 // Create a new socket for each connection attempt
@@ -56,7 +65,7 @@ class ClientManager(
                     receiveHandShakeResponse(it)
                 }
 
-                onConnected
+                onConnecting
             }.onFailure { e ->
                 Log.e(TAG, "Error connecting to server", e)
             }
@@ -92,6 +101,8 @@ class ClientManager(
     }
 
 
+
+
     private fun processHandshakeResponse(handShake: HandShake) {
 
         handShake.response?.let {
@@ -101,7 +112,12 @@ class ClientManager(
                     HandShakeResult.DeclinedByHost(handShake)
                 )
 
-                HandShakeResult.Success().intValue -> _handShakeResponseFlow.tryEmit(HandShakeResult.Success(handShake))
+                HandShakeResult.Success().intValue -> {
+                    isConnectedToHostServer = true
+                    sessionData = SessionData(handShake.roomName, handShake.deviceName)
+                    _handShakeResponseFlow.tryEmit(HandShakeResult.Success(handShake))
+                }
+
                 HandShakeResult.HostApprovalRequired().intValue -> _handShakeResponseFlow.tryEmit(
                     HandShakeResult.HostApprovalRequired(handShake)
                 )
@@ -114,6 +130,13 @@ class ClientManager(
 
     fun disconnectFromServer() {
         socket?.close()
+        isConnectedToHostServer = false
+        socket = null
+        sessionData = null
+    }
+
+    fun isConnectedToServer(): Boolean {
+        return isConnectedToHostServer
     }
 
 

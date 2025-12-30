@@ -3,7 +3,7 @@ package com.kunano.wavesynch.ui.theme
 import androidx.compose.ui.graphics.Color
 
 //Dark color scheme
-val mainButtons = Color(0xFF3FA9F5)
+val mainButtons = Color(0xFF7B3FE4)
 val StreamingButtons = Color(0xFFFF7ABF)
 
 val PurpleGrey80 = Color(0xFFCCC2DC)
@@ -19,7 +19,9 @@ val SurfaceColor = Color(0xFFFFFFFF)
 val TextColor = Color(0xFF1F1F1F)
 val redAccent = Color(0xFFFF7A7A)
 val greenAccent = Color(0xFF1DB954)
-val transParent = Color(0x00000000)
+val TransParent = Color(0x00000000)
+val OverlayColor = Color(0x88000000)
+
 
 
 val Purple40 = Color(0xFF6650a4)

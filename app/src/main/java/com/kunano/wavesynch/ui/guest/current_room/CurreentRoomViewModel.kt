@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
-import com.kunano.wavesynch.domain.repositories.SessionRepository
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.utils.UiEvent
@@ -25,7 +24,6 @@ import javax.inject.Inject
 class CurrentRoomViewModel @Inject constructor(
     @ApplicationContext val context: Context,
     private val guestUseCases: GuestUseCases,
-    private val sessionRepository: SessionRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CurrentRoomUIState())
@@ -55,10 +53,12 @@ class CurrentRoomViewModel @Inject constructor(
 
 
     private fun populateCurrentRoom() {
-        viewModelScope.launch {
-            sessionRepository.session.collect {
-                _uiState.value = _uiState.value.copy(roomName = it.roomName, hostName = it.hostName)
-            }
+        val sessionInfo = guestUseCases.getSessionInfo()
+        _uiState.update {
+            it.copy(
+                hostName = sessionInfo?.hostName,
+                roomName = sessionInfo?.roomName
+            )
         }
 
     }
@@ -79,7 +79,6 @@ class CurrentRoomViewModel @Inject constructor(
 
     fun leaveRoom() {
         viewModelScope.launch {
-            sessionRepository.clear()
             _uiState.value = _uiState.value.copy(isLoading = true)
             val result = guestUseCases.leaveRoom()
             _uiState.value = _uiState.value.copy(isLoading = false)

@@ -2,11 +2,9 @@ package com.kunano.wavesynch.ui.host.active_room
 
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
-
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -14,7 +12,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +53,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -134,9 +130,12 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
         ) {
 
             Column(
-                modifier = Modifier.padding(
-                    start = AppDimens.Padding.right, end = AppDimens.Padding.left
-                ).fillMaxHeight()
+                modifier = Modifier
+                    .padding(
+                        horizontal = AppDimens.Padding.horizontal,
+                        vertical = AppDimens.Padding.vertical
+                    )
+                    .fillMaxHeight()
             ) {
                 //Launch audio capture request and start streaming
 
@@ -272,39 +271,39 @@ fun CustomTopAppBar(
     val uIState = viewModel.uiState.collectAsStateWithLifecycle()
     TopAppBar(
         colors = TopAppBarColors(
-        containerColor = MaterialTheme.colorScheme.surface,
-        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        actionIconContentColor = MaterialTheme.colorScheme.onSurface
-    ), navigationIcon = {
-        IconButton(onClick = onBack) {
-            Image(
-                painter = painterResource(id = R.drawable.arrow_back_ios_48px),
-                contentDescription = "Back"
-            )
-        }
-    }, actions = {
+            containerColor = MaterialTheme.colorScheme.surface,
+            scrolledContainerColor = MaterialTheme.colorScheme.surface,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurface
+        ), navigationIcon = {
+            IconButton(onClick = onBack) {
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_back_ios_48px),
+                    contentDescription = "Back"
+                )
+            }
+        }, actions = {
 
-        IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!uIState.value.overFlowMenuExpanded) }) {
-            Image(
-                painter = painterResource(R.drawable.more_vert_48px),
-                contentDescription = "More"
-            )
-
-
-        }
-
-        OverFlowMenuCompose()
+            IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!uIState.value.overFlowMenuExpanded) }) {
+                Image(
+                    painter = painterResource(R.drawable.more_vert_48px),
+                    contentDescription = "More"
+                )
 
 
-    }, title = {
-        uIState.value.room?.name?.let {
-            Text(
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), text = it
-            )
-        }
-    })
+            }
+
+            OverFlowMenuCompose()
+
+
+        }, title = {
+            uIState.value.room?.name?.let {
+                Text(
+                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), text = it
+                )
+            }
+        })
 }
 
 
@@ -456,7 +455,9 @@ fun QrCode(
     Image(
         bitmap = qrBitmap.asImageBitmap(),
         contentDescription = "Host QR code",
-        modifier = modifier.size(size.dp).clip(RoundedCornerShape(16.dp))
+        modifier = modifier
+            .size(size.dp)
+            .clip(RoundedCornerShape(16.dp))
     )
 }
 
@@ -555,7 +556,6 @@ fun QrCardCompose(
     val password = uiState.hotspotInfo?.password ?: ""
 
 
-
     val animSpec: TweenSpec<Dp> = tween<Dp>(durationMillis = 260, easing = FastOutSlowInEasing)
 
     val cardHeight by animateDpAsState(
@@ -587,83 +587,95 @@ fun QrCardCompose(
             .clickable { viewModel.setIsQRCodeExpandedState(!expanded) },
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
-       Column(verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxHeight().padding(columnPadding) ) {
-           AnimatedVisibility(
-               visible = !expanded,
-               enter = fadeIn(tween(120)) + expandVertically(tween(220)),
-               exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
-           ) {
-               Row(
-                   modifier = Modifier
-                       .fillMaxWidth(),
-                   verticalAlignment = Alignment.CenterVertically
-               ) {
-                   if (ssid.isNotEmpty()) {
-                       QrCode(ssid = ssid, password = password, size = qrSize.value.toInt())
-                   } else {
-                       CircularProgressIndicator(modifier = Modifier.size(22.dp))
-                   }
+        Column(
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(columnPadding)
+        ) {
+            AnimatedVisibility(
+                visible = !expanded,
+                enter = fadeIn(tween(120)) + expandVertically(tween(220)),
+                exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (ssid.isNotEmpty()) {
+                        QrCode(ssid = ssid, password = password, size = qrSize.value.toInt())
+                    } else {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                    }
 
-                   Text(
-                       modifier = Modifier.padding(start = 20.dp),
-                       textAlign = TextAlign.Start,
-                       text = stringResource(R.string.scan_qr_code_to_connect),
-                       style = textStyleSmall
-                   )
+                    Text(
+                        modifier = Modifier.padding(start = 20.dp),
+                        textAlign = TextAlign.Start,
+                        text = stringResource(R.string.scan_qr_code_to_connect),
+                        style = textStyleSmall
+                    )
 
-                   Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                   IconButton(onClick = { viewModel.setIsQRCodeExpandedState(true) }) {
-                       Image(
-                           painter = painterResource(R.drawable.open_in_full_48px),
-                           contentDescription = "Expand"
-                       )
-                   }
-               }
-           }
+                    IconButton(onClick = { viewModel.setIsQRCodeExpandedState(true) }) {
+                        Image(
+                            painter = painterResource(R.drawable.open_in_full_48px),
+                            contentDescription = "Expand"
+                        )
+                    }
+                }
+            }
 
-           // EXPANDED CONTENT (only exists when expanded)
-           AnimatedVisibility(
-               visible = expanded,
-               enter = fadeIn(tween(120)) + expandVertically(tween(220)),
-               exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
-           ) {
-               Column(
-                   modifier = Modifier
-                       .fillMaxSize()
-                       .padding(bottom = 20.dp, start = 20.dp, end = 20.dp),
-                   horizontalAlignment = Alignment.CenterHorizontally,
-                   verticalArrangement = Arrangement.Center
-               ) {
-                   Row(
-                       modifier = Modifier
-                           .fillMaxWidth(),
-                       horizontalArrangement = Arrangement.End
-                   ) {
-                       IconButton(onClick = { viewModel.setIsQRCodeExpandedState(false) }) {
-                           Image(
-                               painter = painterResource(
-                                   R.drawable.hide_48px
-                               ), contentDescription = "Hide"
-                           )
-                       }
-                   }
-                   if (ssid.isNotEmpty()) {
-                       QrCode(ssid = ssid, password = password)
-                   } else {
-                       CircularProgressIndicator(modifier = Modifier.size(22.dp))
-                   }
+            // EXPANDED CONTENT (only exists when expanded)
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(tween(120)) + expandVertically(tween(220)),
+                exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
+            ) {
 
-                   Text(
-                       modifier = Modifier.padding(top = 30.dp),
-                       textAlign = TextAlign.Center,
-                       text = stringResource(R.string.scan_qr_code_to_connect),
-                       style = textStyleBig
-                   )
-               }
-           }
+                Box() {
+                    IconButton(
+                        onClick = { viewModel.setIsQRCodeExpandedState(false) },
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Image(
+                            painter = painterResource(
+                                R.drawable.hide_48px
+                            ), contentDescription = "Hide"
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 20.dp, start = 20.dp, end = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        if (ssid.isNotEmpty()) {
+                            QrCode(ssid = ssid, password = password)
+                        } else {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                            Text(
+                                stringResource(R.string.generating_qr_code),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
 
-       }
+                        Text(
+                            modifier = Modifier.padding(top = 30.dp),
+                            textAlign = TextAlign.Center,
+                            text = stringResource(R.string.scan_qr_code_to_connect),
+                            style = textStyleBig
+                        )
+                    }
+                }
+            }
+
+        }
 
     }
 }
