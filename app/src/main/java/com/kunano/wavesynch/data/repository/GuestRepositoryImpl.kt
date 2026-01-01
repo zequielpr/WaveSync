@@ -10,6 +10,7 @@ import com.kunano.wavesynch.services.AudioPlayerService
 import com.kunano.wavesynch.data.stream.AudioReceiver
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.data.wifi.client.ClientManager
+import com.kunano.wavesynch.data.wifi.client.SessionData
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
@@ -34,6 +35,10 @@ class GuestRepositoryImpl @Inject constructor(
     override val clientConnectionsStateFLow: Flow<ClientConnectionsState> =
         _clientConnectionsStateFlow
 
+    override fun getSessionInfo(): SessionData? {
+        return clientManager.sessionInfo
+    }
+
     override val hanShakeResponse: Flow<HandShakeResult> = clientManager.handShakeResponse
     
     override fun startReceivingAudioStream() {
@@ -49,11 +54,15 @@ class GuestRepositoryImpl @Inject constructor(
 
         val hotIp: String? = localHotspotController.getGatewayInfo()
         hotIp?.let {
-            clientManager.connectToServer(it, onConnected = {
-                _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectedToServer)
+            clientManager.connectToServer(it, onConnecting = {
+                _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectingToServer)
             })
         }
 
+    }
+
+    override fun isConnectedToServer(): Boolean {
+        return clientManager.isConnectedToHostServer
     }
 
 
@@ -68,17 +77,24 @@ class GuestRepositoryImpl @Inject constructor(
             onFailed = {})
     }
 
+    override suspend fun disconnectFromHotspot(): Boolean{
+        val result = localHotspotController.disconnectFromHotspot()
+        localHotspotController.setIsConnectedToHotspotAsGuest(!result)
+        return result
+    }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override suspend fun leaveRoom(): Boolean{
+
+    fun discConnectFromServer(){
         _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
         val intent = Intent(context, AudioPlayerService::class.java)
         context.stopService(intent)
         clientManager.disconnectFromServer()
+    }
 
-        val result = localHotspotController.disconnectFromHotspot()
-
-        localHotspotController.setIsConnectedToHotspotAsGuest(!result)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override suspend fun leaveRoom(): Boolean{
+        discConnectFromServer()
+        val result = disconnectFromHotspot()
 
         return result
 
@@ -100,6 +116,11 @@ class GuestRepositoryImpl @Inject constructor(
 
     override fun isConnectedToAudioServer(): Boolean {
         TODO()
+    }
+
+    override suspend fun cancelJoinRoomRequest(): Boolean {
+        discConnectFromServer()
+        return disconnectFromHotspot()
     }
 
 

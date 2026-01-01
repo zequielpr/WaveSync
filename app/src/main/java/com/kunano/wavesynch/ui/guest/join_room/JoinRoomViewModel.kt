@@ -6,8 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
-import com.kunano.wavesynch.domain.repositories.SessionRepository
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.ui.nav.Screen
@@ -19,15 +19,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class JoinRoomViewModel @Inject constructor(
     private val guestUseCases: GuestUseCases,
-    private val sessionRepository: SessionRepository,
     @ApplicationContext private val app: Context,
-    private val hostUseCases: HostUseCases
+    private val hostUseCases: HostUseCases,
 ) : ViewModel() {
 
     private val _UiState = MutableStateFlow(JoinRoomUiState())
@@ -40,6 +40,51 @@ class JoinRoomViewModel @Inject constructor(
     init {
         collectHandShakeResults()
         collectConnectionEvents()
+        collectHotspotState()
+    }
+
+
+    fun cancelJoinRoomRequest(){
+        viewModelScope.launch {
+            val result = guestUseCases.cancelJoinRoomRequest()
+            updateWaitingState(!result)
+            setShowCancelRequestDialog(false)
+        }
+    }
+
+    fun setShowCancelRequestDialog(show: Boolean) {
+        _UiState.update { currentState ->
+            currentState.copy(showCancelRequestDialog = show)
+        }
+    }
+
+    private fun collectHotspotState() {
+        viewModelScope.launch {
+            hostUseCases.hotSpotStateFlow.collect {
+                when (it) {
+
+                    HotspotState.Running -> updateDeviceStatus(true)
+                    HotspotState.Stopped -> updateDeviceStatus(false)
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    private fun updateDeviceStatus(isHost: Boolean){
+        _UiState.update { currentState ->
+            currentState.copy(
+                isThisDeviceHost = isHost
+            )
+        }
+    }
+
+    private fun updateWaitingState(waiting: Boolean){
+        _UiState.update { currentState ->
+            currentState.copy(
+                waitingForHostAnswer = waiting
+            )
+        }
     }
 
     private fun collectHandShakeResults() {
@@ -48,39 +93,37 @@ class JoinRoomViewModel @Inject constructor(
                 Log.d("JoinRoomViewModel", "collectHandShakeResults: $it")
                 when (it) {
                     is HandShakeResult.Success -> {
+                        updateWaitingState(false)
                         Log.d("JoinRoomViewModel", "Handshake success ${it.handShake?.roomName}")
-                        sessionRepository.updateRoomName(it.handShake?.roomName)
-                        sessionRepository.updateHostName(it.handShake?.deviceName)
-
                         _uiEvent.send(UiEvent.NavigateTo(Screen.CurrentRoomScreen))
-                        _uiEvent.trySend(UiEvent.ShowSnackBar(app.getString(R.string.success_joining_room)))
+                        showSnackBar(app.getString(R.string.success_joining_room))
 
                     }
 
                     is HandShakeResult.DeclinedByHost -> {
-                        _uiEvent.trySend(UiEvent.ShowSnackBar(app.getString(R.string.request_declined)))
+                        updateWaitingState(false)
+                        showSnackBar(app.getString(R.string.request_declined))
                         Log.d("JoinRoomViewModel", "collectHandShakeResults: declined by host")
                     }
-                    is HandShakeResult.Error -> TODO()
-                    is HandShakeResult.HostApprovalRequired -> TODO()
-                    is HandShakeResult.InvalidAppId -> TODO()
-                    is HandShakeResult.InvalidHandshake -> TODO()
-                    is HandShakeResult.InvalidProtocol -> TODO()
-                    is HandShakeResult.InvalidUserId -> TODO()
-                    HandShakeResult.None -> TODO()
+
+                    is HandShakeResult.Error -> {}
+
+                    else -> {}
                 }
             }
 
         }
     }
 
-    fun checkIfHotspotIsRunning(): Boolean{
-        return hostUseCases.isHotspotRunning()
+    fun showSnackBar(message: String) {
+        viewModelScope.launch {
+            _uiEvent.send(UiEvent.ShowSnackBar(message))
+
+        }
     }
 
 
-
-    fun finishSessionAsHost(){
+    fun finishSessionAsHost() {
         hostUseCases.finishSessionAsHost()
     }
 
@@ -90,7 +133,8 @@ class JoinRoomViewModel @Inject constructor(
             guestUseCases.connectToHotspot(password, ssid)
         }
     }
-    private fun connectToServer(){
+
+    private fun connectToServer() {
         guestUseCases.connectToServer()
     }
 
@@ -100,27 +144,41 @@ class JoinRoomViewModel @Inject constructor(
                 when (it) {
                     ClientConnectionsState.ConnectedToHotspot -> {
                         connectToServer()
-                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to hotspot")}
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to hotspot")
+                    }
+
                     ClientConnectionsState.ConnectedToServer -> {
+                        updateWaitingState(false)
                         guestUseCases.startReceivingAudioStream()
-                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to server")}
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to server")
+                    }
+
                     ClientConnectionsState.ConnectingToHotspot -> {
-                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connecting to hotspot")}
-                    ClientConnectionsState.ConnectingToServer -> {Log.d("JoinRoomViewModel", "collectConnectionEvents: connecting to server")}
-                    ClientConnectionsState.Disconnected -> {Log.d("JoinRoomViewModel", "collectConnectionEvents: disconnected")}
-                    ClientConnectionsState.Idle -> {Log.d("JoinRoomViewModel", "collectConnectionEvents: idle")}
-                    ClientConnectionsState.ReceivingAudioStream -> {Log.d("JoinRoomViewModel", "collectConnectionEvents: receiving audio stream")}
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connecting to hotspot")
+                    }
+
+                    ClientConnectionsState.ConnectingToServer -> {
+                        updateWaitingState(true)
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connecting to server")
+                    }
+
+                    ClientConnectionsState.Disconnected -> {
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: disconnected")
+                    }
+
+                    ClientConnectionsState.Idle -> {
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: idle")
+                    }
+
+                    ClientConnectionsState.ReceivingAudioStream -> {
+                        Log.d(
+                            "JoinRoomViewModel",
+                            "collectConnectionEvents: receiving audio stream"
+                        )
+                    }
                 }
 
             }
-        }
-    }
-
-
-
-    fun leaveRoom() {
-        viewModelScope.launch {
-            guestUseCases.leaveRoom()
         }
     }
 

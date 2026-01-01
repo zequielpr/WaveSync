@@ -3,9 +3,11 @@ package com.kunano.wavesynch.ui.guest.current_room
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
+import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.BlockingLoadingOverlay
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
@@ -71,6 +74,7 @@ fun CurrentRoomCompose(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackBarHostState) },
         topBar = {
             TopAppBar(
@@ -96,10 +100,18 @@ fun CurrentRoomCompose(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .padding(it)
-                .fillMaxWidth()
+                .padding(
+                    horizontal = AppDimens.Padding.horizontal,
+                    vertical = AppDimens.Padding.vertical
+                )
+                .fillMaxSize()
+                .background(color = MaterialTheme.colorScheme.surface)
         ) {
-            CurrentRoomCardCompose(uIState = uIState, pauseAudio = { viewModel.pauseAudio() }, resumeAudio = { viewModel.resumeAudio() })
-            Spacer(modifier = Modifier.height(300.dp))
+            CurrentRoomCardCompose(
+                uIState = uIState,
+                pauseAudio = { viewModel.pauseAudio() },
+                resumeAudio = { viewModel.resumeAudio() })
+            Spacer(modifier = Modifier.weight(1f))
             Button(
                 modifier = Modifier.width(150.dp),
                 shape = RoundedCornerShape(15.dp),
@@ -114,6 +126,7 @@ fun CurrentRoomCompose(
                     style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
                 )
             }
+            Spacer(modifier = Modifier.padding(50.dp))
 
         }
     }
@@ -143,7 +156,11 @@ fun AskToLeaveRoomCompose(show: Boolean, onDismiss: () -> Unit, onConfirm: () ->
 
 
 @Composable
-fun CurrentRoomCardCompose( uIState: CurrentRoomUIState = CurrentRoomUIState(),  pauseAudio: () -> Unit = {}, resumeAudio: () -> Unit = {}) {
+fun CurrentRoomCardCompose(
+    uIState: CurrentRoomUIState = CurrentRoomUIState(),
+    pauseAudio: () -> Unit = {},
+    resumeAudio: () -> Unit = {},
+) {
 
     val textColor = MaterialTheme.colorScheme.onSurface
     val hostNameStyle = MaterialTheme.typography.titleLarge.copy(color = textColor)
@@ -151,8 +168,7 @@ fun CurrentRoomCardCompose( uIState: CurrentRoomUIState = CurrentRoomUIState(), 
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
-        modifier = Modifier
-            .width(300.dp)
+        modifier = Modifier.fillMaxWidth()
             .height(350.dp)
             .padding(top = 50.dp)
     ) {
@@ -170,14 +186,15 @@ fun CurrentRoomCardCompose( uIState: CurrentRoomUIState = CurrentRoomUIState(), 
                 contentDescription = "current room"
             )
 
-            IconButton(onClick = {if (uIState.isReceivingAudio) pauseAudio() else resumeAudio()}) {
-                Image(painter = if (uIState.isReceivingAudio) painterResource(R.drawable.pause_48px) else painterResource(
-                    R.drawable.play_arrow_48px
-                ), contentDescription = "")
+            IconButton(onClick = { if (uIState.isReceivingAudio) pauseAudio() else resumeAudio() }) {
+                Image(
+                    painter = if (uIState.isReceivingAudio) painterResource(R.drawable.pause_48px) else painterResource(
+                        R.drawable.play_arrow_48px
+                    ), contentDescription = ""
+                )
             }
             Spacer(modifier = Modifier.weight(0.2f))
             uIState.roomName?.let { Text(text = it, style = hostNameStyle) }
-
 
 
         }
@@ -195,6 +212,7 @@ fun CurrentRoomComposePreview() {
 @Preview(showBackground = true)
 @Composable
 fun CurrentRoomCardComposePreview() {
-    val currentRoomState = CurrentRoomUIState(hostName = "Guest", roomName = "Room", isLoading = false)
+    val currentRoomState =
+        CurrentRoomUIState(hostName = "Guest", roomName = "Room", isLoading = false)
     CurrentRoomCardCompose(currentRoomState)
 }

@@ -38,7 +38,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.ui.theme.transParent
 
 @Composable
 fun OnboardingScreen(navigateToMainScreen: () -> Unit = {}) {

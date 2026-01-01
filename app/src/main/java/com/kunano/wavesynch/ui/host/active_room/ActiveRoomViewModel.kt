@@ -399,6 +399,9 @@ class ActiveRoomViewModel @Inject constructor(
                     HotspotState.Starting -> {
                         Log.d("ActiveRoomViewModel", "collectHotSpotState: Starting")
                     }
+
+                    HotspotState.Stopped -> {}
+                    HotspotState.Stopping -> {}
                 }
             }
 

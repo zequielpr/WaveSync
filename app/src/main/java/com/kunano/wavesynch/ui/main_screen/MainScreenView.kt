@@ -2,7 +2,9 @@
 
 package com.kunano.wavesynch.ui.main_screen
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,19 +46,22 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
+import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.UiEvent
 
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun SyncWaveMainScreenWithAppBar(
     textColor: Color = MaterialTheme.colorScheme.onSurface,
-    navigateToActiveRoom: () -> Unit,
-    navigateToJoinRoom: () -> Unit,
-    navigateToCurrentRoom: () -> Unit,
+    navigateTo: (screen: Screen) -> Unit,
     viewModel: MainScreenViewModel = hiltViewModel(),
 ) {
+    val uiState by viewModel.UIState.collectAsStateWithLifecycle()
+
+
     var granted by remember { mutableStateOf(false) }
 
     if (!granted) {
@@ -69,20 +74,11 @@ fun SyncWaveMainScreenWithAppBar(
         )
     }
 
-    LaunchedEffect("NavigateToJoinRoomOCurrentRoom") {
+    LaunchedEffect( viewModel.uiEvent) {
         viewModel.uiEvent.collect {
             when (it) {
-                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> TODO()
-                is UiEvent.NavigateBack -> TODO()
-                is UiEvent.NavigateTo -> {
-                    if (it.screen is Screen.CurrentRoomScreen) {
-                        navigateToCurrentRoom()
-                    } else {
-                        navigateToJoinRoom()
-                    }
-                }
-
-                is UiEvent.ShowSnackBar -> TODO()
+                is UiEvent.NavigateTo -> navigateTo(it.screen)
+                else -> {}
             }
 
         }
@@ -109,7 +105,7 @@ fun SyncWaveMainScreenWithAppBar(
             SynchWaveMainScreen(
                 navigateToJoinRoom = { if (granted) viewModel.joinRoom() },
                 navigateToActiveRoom = {
-                    if (granted) navigateToActiveRoom() else
+                    if (granted) navigateTo(Screen.ActiveRoomScreen) else
                         Log.d("MainScreen", "Permission not granted")
                 }
             )
@@ -124,7 +120,6 @@ fun SynchWaveMainScreen(
     viewModel: MainScreenViewModel = hiltViewModel(),
     navigateToActiveRoom: () -> Unit, navigateToJoinRoom: () -> Unit,
 ) {
-    val UIState = viewModel.UIState.collectAsStateWithLifecycle()
     Surface(
         color = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxSize()
@@ -132,11 +127,11 @@ fun SynchWaveMainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = AppDimens.Padding.horizontal, vertical = AppDimens.Padding.vertical),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.weight(0.1f))
 
             // Share sound card
             MainActionCard(
@@ -146,7 +141,7 @@ fun SynchWaveMainScreen(
                 onClick = { viewModel.shareSound(navigateToShareSound = navigateToActiveRoom) }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(0.1f))
 
             // Join room card
             MainActionCard(
@@ -155,6 +150,8 @@ fun SynchWaveMainScreen(
                 iconPainter = painterResource(R.drawable.join_sound_room),
                 onClick = navigateToJoinRoom
             )
+            //An ad banner will be added on this section
+            Spacer(modifier = Modifier.weight(0.5f))
         }
     }
 }
@@ -209,6 +206,6 @@ private fun MainActionCard(
 fun WavesynchThemePreview() {
     WavesynchTheme(darkTheme = false) {
 
-        SyncWaveMainScreenWithAppBar(navigateToActiveRoom = {}, navigateToJoinRoom = {}, navigateToCurrentRoom = {})
+        SyncWaveMainScreenWithAppBar(navigateTo = {})
     }
 }

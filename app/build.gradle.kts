@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.compose.animation.core)
     implementation(libs.androidx.compose.animation)
+    implementation(libs.ui)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

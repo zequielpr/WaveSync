@@ -80,7 +80,7 @@ class LocalHotspotController @Inject constructor(
 
                 override fun onStopped() {
                     reservation = null
-                    _hotspotStateFlow.tryEmit(HotspotState.Idle)
+                    _hotspotStateFlow.tryEmit(HotspotState.Stopped)
                 }
 
                 override fun onFailed(reason: Int) {
@@ -94,6 +94,7 @@ class LocalHotspotController @Inject constructor(
     fun stopHotspot() {
         reservation?.close()
         reservation = null
+        _hotspotStateFlow.tryEmit(HotspotState.Stopped)
     }
 
     fun isHotspotRunning(): Boolean {
