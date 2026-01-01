@@ -9,15 +9,14 @@ import android.media.projection.MediaProjection
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import java.net.DatagramPacket
 
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
 
     companion object {
-        private const val SAMPLE_RATE = 44100
-        private const val CHANNEL_MASK = AudioFormat.CHANNEL_IN_STEREO
-        private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
+
     }
 
     private var audioRecord: AudioRecord? = null
@@ -35,15 +34,15 @@ class HostAudioCapturer(
             .build()
 
         val format = AudioFormat.Builder()
-            .setEncoding(ENCODING)
-            .setSampleRate(SAMPLE_RATE)
-            .setChannelMask(CHANNEL_MASK)
+            .setEncoding(AudioStreamConstants.AUDIO_FORMAT)
+            .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
+            .setChannelMask(AudioStreamConstants.CHANNEL_MASK)
             .build()
 
         val minBuffer = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE,
-            CHANNEL_MASK,
-            ENCODING
+            AudioStreamConstants.SAMPLE_RATE,
+            AudioStreamConstants.CHANNEL_MASK,
+            AudioStreamConstants.AUDIO_FORMAT
         )
 
         audioRecord = AudioRecord.Builder()
@@ -58,14 +57,29 @@ class HostAudioCapturer(
             val buffer = ByteArray(minBuffer)
             audioRecord?.startRecording()
 
+
+            // Reuse DatagramPacket object to reduce allocations
+            val dp = DatagramPacket(ByteArray(0), 0)
+            // 20ms PCM @ 48k mono 16-bit
+            val pcm = ByteArray(1920)
+
+            var seq = 0
             while (isCapturing) {
-                val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                if (read > 0) {
-                    // slice to actual size
-                    val chunk = buffer.copyOf(read)
+                val read =audioRecord?.read(pcm, 0, pcm.size)
+                if (read != null) {
+                    if (read <= 0) continue
+
+                    val tsMs = (System.nanoTime() / 1_000_000L).toInt()
+
+                    // Encode ONCE per frame
+                    val chunk= PacketCodec.encode(seq, tsMs, pcm, read)
+
                     onChunk(chunk)  // → AudioSender
                 }
+
+                seq++
             }
+
 
             audioRecord?.stop()
         }.apply { start() }

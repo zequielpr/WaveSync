@@ -19,6 +19,7 @@ interface HostRepository {
     val handShakeResultFlow: Flow<HandShakeResult>
     val connectedGuest: Flow<HashSet<Guest>?>
 
+    fun addGuestToHostStreamer(guestId: String)
 
 
     //New hotspot implementation

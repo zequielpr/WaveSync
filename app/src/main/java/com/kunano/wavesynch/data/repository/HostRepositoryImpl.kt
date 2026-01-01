@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import com.android.identity.flow.annotation.FlowState
+import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.HostAudioCapturer
 import com.kunano.wavesynch.data.stream.HostStreamer
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
@@ -20,17 +20,12 @@ import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.repositories.HostRepository
 import com.kunano.wavesynch.services.StartHotspotService
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import java.net.Socket
+import java.net.InetSocketAddress
 import javax.inject.Inject
 
 // data/stream/AudioStreamRepositoryImpl.kt
@@ -97,16 +92,10 @@ class HostRepositoryImpl @Inject constructor(
 
 
 
-
-
-
-
     override suspend fun startServer(room: Room) {
         _serverStateFlow.tryEmit(ServerState.Starting)
-        serverManager.startServerSocket(inComingHandShake = {
-            CoroutineScope(Dispatchers.IO).launch {
-                performHandShake(it, room)
-            }
+        serverManager.startServerSocket(room, inComingHandShakeResult = {
+            _handShakeResult.tryEmit(it)
         })
         _serverStateFlow.tryEmit(ServerState.Running)
     }
@@ -115,14 +104,6 @@ class HostRepositoryImpl @Inject constructor(
         serverManager.closeServerSocket()
         _serverStateFlow.tryEmit(ServerState.Stopped)
     }
-
-    suspend fun performHandShake(socket: Socket?, room: Room) {
-        val guestHandShake = serverManager.readIncomingHandShake(socket)
-        val result = serverManager.verifyHandshake(guestHandShake, room)
-        _handShakeResult.tryEmit(result)
-    }
-
-
 
 
 
@@ -144,8 +125,10 @@ class HostRepositoryImpl @Inject constructor(
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
 
 
-    private fun addGuestToHostStreamer(guestSocket: Socket, guestId: String){
-        hostStreamer.addGuest(guestId, guestSocket)
+  override fun addGuestToHostStreamer(guestId: String){
+        val guestSocket = serverManager.socketList[guestId]
+        val inetSocketAddress: InetSocketAddress = InetSocketAddress(guestSocket?.inetAddress, AudioStreamConstants.UDP_PORT)
+        hostStreamer.addGuest(guestId,inetSocketAddress )
     }
 
 
@@ -156,7 +139,6 @@ class HostRepositoryImpl @Inject constructor(
         val guestSocket = serverManager.socketList[guest.userId]
         if (guestSocket != null) {
             guestSocket.tcpNoDelay = true
-            addGuestToHostStreamer(guestSocket, guest.userId)
         } else {
             // Handle the case where the guestSocket is null
         }

@@ -20,6 +20,7 @@ import java.io.BufferedWriter
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -36,6 +37,7 @@ class ClientManager(
     val handShakeResponse: SharedFlow<HandShakeResult> = _handShakeResponseFlow.asSharedFlow()
 
     var inputStream: InputStream? = null
+    var outputStream: OutputStreamWriter? = null
     var handShakeFromHost: HandShake? = null
 
     var socket: Socket? = null
@@ -47,21 +49,24 @@ class ClientManager(
         get() = sessionData
 
 
-
-
-
     /** Open TCP socket to host and do handshake */
     fun connectToServer(hostIp: String, onConnecting: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             runCatching {
                 // Create a new socket for each connection attempt
                 socket = Socket()
-                socket?.connect(InetSocketAddress(hostIp, AudioStreamConstants.PORT), 5000)
+                socket?.connect(InetSocketAddress(hostIp, AudioStreamConstants.TCP_PORT), 5000)
 
                 inputStream = socket?.getInputStream()
 
                 socket?.let {
-                    sendHandShake(it)
+                    val connectionRequestHandShake = HandShake(
+                        appIdentifier = AppIdProvider.APP_ID,
+                        userId = AppIdProvider.getUserId(context),
+                        deviceName = Build.MODEL,
+                        protocolVersion = 1
+                    )
+                    sendHandShake(connectionRequestHandShake)
                     receiveHandShakeResponse(it)
                 }
 
@@ -72,20 +77,17 @@ class ClientManager(
         }
     }
 
-    private fun sendHandShake(socket: Socket) {
+    private fun sendHandShake(handShake: HandShake) {
         // 1) Send handshake to host
-        val output = BufferedWriter(OutputStreamWriter(socket.getOutputStream()))
-        val myHandshake = HandShake(
-            appIdentifier = AppIdProvider.APP_ID,
-            userId = AppIdProvider.getUserId(context),
-            deviceName = Build.MODEL,
-            protocolVersion = 1
-        )
-        val myJson = serializeHandshake(myHandshake)
-        output.write(myJson)
-        output.newLine()
-        output.flush()
-        Log.d(TAG, "Sent handshake: $myJson")
+        scope.launch {
+            outputStream = OutputStreamWriter(socket?.getOutputStream())
+            val output = BufferedWriter(outputStream)
+            val myJson = serializeHandshake(handShake)
+            output.write(myJson)
+            output.newLine()
+            output.flush()
+            Log.d(TAG, "Sent handshake: $myJson")
+        }
     }
 
     private fun receiveHandShakeResponse(socket: Socket) {
@@ -99,8 +101,37 @@ class ClientManager(
         }
 
     }
+var udpSocket: DatagramSocket? = null
 
+    fun openUdpSocket(): DatagramSocket {
 
+        udpSocket?.let { return it }
+
+        udpSocket = DatagramSocket(null).apply {
+            reuseAddress = true
+            soTimeout = 0
+            bind(InetSocketAddress(AudioStreamConstants.UDP_PORT))
+        }
+
+        sendUdpSocketStatus(true)
+        return udpSocket!!
+    }
+
+    fun sendUdpSocketStatus(isOpen: Boolean) {
+
+        val response =
+            if (isOpen) HandShakeResult.UdpSocketOpen().intValue else HandShakeResult.UdpSocketClosed().intValue
+
+        val udpSocketStatusHandShake = HandShake(
+            appIdentifier = AppIdProvider.APP_ID,
+            userId = AppIdProvider.getUserId(context),
+            deviceName = Build.MODEL,
+            protocolVersion = 1,
+            response = response
+        )
+        sendHandShake(udpSocketStatusHandShake)
+
+    }
 
 
     private fun processHandshakeResponse(handShake: HandShake) {
@@ -133,6 +164,8 @@ class ClientManager(
         isConnectedToHostServer = false
         socket = null
         sessionData = null
+        udpSocket?.close()
+        udpSocket = null
     }
 
     fun isConnectedToServer(): Boolean {

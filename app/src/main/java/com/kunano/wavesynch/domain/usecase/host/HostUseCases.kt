@@ -27,6 +27,8 @@ class HostUseCases @Inject constructor(
     val handShakeResultFlow: Flow<HandShakeResult> = hostRepository.handShakeResultFlow
     val connectedGuest: Flow<HashSet<Guest>?> = hostRepository.connectedGuest
 
+    fun addGuestToHostStreamer(guestId: String) = hostRepository.addGuestToHostStreamer(guestId)
+
 
     //Manage hotspot
     fun startHotspot(
@@ -37,12 +39,6 @@ class HostUseCases @Inject constructor(
     fun isHotspotRunning() = hostRepository.isHotspotRunning()
     fun finishSessionAsHost() = hostRepository.finishSessionAsHost()
     fun isHostStreaming() = hostRepository.isHostStreaming()
-
-
-
-
-
-
 
 
 

@@ -27,6 +27,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.net.DatagramSocket
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -111,9 +112,9 @@ class AudioPlayerService : Service() {
             collectIsplayinState()
 
             // Start receiving audio and set the initial playback state
-            clientManager.inputStream?.let {
-                audioReceiver.start(it)
-            }
+            val udpSocket: DatagramSocket = clientManager.openUdpSocket()
+            audioReceiver.start(udpSocket)
+
         }
 
         return START_STICKY

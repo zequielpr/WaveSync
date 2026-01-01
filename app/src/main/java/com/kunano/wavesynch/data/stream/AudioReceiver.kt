@@ -5,125 +5,129 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.InputStream
+import kotlinx.coroutines.launch
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.util.TreeMap
 
 class AudioReceiver(
     private val jitterBuffer: JitterBuffer = JitterBuffer(),
+    private val scope: CoroutineScope,
 ) {
     var _isPlayingState: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isPlayingState = _isPlayingState.asStateFlow()
-
 
 
     @Volatile
     private var running = false
     private var isOnPause = false
 
-    private fun InputStream.readFully(buf: ByteArray, len: Int): Boolean {
-        var total = 0
-        while (total < len) {
-            val r = this.read(buf, total, len - total)
-            if (r <= 0) return false
-            total += r
-        }
-        return true
-    }
 
-    fun start(input: InputStream) {
+    //Up implementation
+    fun start(socket: DatagramSocket) {
         if (running) return
-        _isPlayingState.tryEmit(true)
         running = true
+        _isPlayingState.tryEmit(true)
 
-        val minTrackBuffer = AudioTrack.getMinBufferSize(
-            AudioStreamConstants.SAMPLE_RATE,
-            AudioStreamConstants.CHANNEL_OUT,
-            AudioStreamConstants.AUDIO_FORMAT
-        )
+        scope.launch(Dispatchers.IO) {
+            val minOut = AudioTrack.getMinBufferSize(
+                AudioStreamConstants.SAMPLE_RATE,
+                AudioStreamConstants.CHANNEL_OUT,
+                AudioStreamConstants.AUDIO_FORMAT
+            )
+            val track = AudioTrack(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build(),
+                AudioFormat.Builder()
+                    .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
+                    .setEncoding(AudioStreamConstants.AUDIO_FORMAT)
+                    .setChannelMask(AudioStreamConstants.CHANNEL_OUT)
+                    .build(),
+                minOut * 4,
+                AudioTrack.MODE_STREAM,
+                AudioManager.AUDIO_SESSION_ID_GENERATE
+            )
 
-        val trackBuffer = minTrackBuffer * AudioLatencyConfig.TRACK_BUFFER_FACTOR
 
-        val audioTrack = AudioTrack(
-            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build(),
-            AudioFormat.Builder().setEncoding(AudioStreamConstants.AUDIO_FORMAT)
-                .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
-                .setChannelMask(AudioStreamConstants.CHANNEL_OUT).build(),
-            trackBuffer,
-            AudioTrack.MODE_STREAM,
-            AudioManager.AUDIO_SESSION_ID_GENERATE
-        )
+            val recvBuf = ByteArray(4096)
+            val dp = DatagramPacket(recvBuf, recvBuf.size)
 
-        // ---------- Reader ----------
-        Thread {
-            val header = ByteArray(4)
+            val buffer = TreeMap<Int, ByteArray>() // seq -> payload
+            var expectedSeq: Int? = null
+            val targetPrebufferFrames = 3
+            val maxBufferFrames = 50
+
+            track.play()
+
             try {
                 while (running) {
-                    if (!input.readFully(header, 4)) break
-                    val size =
-                        java.nio.ByteBuffer.wrap(header).order(java.nio.ByteOrder.BIG_ENDIAN).int
-                    if (size <= 0 || size > 200_000) break
+                    socket.receive(dp)
 
-                    val packet = ByteArray(size)
-                    if (!input.readFully(packet, size)) break
+                    val decoded = PacketCodec.decode(dp.data, dp.length) ?: continue
 
-                    jitterBuffer.push(packet)
-                }
-            } catch (e: Exception) {
-                Log.e("AudioReceiver", "Reader error", e)
-            } finally {
-                try {
-                    input.close()
-                } catch (_: Exception) {
-                }
-            }
-        }.start()
+                    // init expected seq from first packet
+                    if (expectedSeq == null) expectedSeq = decoded.seq
 
-        // ---------- Player ----------
-        Thread {
-            try {
-                // warm up less aggressively
-                while (running && jitterBuffer.size() < AudioLatencyConfig.WARMUP_PACKETS) {
-                    Thread.sleep(3)
-                }
+                    // store payload
+                    buffer[decoded.seq] = decoded.payload
 
-                audioTrack.play()
+                    // prevent unbounded growth
+                    while (buffer.size > maxBufferFrames) {
+                        buffer.pollFirstEntry()
+                    }
 
-                while (running) {
-                    val packet = jitterBuffer.pop()
-                    if (isOnPause) continue
-                    if (packet != null) {
-                        audioTrack.write(packet, 0, packet.size)
-                    } else {
-                        // no data: wait a tiny bit, don't spin
-                        Thread.sleep(2)
+                    // prebuffer before starting strict playback
+                    if (buffer.size < targetPrebufferFrames) continue
+
+
+                    Log.d("AudioReceiver", "seq: ${decoded.seq}")
+
+                    // play as many contiguous frames as we have
+                    val payload = buffer.remove(expectedSeq) ?: continue
+                    Log.d("AudioReceiver", "data length: ${dp.length}")
+                    if (!isOnPause) {
+                        track.write(payload, 0, payload.size)
+                    }
+                    expectedSeq++
+
+                    // if we’re missing too much, resync to the next available packet
+                    if (buffer.isNotEmpty()) {
+                        val lowest = buffer.firstKey()
+                        if (lowest - expectedSeq > 20) {
+                            expectedSeq = lowest
+                        }
                     }
                 }
-            } catch (e: Exception) {
-                Log.e("AudioReceiver", "Player error", e)
             } finally {
+                socket.close()
                 try {
-                    audioTrack.stop()
-                } catch (_: Throwable) {
+                    track.stop()
+                } catch (_: Exception) {
                 }
-                audioTrack.release()
+                track.release()
             }
-        }.start()
+        }
     }
+
 
     fun stop() {
         running = false
         _isPlayingState.tryEmit(false)
     }
 
-    fun pause(){
+    fun pause() {
         isOnPause = true
         _isPlayingState.tryEmit(false)
     }
 
-    fun resume(){
-       isOnPause = false
+    fun resume() {
+        isOnPause = false
         _isPlayingState.tryEmit(true)
 
     }

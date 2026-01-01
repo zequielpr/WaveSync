@@ -130,6 +130,15 @@ class ActiveRoomViewModel @Inject constructor(
                         }
                     }
 
+                    is HandShakeResult.UdpSocketOpen -> {
+                        Log.d("ActiveRoomViewModel", "collectHandShakeResults: Udp socket open")
+                        //It will ad the client to the udp broadcasting
+                        answer.handShake?.userId?.let {
+                            hostUseCases.addGuestToHostStreamer(it)
+                        }
+
+                    }
+
                     else -> {
                         Log.d("ActiveRoomViewModel", "collectHandShakeResults: $answer")
                         // Handle other cases like errors or invalid handshakes
