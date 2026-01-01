@@ -19,7 +19,7 @@ data class HandShake(
 
 
 
-sealed class HandShakeResult(val intValue: Int) {
+open class HandShakeResult(val intValue: Int) {
     data class Success(val handShake: HandShake? = null): HandShakeResult(1) //1
     data class  InvalidHandshake(val handShake: HandShake? = null) : HandShakeResult(2)
     data class  InvalidProtocol(val handShake: HandShake? = null) : HandShakeResult(3)

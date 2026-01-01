@@ -65,6 +65,12 @@
     <string name="waiting_for_guest">Waiting for guests</string>
     <string name="start">Start</string>
     <string name="room_emptied">Room emptied</string>
+    <string name="waiting_for_host_answer">Waiting for host answer\n</string>
+    <string name="waiting_for_host">Waiting for host to accept</string>
+    <string name="youll_join_automatically_when_host_answers">Don’t close the app. You’ll join automatically once approved.</string>
+    <string name="generating_qr_code">Generating QR code</string>
+    <string name="cancel_request">Cancel request</string>
+    <string name="are_you_sure_you_want_to_cancel_request">Are you sure you want to cancel this request</string>
 
 
 </resources>

@@ -11,5 +11,8 @@ object AppDimens {
         val left = 16.dp
         val right = 16.dp
         val top = 16.dp
+        val vertical = 16.dp
+        val horizontal = 16.dp
+
     }
 }
