@@ -74,12 +74,17 @@ class MainActivity : ComponentActivity() {
         NavHost(navController = navController, startDestination = Screen.MainScreen) {
             composable<Screen.MainScreen>() {
                 SyncWaveMainScreenWithAppBar(
-                    navigateTo = { navController.navigate(it)})
+                    navigateTo = { navController.navigate(it) })
             }
 
             composable<Screen.ActiveRoomScreen>() {
 
-                ActiveRoomCompose(onBack = { navController.popBackStack() })
+                ActiveRoomCompose(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
 
             }
 
