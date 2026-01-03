@@ -106,6 +106,7 @@ var udpSocket: DatagramSocket? = null
     fun openUdpSocket(): DatagramSocket {
 
         udpSocket?.let { return it }
+        Log.d(TAG, "Opening UDP socket")
 
         udpSocket = DatagramSocket(null).apply {
             reuseAddress = true

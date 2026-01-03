@@ -1,6 +1,7 @@
 package com.kunano.wavesynch.data.stream
 
 import android.os.Build
+import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresApi
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +33,8 @@ class HostStreamer(
     @androidx.annotation.RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
-        scope.launch {
+        val audioStreamerThread = Thread{
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             isHostStreaming = true
             audioCapturer = capturer
             udpSocket = DatagramSocket().apply {
@@ -41,29 +43,22 @@ class HostStreamer(
             // Reuse DatagramPacket object to reduce allocations
             val dp = DatagramPacket(ByteArray(0), 0)
 
-            var seq = 0
-
             capturer.start { chunk ->
                 Log.d("HostStreamer", "chunk size: ${chunk.size}")
                 dp.data = chunk
                 dp.length = chunk.size
-
-                val snapshot = guests.values.toList()
-
-                snapshot.forEach { guest ->
+                guests.values.filter { it.isPlaying }.forEach { guest ->
                     dp.socketAddress = guest.inetSocketAddress
                     try {
-                        Log.d("HostStreamer", "startStreaming: ${guest.inetSocketAddress}")
                         // Send the packet to the guest
                         udpSocket?.send(dp)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
                 }
-
-                seq++
             }
         }
+        audioStreamerThread.start()
     }
 
     fun pauseGuest(id: String) {

@@ -85,10 +85,10 @@ class GuestRepositoryImpl @Inject constructor(
 
 
     fun discConnectFromServer(){
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
         val intent = Intent(context, AudioPlayerService::class.java)
         context.stopService(intent)
         clientManager.disconnectFromServer()
+        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

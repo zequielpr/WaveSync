@@ -7,6 +7,8 @@ import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
+import android.os.Process
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import java.net.DatagramPacket
@@ -14,11 +16,6 @@ import java.net.DatagramPacket
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
-
-    companion object {
-
-    }
-
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
@@ -36,61 +33,85 @@ class HostAudioCapturer(
         val format = AudioFormat.Builder()
             .setEncoding(AudioStreamConstants.AUDIO_FORMAT)
             .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
-            .setChannelMask(AudioStreamConstants.CHANNEL_MASK)
+            .setChannelMask(AudioStreamConstants.CHANNEL_MASK_IN)
             .build()
 
         val minBuffer = AudioRecord.getMinBufferSize(
             AudioStreamConstants.SAMPLE_RATE,
-            AudioStreamConstants.CHANNEL_MASK,
+            AudioStreamConstants.CHANNEL_MASK_IN,
             AudioStreamConstants.AUDIO_FORMAT
-        )
+        ).coerceAtLeast(AudioStreamConstants.PAYLOAD_BYTES * 2)
 
         audioRecord = AudioRecord.Builder()
             .setAudioFormat(format)
-            .setBufferSizeInBytes(minBuffer * 2)
+            .setBufferSizeInBytes(minBuffer)
             .setAudioPlaybackCaptureConfig(config)
             .build()
 
         isCapturing = true
 
         captureThread = Thread {
-            val buffer = ByteArray(minBuffer)
-            audioRecord?.startRecording()
-
-
-            // Reuse DatagramPacket object to reduce allocations
-            val dp = DatagramPacket(ByteArray(0), 0)
-            // 20ms PCM @ 48k mono 16-bit
-            val pcm = ByteArray(1920)
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+            val recorder = audioRecord ?: return@Thread
+            val readBuf = ByteArray(minBuffer / 2) // read in chunks
+            val assembler = FrameAssembler(AudioStreamConstants.PAYLOAD_BYTES)
 
             var seq = 0
+            recorder.startRecording()
+
             while (isCapturing) {
-                val read =audioRecord?.read(pcm, 0, pcm.size)
-                if (read != null) {
-                    if (read <= 0) continue
+                val read = recorder.read(readBuf, 0, readBuf.size)
+                if (read <= 0) continue
 
+                assembler.push(readBuf, read) { payload ->
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
-
-                    // Encode ONCE per frame
-                    val chunk= PacketCodec.encode(seq, tsMs, pcm, read)
-
-                    onChunk(chunk)  // → AudioSender
+                    val packet = PacketCodec.encode(seq, tsMs, payload, payload.size)
+                    Log.d("HostAudioCapturer", "chunk size: ${packet.size}")
+                    onChunk(packet)
+                    seq++ // increment ONLY when a packet is emitted
                 }
-
-                seq++
             }
 
-
-            audioRecord?.stop()
+            try { recorder.stop() } catch (_: Throwable) {}
         }.apply { start() }
     }
 
     fun stop() {
         isCapturing = false
-        captureThread?.join(200)
+        captureThread?.join(300)
         captureThread = null
-        audioRecord?.release()
+
+        audioRecord?.let {
+            try { it.release() } catch (_: Throwable) {}
+        }
         audioRecord = null
-        mediaProjection.stop()
+
+        try { mediaProjection.stop() } catch (_: Throwable) {}
     }
 }
+
+private class FrameAssembler(private val frameSize: Int) {
+    private val buf = ByteArray(frameSize)
+    private var filled = 0
+
+    /**
+     * Push bytes in; whenever a full frame is ready, calls onFrame(frameBytes).
+     * Note: onFrame receives a copy-safe frame buffer.
+     */
+    fun push(input: ByteArray, length: Int, onFrame: (ByteArray) -> Unit) {
+        var offset = 0
+        while (offset < length) {
+            val toCopy = minOf(frameSize - filled, length - offset)
+            System.arraycopy(input, offset, buf, filled, toCopy)
+            filled += toCopy
+            offset += toCopy
+
+            if (filled == frameSize) {
+                // Emit a frame. Copy to avoid mutation issues.
+                onFrame(buf.clone())
+                filled = 0
+            }
+        }
+    }
+}
+
