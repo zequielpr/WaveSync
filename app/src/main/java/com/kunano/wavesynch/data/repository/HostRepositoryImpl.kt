@@ -41,7 +41,7 @@ class HostRepositoryImpl @Inject constructor(
 
     override val hotspotInfoFlow: Flow<HotspotInfo?> = localHotspotController.hotspotInfoFLow
     override val hotSpotStateFlow: Flow<HotspotState> = localHotspotController.hotspotStateFlow
-    override val connectedGuest: Flow<HashSet<Guest>?> = serverManager.connectedGuests
+    override val connectedGuest: Flow<ArrayList<Guest>?> = serverManager.connectedGuests
 
     private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
 

@@ -17,7 +17,7 @@ interface HostRepository {
     val serverStateFlow: Flow<ServerState>
     val logFlow : Flow<String>
     val handShakeResultFlow: Flow<HandShakeResult>
-    val connectedGuest: Flow<HashSet<Guest>?>
+    val connectedGuest: Flow<ArrayList<Guest>?>
 
     fun addGuestToHostStreamer(guestId: String)
 

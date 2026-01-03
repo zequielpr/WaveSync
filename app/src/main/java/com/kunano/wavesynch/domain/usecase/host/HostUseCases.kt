@@ -25,7 +25,7 @@ class HostUseCases @Inject constructor(
     val serverStateFlow: Flow<ServerState> = hostRepository.serverStateFlow
     val logFlow : Flow<String> = hostRepository.logFlow
     val handShakeResultFlow: Flow<HandShakeResult> = hostRepository.handShakeResultFlow
-    val connectedGuest: Flow<HashSet<Guest>?> = hostRepository.connectedGuest
+    val connectedGuest: Flow<ArrayList<Guest>?> = hostRepository.connectedGuest
 
     fun addGuestToHostStreamer(guestId: String) = hostRepository.addGuestToHostStreamer(guestId)
 

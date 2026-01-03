@@ -15,8 +15,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.BufferedWriter
@@ -44,11 +47,10 @@ class ServerManager(
 
     var socketList: HashMap<String, Socket> = HashMap()
 
-    private val _connectedGuests = MutableSharedFlow<HashSet<Guest>?>(replay = 1)
-    val connectedGuests: Flow<HashSet<Guest>?> = _connectedGuests.asSharedFlow()
+    private val _connectedGuests = MutableStateFlow< ArrayList<Guest>?>(arrayListOf())
+    val connectedGuests: Flow< ArrayList<Guest>?> = _connectedGuests.asStateFlow()
 
 
-    var connectedGuestList: HashSet<Guest> = HashSet()
 
 
     var isServerRunning = false
@@ -215,8 +217,9 @@ class ServerManager(
 
     fun acceptUserConnection(guest: Guest) {
 
-        connectedGuestList.add(guest.copy(isPlaying = true))
-        _connectedGuests.tryEmit(connectedGuestList)
+        _connectedGuests.update { current ->
+            (current?.plus(guest.copy(isPlaying = true))) as ArrayList<Guest>?   // returns a new List
+        }
         val guestSocket = socketList[guest.userId]
         if (guestSocket != null) {
             Log.d("HostRepositoryImpl", "acceptUserConnection: Socket accepted${socketList.size}")
@@ -228,13 +231,11 @@ class ServerManager(
     }
 
     fun setGuestPlayingState(guestId: String, state: Boolean) {
-        val updated = connectedGuestList.map { guest ->
+        _connectedGuests.update { current -> current?.map { guest ->
             if (guest.userId == guestId)
                 guest.copy(isPlaying = state)
             else guest
-        }.toHashSet()
-
-        _connectedGuests.tryEmit(updated)
+        } as ArrayList<Guest> }
     }
 
 
@@ -243,8 +244,7 @@ class ServerManager(
         val guestSocket = socketList[guestId]
         if (guestSocket != null) {
             try {
-                connectedGuestList.removeIf { it.userId == guestId }
-                _connectedGuests.tryEmit(connectedGuestList)
+                _connectedGuests.update { current-> current?.filter { it.userId != guestId } as ArrayList<Guest>? }
                 guestSocket.close()
                 _logFlow.tryEmit("Guest socket closed")
             } catch (e: Exception) {
@@ -257,8 +257,8 @@ class ServerManager(
     }
 
     fun clearConnectedGuests() {
-        connectedGuestList.clear()
-        _connectedGuests.tryEmit(connectedGuestList)
+
+        _connectedGuests.update { arrayListOf() }
     }
 
     fun clearSockets() {

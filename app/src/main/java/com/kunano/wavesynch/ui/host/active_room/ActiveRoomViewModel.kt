@@ -256,7 +256,7 @@ class ActiveRoomViewModel @Inject constructor(
                     Log.d("ActiveRoomViewModel", "collectRoomGuests: $it")
                     if (it != null) {
 
-                        val newGuests = it.toList()
+                        val newGuests = it
                         _uiState.update { uIState ->
                             uIState.copy(guests = newGuests)
                         }

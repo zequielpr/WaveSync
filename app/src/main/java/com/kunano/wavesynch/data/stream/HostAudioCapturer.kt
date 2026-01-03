@@ -76,6 +76,8 @@ class HostAudioCapturer(
         }.apply { start() }
     }
 
+
+
     fun stop() {
         isCapturing = false
         captureThread?.join(300)

@@ -17,6 +17,8 @@ import java.net.InetSocketAddress
 class HostStreamer(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
+
+
     private val guests: HashMap<String, GuestStreamingData> = hashMapOf()
     private var isHostStreaming = false
 
@@ -29,6 +31,11 @@ class HostStreamer(
     private var audioCapturer: HostAudioCapturer? = null
     private var udpSocket: DatagramSocket? = null
 
+    init {
+        udpSocket = DatagramSocket().apply {
+            reuseAddress = true
+        }
+    }
 
     @androidx.annotation.RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -37,12 +44,10 @@ class HostStreamer(
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             isHostStreaming = true
             audioCapturer = capturer
-            udpSocket = DatagramSocket().apply {
-                reuseAddress = true
-            }
             // Reuse DatagramPacket object to reduce allocations
             val dp = DatagramPacket(ByteArray(0), 0)
 
+            //It receive the already encoded audio frames from the audio capturer and send them to the guests
             capturer.start { chunk ->
                 Log.d("HostStreamer", "chunk size: ${chunk.size}")
                 dp.data = chunk

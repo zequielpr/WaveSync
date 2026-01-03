@@ -57,16 +57,13 @@ class AudioReceiver(
                     try {
                         socket.receive(dp)
                         val decoded = PacketCodec.decode(dp.data, dp.length) ?: continue
+                        Log.d("AudioReceiver", "RX: $decoded")
 
                         // init expected seq from first packet
                         if (expectedSeq == null) expectedSeq = decoded.seq
 
                         synchronized(bufferLock) {
                             buffer[decoded.seq] = decoded.payload
-                            // Keep buffer bounded
-                            while (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
-                                buffer.pollFirstEntry()
-                            }
                         }
                     } catch (e: SocketTimeoutException) {
                         // normal: allows loop to check running flag
@@ -117,6 +114,12 @@ class AudioReceiver(
                     val seq = expectedSeq ?: continue
 
                     val payload: ByteArray? = synchronized(bufferLock) {
+                        // If playback is lagging, buffer will grow. To catch up, discard old frames.
+                        while (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
+                            // Don't discard the frame we are about to play, or future frames.
+                            if (buffer.firstKey() >= seq) break
+                            buffer.pollFirstEntry() // Discard oldest frame
+                        }
                         buffer.remove(seq)
                     }
 
@@ -134,9 +137,7 @@ class AudioReceiver(
                     }
 
                     if (!isPaused) {
-                        Log.d("AudioReceiver", "Playout: seq=$seq")
                         val data = payload ?: silence
-                        Log.d("AudioReceiver", "Playout: seq=${data.size}")
                         writeFixed(track, data, AudioStreamConstants.PAYLOAD_BYTES)
                     }
 
