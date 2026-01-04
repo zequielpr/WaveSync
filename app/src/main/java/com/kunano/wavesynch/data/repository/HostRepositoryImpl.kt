@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
@@ -76,7 +77,7 @@ class HostRepositoryImpl @Inject constructor(
         return localHotspotController.isHotspotRunning()
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+
     override fun getHotspotInfo(): HotspotInfo? {
         return localHotspotController.getHotspotInfo()
     }

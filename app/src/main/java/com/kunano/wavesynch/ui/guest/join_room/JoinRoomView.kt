@@ -99,8 +99,9 @@ fun JoinRoomViewCompose(
             if (!UIState.isThisDeviceHost && !UIState.waitingForHostAnswer) {
                 QrScannerScreen(
                     onResult = { qrContent ->
-                        val ssid = qrContent.split("\"")[0]
-                        val password = qrContent.split("\"")[1]
+                        Log.d("JoinRoomViewCompose", "QrScannerScreen: $qrContent")
+                        val ssid = qrContent.split("/")[0]
+                        val password = qrContent.split("/")[1]
 
 
                         if (ssid.isNotEmpty()) {

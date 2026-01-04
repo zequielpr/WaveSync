@@ -57,7 +57,6 @@ class AudioReceiver(
                     try {
                         socket.receive(dp)
                         val decoded = PacketCodec.decode(dp.data, dp.length) ?: continue
-                        Log.d("AudioReceiver", "RX: $decoded")
 
                         // init expected seq from first packet
                         if (expectedSeq == null) expectedSeq = decoded.seq
@@ -123,12 +122,13 @@ class AudioReceiver(
                         buffer.remove(seq)
                     }
 
-                    // Resync if we are falling behind badly (burst loss)
+                    // Resync if we are falling behind badly or the stream restarts
                     if (payload == null) {
                         val lowest = synchronized(bufferLock) { buffer.firstKeyOrNull() }
                         if (lowest != null) {
                             val gap = lowest - seq
-                            if (gap > AudioStreamConstants.RESYNC_THRESHOLD_FRAMES) {
+                            // Resync on large forward jump (burst loss) or any backward jump (stream restart)
+                            if (gap > AudioStreamConstants.RESYNC_THRESHOLD_FRAMES || lowest < seq) {
                                 Log.d("AudioReceiver", "Resync: gap=$gap oldExp=$seq newExp=$lowest")
                                 expectedSeq = lowest
                                 continue

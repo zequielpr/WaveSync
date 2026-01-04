@@ -91,7 +91,11 @@ class ActiveRoomViewModel @Inject constructor(
     private fun collectHotSpotInfo() {
         viewModelScope.launch {
             hostUseCases.hotspotInfoFlow.collect {
-                setHotSpotSsidAndPassword(it)
+
+                if (it != null) {
+                    Log.d("ActiveRoomViewModel", "collectHotSpotInfo: ${it.password}")
+                    setHotSpotSsidAndPassword(it)
+                }
             }
 
         }
