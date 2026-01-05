@@ -1,4 +1,4 @@
-package com.kunano.wavesynch.data.stream
+package com.kunano.wavesynch.data.stream.host
 
 import android.Manifest
 import android.media.AudioAttributes
@@ -8,24 +8,30 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Process
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import java.net.DatagramPacket
+import com.kunano.wavesynch.data.stream.AudioStreamConstants
+import com.kunano.wavesynch.data.stream.AudioStreamConstants.PCM_FRAME_BYTES
+import com.kunano.wavesynch.data.stream.PacketCodec
 
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
+    init {
+        //It load opus library
+        System.loadLibrary("wavesynch")
+    }
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
+    lateinit var opusEncoder: OpusHostEncoder
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun start(onPcmFrame: (ByteArray) -> Unit) {
         if (isCapturing) return
 
-        val compressor = OpusNative.Encoder(AudioStreamConstants.SAMPLE_RATE, 1)
+        opusEncoder = OpusHostEncoder()
 
         val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
@@ -60,15 +66,14 @@ class HostAudioCapturer(
             .build()
 
         // Choose an Opus-friendly frame size:
-        // 20ms @ 48k = 960 samples per channel
+        // 10ms @ 48k = 960 samples per channel
         // Total shorts per frame = frameSizePerCh * channels
-        val frameSizePerChannel = 960
-        val frameShorts = frameSizePerChannel * channels
+        val frameShorts = PCM_FRAME_BYTES * channels
 
         isCapturing = true
 
         captureThread = Thread {
-            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
 
             val recorder = audioRecord ?: return@Thread
             recorder.startRecording()
@@ -86,7 +91,7 @@ class HostAudioCapturer(
 
                 assembler.push(readBuf, readCount) { frame ->
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
-                    val compressedFrame = compressor.encode(frame, frameShorts)
+                    val compressedFrame = opusEncoder.encode(frame)
                     val packet = PacketCodec.encode(seq, tsMs, compressedFrame, compressedFrame.size)
                     onPcmFrame(packet) // frame is ShortArray sized exactly frameShorts
                     seq++
@@ -98,6 +103,7 @@ class HostAudioCapturer(
     }
 
     fun stop() {
+
         isCapturing = false
         captureThread?.join(300)
         captureThread = null
@@ -106,6 +112,8 @@ class HostAudioCapturer(
             try { it.release() } catch (_: Throwable) {}
         }
         audioRecord = null
+        opusEncoder.close()
+        
 
         try { mediaProjection.stop() } catch (_: Throwable) {}
     }
@@ -119,7 +127,7 @@ private class ShortFrameAssembler(private val frameShorts: Int) {
         var offset = 0
         while (offset < length) {
             val toCopy = minOf(frameShorts - filled, length - offset)
-            java.lang.System.arraycopy(input, offset, buf, filled, toCopy)
+            System.arraycopy(input, offset, buf, filled, toCopy)
             filled += toCopy
             offset += toCopy
 

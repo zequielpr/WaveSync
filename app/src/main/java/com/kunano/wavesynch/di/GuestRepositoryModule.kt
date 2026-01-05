@@ -2,7 +2,7 @@ package com.kunano.wavesynch.di
 
 import android.content.Context
 import com.kunano.wavesynch.data.repository.GuestRepositoryImpl
-import com.kunano.wavesynch.data.stream.AudioReceiver
+import com.kunano.wavesynch.data.stream.guest.AudioReceiver
 import com.kunano.wavesynch.data.wifi.client.ClientManager
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import dagger.Binds

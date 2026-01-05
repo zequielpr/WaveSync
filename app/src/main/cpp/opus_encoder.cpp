@@ -2,6 +2,7 @@
 #include <android/log.h>
 #include <vector>
 #include <opus.h>
+#include <opus_defines.h>
 
 #define LOG_TAG "OpusJNI"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -78,6 +79,49 @@ OpusEncoder* enc = GET_ENCODER(pointer);
 if (enc) opus_encoder_destroy(enc);
 }
 
+
+//Enable FEC
+JNIEXPORT void JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_setInbandFecEnabled(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong pointer, jboolean enabled) {
+
+    OpusEncoder* enc = GET_ENCODER(pointer);
+    if (!enc) {
+        LOGE("setInbandFecEnabled: encoder pointer is null");
+        return;
+    }
+
+    int rc = opus_encoder_ctl(enc, OPUS_SET_INBAND_FEC(enabled ? 1 : 0));
+    if (rc != OPUS_OK) {
+        LOGE("OPUS_SET_INBAND_FEC failed: %s", opus_strerror(rc));
+    }
+}
+
+//Set packet los percentage
+JNIEXPORT void JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_setExpectedPacketLossPercent(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong pointer, jint lossPercent) {
+
+    OpusEncoder* enc = GET_ENCODER(pointer);
+    if (!enc) {
+        LOGE("setExpectedPacketLossPercent: encoder pointer is null");
+        return;
+    }
+
+    if (lossPercent < 0) lossPercent = 0;
+    if (lossPercent > 100) lossPercent = 100;
+
+    int rc = opus_encoder_ctl(enc, OPUS_SET_PACKET_LOSS_PERC(lossPercent));
+    if (rc != OPUS_OK) {
+        LOGE("OPUS_SET_PACKET_LOSS_PERC(%d) failed: %s", lossPercent, opus_strerror(rc));
+    }
+}
+
+
+
+
+
+
 // ---------------- Decoder ----------------
 
 JNIEXPORT jlong JNICALL
@@ -138,6 +182,102 @@ Java_com_kunano_wavesynch_data_stream_OpusNative_00024Decoder_decodePcm16(
                              reinterpret_cast<const jshort*>(outBuf.data()));
     return pcm;
 }
+
+JNIEXPORT jshortArray JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Decoder_decodePlcPcm16(
+        JNIEnv* env, jobject /*thiz*/, jlong pointer, jint frameSize) {
+
+    DecoderHandle* h = GET_DECODER_HANDLE(pointer);
+    if (!h || !h->dec) {
+        LOGE("decodePlcPcm16: decoder pointer is null");
+        return nullptr;
+    }
+
+    const int channels = h->channels;
+    if (channels <= 0) {
+        LOGE("decodePlcPcm16: invalid channels=%d", channels);
+        return nullptr;
+    }
+
+    std::vector<opus_int16> outBuf((size_t)frameSize * (size_t)channels);
+
+    // PLC: no input packet => data=null, len=0
+    int decodedSamples = opus_decode(
+            h->dec,
+            /*data*/ nullptr,
+            /*len*/ 0,
+            outBuf.data(),
+            frameSize,
+            /*decode_fec*/ 0
+    );
+
+    if (decodedSamples < 0) {
+        LOGE("opus_decode (PLC) failed: %s", opus_strerror(decodedSamples));
+        return nullptr;
+    }
+
+    const int outCount = decodedSamples * channels;
+    jshortArray pcm = env->NewShortArray(outCount);
+    env->SetShortArrayRegion(pcm, 0, outCount,
+                             reinterpret_cast<const jshort*>(outBuf.data()));
+    return pcm;
+}
+
+
+//Decode frame from the next frame
+JNIEXPORT jshortArray JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Decoder_decodeFecFromNextPcm16(
+        JNIEnv* env, jobject /*thiz*/, jlong pointer, jbyteArray nextPacket, jint frameSize) {
+
+    DecoderHandle* h = GET_DECODER_HANDLE(pointer);
+    if (!h || !h->dec) {
+        LOGE("decodeFecFromNextPcm16: decoder pointer is null");
+        return nullptr;
+    }
+
+    const int channels = h->channels;
+    if (channels <= 0) {
+        LOGE("decodeFecFromNextPcm16: invalid channels=%d", channels);
+        return nullptr;
+    }
+
+    if (nextPacket == nullptr) {
+        LOGE("decodeFecFromNextPcm16: nextPacket is null");
+        return nullptr;
+    }
+
+    const jsize packetLen = env->GetArrayLength(nextPacket);
+    jbyte* packetPtr = env->GetByteArrayElements(nextPacket, nullptr);
+
+    std::vector<opus_int16> outBuf((size_t)frameSize * (size_t)channels);
+
+    // FEC: decode the *previous* frame from this packet => decode_fec = 1
+    int decodedSamples = opus_decode(
+            h->dec,
+            reinterpret_cast<const unsigned char*>(packetPtr),
+            (opus_int32)packetLen,
+            outBuf.data(),
+            frameSize,
+            /*decode_fec*/ 1
+    );
+
+    env->ReleaseByteArrayElements(nextPacket, packetPtr, JNI_ABORT);
+
+    if (decodedSamples < 0) {
+        LOGE("opus_decode (FEC) failed: %s", opus_strerror(decodedSamples));
+        return nullptr;
+    }
+
+    const int outCount = decodedSamples * channels;
+    jshortArray pcm = env->NewShortArray(outCount);
+    env->SetShortArrayRegion(pcm, 0, outCount,
+                             reinterpret_cast<const jshort*>(outBuf.data()));
+    return pcm;
+}
+
+
+
+
 
 JNIEXPORT void JNICALL
 Java_com_kunano_wavesynch_data_stream_OpusNative_00024Decoder_destroyDecoder(

@@ -7,7 +7,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.services.AudioPlayerService
-import com.kunano.wavesynch.data.stream.AudioReceiver
+import com.kunano.wavesynch.data.stream.guest.AudioReceiver
 import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
 import com.kunano.wavesynch.data.wifi.client.ClientManager
 import com.kunano.wavesynch.data.wifi.client.SessionData

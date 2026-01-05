@@ -1,4 +1,4 @@
-package com.kunano.wavesynch.data.stream
+package com.kunano.wavesynch.data.stream.guest
 
 import java.net.InetSocketAddress
 

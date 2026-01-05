@@ -18,7 +18,7 @@ import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import com.kunano.wavesynch.MainActivity
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.stream.AudioReceiver
+import com.kunano.wavesynch.data.stream.guest.AudioReceiver
 import com.kunano.wavesynch.data.wifi.client.ClientManager
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext

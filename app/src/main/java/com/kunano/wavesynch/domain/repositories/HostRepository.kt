@@ -1,6 +1,6 @@
 package com.kunano.wavesynch.domain.repositories
 
-import com.kunano.wavesynch.data.stream.HostAudioCapturer
+import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -8,8 +8,6 @@ import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.Room
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 
 interface HostRepository {
     val hotSpotStateFlow: Flow<HotspotState>

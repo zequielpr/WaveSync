@@ -17,7 +17,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.stream.HostAudioCapturer
+import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
 import com.kunano.wavesynch.domain.repositories.HostRepository
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext

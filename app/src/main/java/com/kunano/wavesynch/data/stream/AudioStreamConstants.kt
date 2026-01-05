@@ -8,6 +8,7 @@ object AudioStreamConstants {
     const val CHANNEL_MASK_IN = AudioFormat.CHANNEL_IN_MONO
     const val CHANNEL_MASK_OUT = AudioFormat.CHANNEL_OUT_MONO
     const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+    const val CHANNELS = 1
 
     // Network packet duration
     const val PACKET_MS = 10 // Using 10ms for a more standard packet size
@@ -16,7 +17,7 @@ object AudioStreamConstants {
     const val BYTES_PER_FRAME = 2
 
     // 48k * 10ms = 480 frames; 480 * 2 = 960 bytes
-    const val PAYLOAD_BYTES = (SAMPLE_RATE * PACKET_MS / 1000) * BYTES_PER_FRAME
+    const val PCM_FRAME_BYTES = (SAMPLE_RATE * PACKET_MS / 1000) * BYTES_PER_FRAME
 
     // How often the player writes one frame
     const val FRAME_MS = 10L

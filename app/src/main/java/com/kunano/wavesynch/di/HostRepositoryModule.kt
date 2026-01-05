@@ -3,7 +3,7 @@ package com.kunano.wavesynch.di
 import android.content.Context
 import android.net.wifi.WifiManager
 import com.kunano.wavesynch.data.repository.HostRepositoryImpl
-import com.kunano.wavesynch.data.stream.HostStreamer
+import com.kunano.wavesynch.data.stream.host.HostStreamer
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.domain.repositories.HostRepository

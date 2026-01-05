@@ -1,9 +1,11 @@
-package com.kunano.wavesynch.data.stream
+package com.kunano.wavesynch.data.stream.host
 
+import android.Manifest
 import android.os.Build
 import android.os.Process
-import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
+import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,20 +32,18 @@ class HostStreamer(
     private var udpSocket: DatagramSocket? = null
 
     init {
-        //It load opus library
-        System.loadLibrary("wavesynch")
         udpSocket = DatagramSocket().apply {
             reuseAddress = true
         }
 
     }
 
-    @androidx.annotation.RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
 
         val audioStreamerThread = Thread{
-            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             isHostStreaming = true
             audioCapturer = capturer
             // Reuse DatagramPacket object to reduce allocations

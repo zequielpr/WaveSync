@@ -4,12 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
-import com.kunano.wavesynch.data.stream.HostAudioCapturer
-import com.kunano.wavesynch.data.stream.HostStreamer
+import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
+import com.kunano.wavesynch.data.stream.host.HostStreamer
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
