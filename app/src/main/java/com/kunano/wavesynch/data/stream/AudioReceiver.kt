@@ -1,31 +1,35 @@
 package com.kunano.wavesynch.data.stream
 
-import android.annotation.SuppressLint
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
-import android.media.AudioManager.*
 import android.media.AudioTrack
 import android.util.Log
+import com.kunano.wavesynch.data.stream.AudioStreamConstants.PAYLOAD_BYTES
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.SocketTimeoutException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 class AudioReceiver(
     private val scope: CoroutineScope,
 ) {
+    init {
+        //Load opus library
+        System.loadLibrary("wavesynch")
+    }
+
     private val _isPlayingState = MutableStateFlow(false)
     val isPlayingState = _isPlayingState.asStateFlow()
 
     private val running = AtomicBoolean(false)
-    @Volatile private var isPaused = false
+    @Volatile
+    private var isPaused = false
 
     private var rxThread: Thread? = null
     private var playoutThread: Thread? = null
@@ -34,7 +38,8 @@ class AudioReceiver(
     private val buffer = TreeMap<Int, ByteArray>()
     private val bufferLock = Any()
 
-    @Volatile private var expectedSeq: Int? = null
+    @Volatile
+    private var expectedSeq: Int? = null
 
     fun start(socket: DatagramSocket) {
         if (running.getAndSet(true)) return
@@ -45,8 +50,7 @@ class AudioReceiver(
 
         val track = buildAudioTrack().also { it.play() }
 
-        val silence = ByteArray(AudioStreamConstants.PAYLOAD_BYTES)
-
+        val silence = ShortArray(AudioStreamConstants.PAYLOAD_BYTES)
         // Receiver: read UDP, decode, store
         rxThread = Thread {
             val recvBuf = ByteArray(4096)
@@ -56,13 +60,15 @@ class AudioReceiver(
                 while (running.get() && !socket.isClosed) {
                     try {
                         socket.receive(dp)
-                        val decoded = PacketCodec.decode(dp.data, dp.length) ?: continue
+
+                        val decodeAndCompressedData = PacketCodec.decode(dp.data, dp.length) ?: continue
+
 
                         // init expected seq from first packet
-                        if (expectedSeq == null) expectedSeq = decoded.seq
+                        if (expectedSeq == null) expectedSeq = decodeAndCompressedData.seq
 
                         synchronized(bufferLock) {
-                            buffer[decoded.seq] = decoded.payload
+                            buffer[decodeAndCompressedData.seq] = decodeAndCompressedData.payload
                         }
                     } catch (e: SocketTimeoutException) {
                         // normal: allows loop to check running flag
@@ -79,6 +85,7 @@ class AudioReceiver(
 
         // Playout: fixed cadence, never wait for UDP
         playoutThread = Thread {
+            val decoder = OpusNative.Decoder(AudioStreamConstants.SAMPLE_RATE, 1)
             val frameNs = AudioStreamConstants.FRAME_NS
             var nextTick = System.nanoTime()
 
@@ -112,7 +119,7 @@ class AudioReceiver(
 
                     val seq = expectedSeq ?: continue
 
-                    val payload: ByteArray? = synchronized(bufferLock) {
+                    val compressedPayload: ByteArray? = synchronized(bufferLock) {
                         // If playback is lagging, buffer will grow. To catch up, discard old frames.
                         while (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
                             // Don't discard the frame we are about to play, or future frames.
@@ -123,13 +130,16 @@ class AudioReceiver(
                     }
 
                     // Resync if we are falling behind badly or the stream restarts
-                    if (payload == null) {
+                    if (compressedPayload == null) {
                         val lowest = synchronized(bufferLock) { buffer.firstKeyOrNull() }
                         if (lowest != null) {
                             val gap = lowest - seq
                             // Resync on large forward jump (burst loss) or any backward jump (stream restart)
                             if (gap > AudioStreamConstants.RESYNC_THRESHOLD_FRAMES || lowest < seq) {
-                                Log.d("AudioReceiver", "Resync: gap=$gap oldExp=$seq newExp=$lowest")
+                                Log.d(
+                                    "AudioReceiver",
+                                    "Resync: gap=$gap oldExp=$seq newExp=$lowest"
+                                )
                                 expectedSeq = lowest
                                 continue
                             }
@@ -137,8 +147,16 @@ class AudioReceiver(
                     }
 
                     if (!isPaused) {
-                        val data = payload ?: silence
-                        writeFixed(track, data, AudioStreamConstants.PAYLOAD_BYTES)
+                        if(compressedPayload != null){
+                            val decompressedData = decoder.decode(compressedPayload, PAYLOAD_BYTES)
+                            writeFixed(track, decompressedData, AudioStreamConstants.PAYLOAD_BYTES)
+                        }else{
+                            writeFixed(track, silence, AudioStreamConstants.PAYLOAD_BYTES)
+                        }
+
+                        //
+
+
                     }
 
                     expectedSeq = seq + 1
@@ -146,8 +164,14 @@ class AudioReceiver(
             } catch (e: Exception) {
                 Log.e("AudioReceiver", "Playout error", e)
             } finally {
-                try { socket.close() } catch (_: Exception) {}
-                try { track.stop() } catch (_: Exception) {}
+                try {
+                    socket.close()
+                } catch (_: Exception) {
+                }
+                try {
+                    track.stop()
+                } catch (_: Exception) {
+                }
                 track.release()
                 _isPlayingState.tryEmit(false)
                 running.set(false)
@@ -160,8 +184,14 @@ class AudioReceiver(
         _isPlayingState.tryEmit(false)
 
         // Unblock receive() quickly
-        try { rxThread?.interrupt() } catch (_: Exception) {}
-        try { playoutThread?.interrupt() } catch (_: Exception) {}
+        try {
+            rxThread?.interrupt()
+        } catch (_: Exception) {
+        }
+        try {
+            playoutThread?.interrupt()
+        } catch (_: Exception) {
+        }
 
         rxThread = null
         playoutThread = null
@@ -207,18 +237,24 @@ class AudioReceiver(
             .build()
     }
 
-    private fun writeFixed(track: AudioTrack, data: ByteArray, frameBytes: Int) {
+    private fun writeFixed(track: AudioTrack, data: ShortArray, frameShorts: Int) {
         when {
-            data.size == frameBytes -> track.write(data, 0, frameBytes)
-            data.size > frameBytes -> track.write(data, 0, frameBytes)
+            data.size == frameShorts -> {
+                track.write(data, 0, frameShorts)
+            }
+            data.size > frameShorts -> {
+                track.write(data, 0, frameShorts)
+            }
             else -> {
-                val tmp = ByteArray(frameBytes)
+                val tmp = ShortArray(frameShorts)
                 System.arraycopy(data, 0, tmp, 0, data.size)
-                track.write(tmp, 0, frameBytes)
+                track.write(tmp, 0, frameShorts)
             }
         }
     }
 
     private fun TreeMap<Int, ByteArray>.firstKeyOrNull(): Int? =
         if (isEmpty()) null else firstKey()
+
+
 }

@@ -8,8 +8,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -32,14 +30,18 @@ class HostStreamer(
     private var udpSocket: DatagramSocket? = null
 
     init {
+        //It load opus library
+        System.loadLibrary("wavesynch")
         udpSocket = DatagramSocket().apply {
             reuseAddress = true
         }
+
     }
 
     @androidx.annotation.RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
+
         val audioStreamerThread = Thread{
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             isHostStreaming = true
@@ -47,9 +49,12 @@ class HostStreamer(
             // Reuse DatagramPacket object to reduce allocations
             val dp = DatagramPacket(ByteArray(0), 0)
 
+
+
+            var seq = 0
             //It receive the already encoded audio frames from the audio capturer and send them to the guests
             capturer.start { chunk ->
-                Log.d("HostStreamer", "chunk size: ${chunk.size}")
+
                 dp.data = chunk
                 dp.length = chunk.size
                 guests.values.filter { it.isPlaying }.forEach { guest ->
@@ -57,6 +62,7 @@ class HostStreamer(
                     try {
                         // Send the packet to the guest
                         udpSocket?.send(dp)
+
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }

@@ -22,61 +22,80 @@ class HostAudioCapturer(
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
-    fun start(onChunk: (ByteArray) -> Unit) {
+    fun start(onPcmFrame: (ByteArray) -> Unit) {
         if (isCapturing) return
+
+        val compressor = OpusNative.Encoder(AudioStreamConstants.SAMPLE_RATE, 1)
 
         val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
             .addMatchingUsage(AudioAttributes.USAGE_GAME)
             .build()
 
+        // IMPORTANT: Opus wants 48k. If your constant isn't 48000, change it.
+        val sampleRate = AudioStreamConstants.SAMPLE_RATE
+        val channelMask = AudioStreamConstants.CHANNEL_MASK_IN
+        val encoding = AudioFormat.ENCODING_PCM_16BIT
+
         val format = AudioFormat.Builder()
-            .setEncoding(AudioStreamConstants.AUDIO_FORMAT)
-            .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
-            .setChannelMask(AudioStreamConstants.CHANNEL_MASK_IN)
+            .setEncoding(encoding)
+            .setSampleRate(sampleRate)
+            .setChannelMask(channelMask)
             .build()
 
-        val minBuffer = AudioRecord.getMinBufferSize(
-            AudioStreamConstants.SAMPLE_RATE,
-            AudioStreamConstants.CHANNEL_MASK_IN,
-            AudioStreamConstants.AUDIO_FORMAT
-        ).coerceAtLeast(AudioStreamConstants.PAYLOAD_BYTES * 2)
+        val channels = when (channelMask) {
+            AudioFormat.CHANNEL_IN_MONO -> 1
+            AudioFormat.CHANNEL_IN_STEREO -> 2
+            else -> 2 // fallback
+        }
+
+        // Buffer size in bytes (AudioRecord API requires bytes)
+        val minBufferBytes = AudioRecord.getMinBufferSize(sampleRate, channelMask, encoding)
+            .coerceAtLeast(4096)
 
         audioRecord = AudioRecord.Builder()
             .setAudioFormat(format)
-            .setBufferSizeInBytes(minBuffer)
+            .setBufferSizeInBytes(minBufferBytes)
             .setAudioPlaybackCaptureConfig(config)
             .build()
+
+        // Choose an Opus-friendly frame size:
+        // 20ms @ 48k = 960 samples per channel
+        // Total shorts per frame = frameSizePerCh * channels
+        val frameSizePerChannel = 960
+        val frameShorts = frameSizePerChannel * channels
 
         isCapturing = true
 
         captureThread = Thread {
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
-            val recorder = audioRecord ?: return@Thread
-            val readBuf = ByteArray(minBuffer / 2) // read in chunks
-            val assembler = FrameAssembler(AudioStreamConstants.PAYLOAD_BYTES)
 
-            var seq = 0
+            val recorder = audioRecord ?: return@Thread
             recorder.startRecording()
 
-            while (isCapturing) {
-                val read = recorder.read(readBuf, 0, readBuf.size)
-                if (read <= 0) continue
+            // Read in short samples
+            val readShorts = maxOf(frameShorts, minBufferBytes / 2 /*bytes->shorts*/)
+            val readBuf = ShortArray(readShorts)
 
-                assembler.push(readBuf, read) { payload ->
+            val assembler = ShortFrameAssembler(frameShorts)
+
+            var seq = 0
+            while (isCapturing) {
+                val readCount = recorder.read(readBuf, 0, readBuf.size)
+                if (readCount <= 0) continue
+
+                assembler.push(readBuf, readCount) { frame ->
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
-                    val packet = PacketCodec.encode(seq, tsMs, payload, payload.size)
-                    Log.d("HostAudioCapturer", "chunk size: ${packet.size}")
-                    onChunk(packet)
-                    seq++ // increment ONLY when a packet is emitted
+                    val compressedFrame = compressor.encode(frame, frameShorts)
+                    val packet = PacketCodec.encode(seq, tsMs, compressedFrame, compressedFrame.size)
+                    onPcmFrame(packet) // frame is ShortArray sized exactly frameShorts
+                    seq++
                 }
             }
 
             try { recorder.stop() } catch (_: Throwable) {}
         }.apply { start() }
     }
-
-
 
     fun stop() {
         isCapturing = false
@@ -92,28 +111,22 @@ class HostAudioCapturer(
     }
 }
 
-private class FrameAssembler(private val frameSize: Int) {
-    private val buf = ByteArray(frameSize)
+private class ShortFrameAssembler(private val frameShorts: Int) {
+    private val buf = ShortArray(frameShorts)
     private var filled = 0
 
-    /**
-     * Push bytes in; whenever a full frame is ready, calls onFrame(frameBytes).
-     * Note: onFrame receives a copy-safe frame buffer.
-     */
-    fun push(input: ByteArray, length: Int, onFrame: (ByteArray) -> Unit) {
+    fun push(input: ShortArray, length: Int, onFrame: (ShortArray) -> Unit) {
         var offset = 0
         while (offset < length) {
-            val toCopy = minOf(frameSize - filled, length - offset)
-            System.arraycopy(input, offset, buf, filled, toCopy)
+            val toCopy = minOf(frameShorts - filled, length - offset)
+            java.lang.System.arraycopy(input, offset, buf, filled, toCopy)
             filled += toCopy
             offset += toCopy
 
-            if (filled == frameSize) {
-                // Emit a frame. Copy to avoid mutation issues.
+            if (filled == frameShorts) {
                 onFrame(buf.clone())
                 filled = 0
             }
         }
     }
 }
-
