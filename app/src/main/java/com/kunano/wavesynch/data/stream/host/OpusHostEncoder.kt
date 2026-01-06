@@ -16,7 +16,7 @@ class OpusHostEncoder(
     }
 
     fun encode(framePcm: ShortArray): ByteArray {
-        val out = encoder.encode(framePcm, AudioStreamConstants.PCM_FRAME_BYTES)
+        val out = encoder.encode(framePcm, AudioStreamConstants.SAMPLES_PER_PACKET)
         return out
     }
 

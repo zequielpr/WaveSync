@@ -17,7 +17,7 @@ class OpusGuestDecoder(
         val p0 = packetBuffer[expectedSeq]
         if (p0 != null) {
             packetBuffer.remove(expectedSeq)
-            return decoder.decode(p0, AudioStreamConstants.PCM_FRAME_BYTES)
+            return decoder.decode(p0, AudioStreamConstants.SAMPLES_PER_PACKET)
         }
 
         // Missing expected packet: try FEC from next packet if available
@@ -26,11 +26,11 @@ class OpusGuestDecoder(
             // IMPORTANT: do NOT remove p1 here.
             // We use p1 to reconstruct expectedSeq (previous frame),
             // then next tick we still need p1 for normal decode.
-            return decoder.decodeFecFromNextPcm16( p1, AudioStreamConstants.PCM_FRAME_BYTES)
+            return decoder.decodeFecFromNextPcm16( p1, AudioStreamConstants.SAMPLES_PER_PACKET)
         }
 
         // Neither packet nor next packet is available -> PLC
-        return decoder.decodeWithPLC(AudioStreamConstants.PCM_FRAME_BYTES)
+        return decoder.decodeWithPLC(AudioStreamConstants.SAMPLES_PER_PACKET)
     }
 
     fun close() {

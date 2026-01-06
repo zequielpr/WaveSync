@@ -50,8 +50,6 @@ class HostStreamer(
             val dp = DatagramPacket(ByteArray(0), 0)
 
 
-
-            var seq = 0
             //It receive the already encoded audio frames from the audio capturer and send them to the guests
             capturer.start { chunk ->
 

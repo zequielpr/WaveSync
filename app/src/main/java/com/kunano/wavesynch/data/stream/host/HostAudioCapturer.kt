@@ -11,37 +11,36 @@ import android.os.Process
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
-import com.kunano.wavesynch.data.stream.AudioStreamConstants.PCM_FRAME_BYTES
 import com.kunano.wavesynch.data.stream.PacketCodec
 
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
     init {
-        //It load opus library
         System.loadLibrary("wavesynch")
     }
+
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
-    lateinit var opusEncoder: OpusHostEncoder
+
+    private lateinit var opusEncoder: OpusHostEncoder
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
-    fun start(onPcmFrame: (ByteArray) -> Unit) {
+    fun start(onPacket: (ByteArray) -> Unit) {
         if (isCapturing) return
 
-        opusEncoder = OpusHostEncoder()
+        opusEncoder = OpusHostEncoder() // ensure this uses SAMPLES_PER_PACKET internally (480)
 
         val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
             .addMatchingUsage(AudioAttributes.USAGE_GAME)
             .build()
 
-        // IMPORTANT: Opus wants 48k. If your constant isn't 48000, change it.
         val sampleRate = AudioStreamConstants.SAMPLE_RATE
         val channelMask = AudioStreamConstants.CHANNEL_MASK_IN
-        val encoding = AudioFormat.ENCODING_PCM_16BIT
+        val encoding = AudioStreamConstants.AUDIO_FORMAT
 
         val format = AudioFormat.Builder()
             .setEncoding(encoding)
@@ -52,10 +51,10 @@ class HostAudioCapturer(
         val channels = when (channelMask) {
             AudioFormat.CHANNEL_IN_MONO -> 1
             AudioFormat.CHANNEL_IN_STEREO -> 2
-            else -> 2 // fallback
+            else -> 1
         }
 
-        // Buffer size in bytes (AudioRecord API requires bytes)
+        // AudioRecord buffer size in BYTES
         val minBufferBytes = AudioRecord.getMinBufferSize(sampleRate, channelMask, encoding)
             .coerceAtLeast(4096)
 
@@ -65,10 +64,15 @@ class HostAudioCapturer(
             .setAudioPlaybackCaptureConfig(config)
             .build()
 
-        // Choose an Opus-friendly frame size:
-        // 10ms @ 48k = 960 samples per channel
-        // Total shorts per frame = frameSizePerCh * channels
-        val frameShorts = PCM_FRAME_BYTES * channels
+        // ---------- Correct frame sizing ----------
+        // 10ms @ 48kHz => 480 samples per channel
+        val frameShorts = AudioStreamConstants.SAMPLES_PER_PACKET * channels // total shorts in one frame across channels
+
+        // Read in small-ish chunks to avoid extra latency; assembler will pack exact frames
+        val readShorts = maxOf(frameShorts * 2, 1024)
+        val readBuf = ShortArray(readShorts)
+
+        val assembler = ShortFrameAssembler(frameShorts)
 
         isCapturing = true
 
@@ -78,22 +82,23 @@ class HostAudioCapturer(
             val recorder = audioRecord ?: return@Thread
             recorder.startRecording()
 
-            // Read in short samples
-            val readShorts = maxOf(frameShorts, minBufferBytes / 2 /*bytes->shorts*/)
-            val readBuf = ShortArray(readShorts)
-
-            val assembler = ShortFrameAssembler(frameShorts)
-
             var seq = 0
+
             while (isCapturing) {
                 val readCount = recorder.read(readBuf, 0, readBuf.size)
                 if (readCount <= 0) continue
 
                 assembler.push(readBuf, readCount) { frame ->
+                    // Timestamp can be whatever your PacketCodec expects
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
-                    val compressedFrame = opusEncoder.encode(frame)
-                    val packet = PacketCodec.encode(seq, tsMs, compressedFrame, compressedFrame.size)
-                    onPcmFrame(packet) // frame is ShortArray sized exactly frameShorts
+
+                    // Encode frame -> Opus payload (variable length)
+                    val opusPayload = opusEncoder.encode(frame)
+
+                    // Packetize: header + opus payload
+                    val packet = PacketCodec.encode(seq, tsMs, opusPayload, opusPayload.size)
+
+                    onPacket(packet)
                     seq++
                 }
             }
@@ -103,17 +108,17 @@ class HostAudioCapturer(
     }
 
     fun stop() {
-
         isCapturing = false
-        captureThread?.join(300)
+
+        try { captureThread?.join(300) } catch (_: Throwable) {}
         captureThread = null
 
         audioRecord?.let {
             try { it.release() } catch (_: Throwable) {}
         }
         audioRecord = null
-        opusEncoder.close()
-        
+
+        if (::opusEncoder.isInitialized) opusEncoder.close()
 
         try { mediaProjection.stop() } catch (_: Throwable) {}
     }
@@ -132,6 +137,7 @@ private class ShortFrameAssembler(private val frameShorts: Int) {
             offset += toCopy
 
             if (filled == frameShorts) {
+                // Clone so downstream code can keep it; avoids mutation on next fill
                 onFrame(buf.clone())
                 filled = 0
             }
