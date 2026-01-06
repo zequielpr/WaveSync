@@ -117,6 +117,62 @@ Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_setExpectedPacketL
     }
 }
 
+JNIEXPORT void JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_setSignalMusic(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong pointer) {
+
+    OpusEncoder* enc = GET_ENCODER(pointer);
+    if (!enc) {
+        LOGE("setSignalMusic: encoder pointer is null");
+        return;
+    }
+
+    int rc = opus_encoder_ctl(enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC));
+    if (rc != OPUS_OK) {
+        LOGE("OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC) failed: %s", opus_strerror(rc));
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_setBitrate(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong pointer, jint bitrate) {
+
+    OpusEncoder* enc = GET_ENCODER(pointer);
+    if (!enc) {
+        LOGE("setBitrate: encoder pointer is null");
+        return;
+    }
+
+    if (bitrate < 6000) bitrate = 6000; // sanity floor
+    int rc = opus_encoder_ctl(enc, OPUS_SET_BITRATE(bitrate));
+    if (rc != OPUS_OK) {
+        LOGE("OPUS_SET_BITRATE(%d) failed: %s", bitrate, opus_strerror(rc));
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_setComplexity(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong pointer, jint complexity) {
+
+    OpusEncoder* enc = GET_ENCODER(pointer);
+    if (!enc) {
+        LOGE("setComplexity: encoder pointer is null");
+        return;
+    }
+
+    if (complexity < 0) complexity = 0;
+    if (complexity > 10) complexity = 10;
+
+    int rc = opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(complexity));
+    if (rc != OPUS_OK) {
+        LOGE("OPUS_SET_COMPLEXITY(%d) failed: %s", complexity, opus_strerror(rc));
+    }
+}
+
+
+
+
+
 
 
 

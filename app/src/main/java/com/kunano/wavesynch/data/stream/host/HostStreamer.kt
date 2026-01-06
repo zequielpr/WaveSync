@@ -3,6 +3,7 @@ package com.kunano.wavesynch.data.stream.host
 import android.Manifest
 import android.os.Build
 import android.os.Process
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
@@ -41,6 +42,7 @@ class HostStreamer(
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
+
 
         val audioStreamerThread = Thread{
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)

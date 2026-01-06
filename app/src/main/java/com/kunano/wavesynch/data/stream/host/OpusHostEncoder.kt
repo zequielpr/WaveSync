@@ -13,6 +13,9 @@ class OpusHostEncoder(
     init {
         encoder.setInbandFecEnabled(true)
         encoder.setExpectedPacketLossPercent(10)
+        encoder.setSignalMusic()
+        encoder.setBitrate(AudioStreamConstants.MONO_BITRATE)
+        encoder.setComplexity(AudioStreamConstants.HOST_SPOT_COMPLEXITY)
     }
 
     fun encode(framePcm: ShortArray): ByteArray {

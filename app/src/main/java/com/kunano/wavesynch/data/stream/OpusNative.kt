@@ -27,6 +27,29 @@ object OpusNative {
             setExpectedPacketLossPercent(pointer, lossPercent)
         }
 
+        fun setSignalMusic() {
+            setSignalMusic(pointer)
+        }
+
+        /**
+         * @param bitrate Recommended values:
+         * - Mono: 32_000–64_000 bps
+         * - Stereo: 64_000–128_000 bps (depends on quality target)
+         */
+        fun setBitrate(bitrate: Int) {
+            setBitrate(pointer, bitrate)
+        }
+
+        /**
+         * @param complexity Recommended values:
+         * - Host phone: 5–7
+         */
+        fun setComplexity(complexity: Int) {
+            setComplexity(pointer, complexity)
+        }
+
+
+
         fun destroy() {
             if (pointer != 0L) {
                 destroyEncoder(pointer)
@@ -44,6 +67,10 @@ object OpusNative {
             frameSize: Int,
             channels: Int,
         ): ByteArray?
+
+        private external fun setSignalMusic(ptr: Long)
+        private external fun setBitrate(ptr: Long, bitrate: Int)
+        private external fun setComplexity(ptr: Long, complexity: Int)
 
         private external fun destroyEncoder(pointer: Long)
     }

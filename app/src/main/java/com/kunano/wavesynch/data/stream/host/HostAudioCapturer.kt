@@ -8,6 +8,7 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Process
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
@@ -91,6 +92,8 @@ class HostAudioCapturer(
                 assembler.push(readBuf, readCount) { frame ->
                     // Timestamp can be whatever your PacketCodec expects
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
+
+                    Log.d("tag", "Frame size: ${frame.size}")
 
                     // Encode frame -> Opus payload (variable length)
                     val opusPayload = opusEncoder.encode(frame)
