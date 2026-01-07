@@ -1,7 +1,8 @@
 package com.kunano.wavesynch.domain.usecase
 
-import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
 import com.kunano.wavesynch.data.wifi.client.SessionData
+import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import kotlinx.coroutines.flow.Flow
@@ -12,8 +13,11 @@ class GuestUseCases @Inject constructor(
     private val guestRepository: GuestRepository
 ) {
     val isPlayingState: StateFlow<Boolean> = guestRepository.isPlayingState
-    val connectionEvents: Flow<ClientConnectionsState> = guestRepository.clientConnectionsStateFLow
+    val serverConnectionEvents: Flow<ServerConnectionState> = guestRepository.serverConnectionsStateFLow
     val hanShakeResponse: Flow<HandShakeResult> = guestRepository.hanShakeResponse
+    val hotspotConnectionStates: Flow<HotSpotConnectionState> = guestRepository.hotspotConnectionStates
+
+
 
 
     fun startReceivingAudioStream() = guestRepository.startReceivingAudioStream()

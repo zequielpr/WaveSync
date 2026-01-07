@@ -1,0 +1,170 @@
+celt/arm/celt_neon_intr.lo: \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/celt_neon_intr.c \
+  config.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/arm_neon.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stdint.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdint.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/sys/cdefs.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/versioning.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/api-level.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/get_device_api_level_inlines.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/ndk-version.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/wchar_limits.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stddef.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_header_macro.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_ptrdiff_t.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_size_t.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_wchar_t.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_null.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_max_align_t.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_offsetof.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/arm_bf16.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/arm_vector_types.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../float_cast.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arch.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/include/opus_types.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/include/opus_defines.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/math.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/limits.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/limits.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/float.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/limits.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/posix_limits.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../mathops.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../entcode.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../ecintrin.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../os_support.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/string.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/xlocale.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/strcasecmp.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/sys/types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/arm-linux-androideabi/asm/types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/int-ll64.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/arm-linux-androideabi/asm/bitsperlong.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/bitsperlong.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/posix_types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/stddef.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/compiler_types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/compiler.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/arm-linux-androideabi/asm/posix_types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/posix_types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/pthread_types.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/string.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdlib.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/alloca.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/wait.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/wait.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/malloc.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdio.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stdarg.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_header_macro.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg___gnuc_va_list.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_va_list.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_va_arg.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg___va_copy.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_va_copy.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/seek_constants.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/struct_file.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/stdio.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/stdlib.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/legacy_stdlib_inlines.h \
+  C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/stdlib_inlines.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arm/mathops_arm.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arm/armcpu.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/cpu_support.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/armcpu.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../pitch.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../modes.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../celt.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/include/opus_custom.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../entenc.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../entdec.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../kiss_fft.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../cpu_support.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../mdct.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arm/pitch_arm.h
+config.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/arm_neon.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stdint.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdint.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/sys/cdefs.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/versioning.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/api-level.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/get_device_api_level_inlines.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/ndk-version.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/wchar_limits.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stddef.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_header_macro.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_ptrdiff_t.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_size_t.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_wchar_t.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_null.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_max_align_t.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stddef_offsetof.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/arm_bf16.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/arm_vector_types.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../float_cast.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arch.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/include/opus_types.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/include/opus_defines.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/math.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/limits.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/limits.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/float.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/limits.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/posix_limits.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../mathops.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../entcode.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../ecintrin.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../os_support.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/string.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/xlocale.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/strcasecmp.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/sys/types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/arm-linux-androideabi/asm/types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/int-ll64.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/arm-linux-androideabi/asm/bitsperlong.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/bitsperlong.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/posix_types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/stddef.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/compiler_types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/compiler.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/arm-linux-androideabi/asm/posix_types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/posix_types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/pthread_types.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/string.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdlib.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/alloca.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/wait.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/wait.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/malloc.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdio.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/stdarg.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_header_macro.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg___gnuc_va_list.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_va_list.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_va_arg.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg___va_copy.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21/include/__stdarg_va_copy.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/seek_constants.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/struct_file.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/stdio.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/stdlib.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/legacy_stdlib_inlines.h:
+C:/Users/Zequi/AppData/Local/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/stdlib_inlines.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arm/mathops_arm.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arm/armcpu.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/cpu_support.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/armcpu.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../pitch.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../modes.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../celt.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/include/opus_custom.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../entenc.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../entdec.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../kiss_fft.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../cpu_support.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../mdct.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/celt/arm/../arm/pitch_arm.h:

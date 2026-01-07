@@ -86,6 +86,7 @@ fun SyncWaveMainScreenWithAppBar(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
 

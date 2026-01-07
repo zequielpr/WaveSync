@@ -473,7 +473,7 @@ fun GuestsListCompose(
             .padding(top = 32.dp)
     ) {
 
-        items(guestsList, key = { it.userId }) { guest ->
+        items(guestsList) { guest ->
             Log.d("ActiveRoomCompose", "GuestsListCompose: $guest")
             GuestItem(guest = guest)
         }

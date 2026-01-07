@@ -18,15 +18,16 @@ import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import com.kunano.wavesynch.MainActivity
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.stream.AudioReceiver
-import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.stream.guest.AudioReceiver
 import com.kunano.wavesynch.data.wifi.client.ClientManager
-import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.net.DatagramSocket
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -42,19 +43,17 @@ class AudioPlayerService : Service() {
     @ApplicationContext
     lateinit var context: Context
 
+    // Create a CoroutineScope tied to the service's lifecycle
+    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+
     var notificationManager: NotificationManager? = null
     lateinit var mediaSession: MediaSessionCompat
     lateinit var mainActivityIntent: Intent
     lateinit var contentPendingIntent: PendingIntent
 
-
-
-
-
     companion object {
         private const val NOTIFICATION_ID = 1002
         private const val CHANNEL_ID = "AudioPlayerChannel"
-
     }
 
     override fun onCreate() {
@@ -78,24 +77,19 @@ class AudioPlayerService : Service() {
     }
 
     private fun collectIsplayinState() {
-        CoroutineScope(Dispatchers.IO).launch {
+        serviceScope.launch {
             audioReceiver.isPlayingState.collect {
                 updatePlaybackState(it)
                 Log.d("AudioPlayerService", "collectIsplayinState: $it")
             }
-
         }
     }
 
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Let the MediaButtonReceiver parse the intent and call the right callback.
-        // This is the correct way to handle media button events.
         if (intent != null) {
             MediaButtonReceiver.handleIntent(mediaSession, intent)
         }
 
-        // The service is started for the first time (not from a media button press).
         if (intent?.action != Intent.ACTION_MEDIA_BUTTON) {
             val notification = buildNotification(true)
 
@@ -110,10 +104,8 @@ class AudioPlayerService : Service() {
             }
             collectIsplayinState()
 
-            // Start receiving audio and set the initial playback state
-            clientManager.inputStream?.let {
-                audioReceiver.start(it)
-            }
+            val udpSocket: DatagramSocket = clientManager.openUdpSocket()
+            audioReceiver.start(udpSocket)
         }
 
         return START_STICKY
@@ -130,7 +122,7 @@ class AudioPlayerService : Service() {
             }
 
             override fun onStop() {
-                stopSelf() // This will trigger onDestroy
+                stopSelf()
             }
         })
     }
@@ -143,13 +135,14 @@ class AudioPlayerService : Service() {
     override fun onDestroy() {
         Log.d("AudioPlayerService", "onDestroy: ")
         audioReceiver.stop()
+        mediaSession.release() // Release the media session
+        serviceScope.cancel()  // Cancel all coroutines started by this service
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
-
 
     private fun createNotificationChannel() {
         val serviceChannel = NotificationChannel(
@@ -180,7 +173,7 @@ class AudioPlayerService : Service() {
         }
 
         val stopAction = NotificationCompat.Action(
-            R.drawable.delete_48px, // Using delete icon for stop
+            R.drawable.delete_48px,
             "Stop",
             MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_STOP)
         )
@@ -193,11 +186,10 @@ class AudioPlayerService : Service() {
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .addAction(playPauseAction)
-            .addAction(stopAction).setContentIntent(contentPendingIntent) // Add the stop action
+            .addAction(stopAction).setContentIntent(contentPendingIntent)
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
-                    // Show play/pause and stop in compact view
                     .setShowActionsInCompactView(0, 1)
             )
             .build()
@@ -213,7 +205,6 @@ class AudioPlayerService : Service() {
                 .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
                 .build()
         )
-        // Refresh notification to show the correct icon
         refreshNotif(isPlaying)
     }
 }
