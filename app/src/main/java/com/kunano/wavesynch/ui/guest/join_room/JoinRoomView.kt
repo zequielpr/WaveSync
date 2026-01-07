@@ -98,6 +98,7 @@ fun JoinRoomViewCompose(
             CheckIfDeviceIsHost(navigateBack = onBack)
             if (!UIState.isThisDeviceHost && !UIState.waitingForHostAnswer) {
                 QrScannerScreen(
+                    navigateBack = onBack,
                     onResult = { qrContent ->
                         Log.d("JoinRoomViewCompose", "QrScannerScreen: $qrContent")
                         val ssid = qrContent.split("/")[0]

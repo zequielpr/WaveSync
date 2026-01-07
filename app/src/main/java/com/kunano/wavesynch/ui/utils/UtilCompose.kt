@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.magnifier
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -317,13 +316,16 @@ fun QrScanFrame(
 @Composable
 fun QrScannerScreen(
     onResult: (String) -> Unit,
+    navigateBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    var hasCameraPermission by remember {mutableStateOf(false)}
+    var hasCameraPermission by remember { mutableStateOf(false) }
 
     var relaunchPermissionHandler by remember { mutableStateOf(false) }
     var showPermissionRationale by remember { mutableStateOf(false) }
     var showPermissionSettings by remember { mutableStateOf(false) }
+    var permissionPermanentlyDenied by remember { mutableStateOf(false) }
+
 
     val required: List<String> = buildList {
         add(Manifest.permission.CAMERA)
@@ -346,6 +348,7 @@ fun QrScannerScreen(
             onNeedUserActionInSettings = {
                 Log.d("MainScreen", "User needs to go to settings")
                 showPermissionSettings = true
+                permissionPermanentlyDenied = true
             },
             onShowRationale = {
                 showPermissionRationale = true
@@ -361,7 +364,10 @@ fun QrScannerScreen(
                 Log.d("MainScreen", "Permission granted")
                 hasCameraPermission = true
             },
-            onNeedUserActionInSettings = { showPermissionSettings = true },
+            onNeedUserActionInSettings = {
+                showPermissionSettings = true
+                permissionPermanentlyDenied = true
+            },
             onShowRationale = { showPermissionRationale = true }
         )
     }
@@ -371,10 +377,11 @@ fun QrScannerScreen(
         PermissionRationaleDialog(message = permissionRequiredMessage, onRetry = {
             relaunchPermissionHandler = true
             showPermissionRationale = false
-        }, onCancel = { showPermissionRationale = false })
+        }, onCancel = { showPermissionRationale = false
+        navigateBack()})
 
     } else if (showPermissionSettings) {
-        GoToSettingsDialog( onOpenSettings = {
+        GoToSettingsDialog(onOpenSettings = {
             openAppSettings(context = context)
             showPermissionSettings = false
         }, onCancel = { showPermissionSettings = false })
@@ -388,16 +395,22 @@ fun QrScannerScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                Modifier.padding(horizontal = AppDimens.Padding.horizontal),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.permission_required_message_go_setting), textAlign = TextAlign.Center)
+            if (permissionPermanentlyDenied) {
+                Box(
+                    Modifier.padding(horizontal = AppDimens.Padding.horizontal),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        stringResource(R.string.permission_required_message_go_setting),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = { openAppSettings(context = context) }) {
+                    Text(stringResource(R.string.open_settings))
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { openAppSettings(context = context) }) {
-                Text(stringResource(R.string.open_settings))
-            }
+
         }
         return
     }
@@ -519,7 +532,6 @@ fun generateQrBitmap(
 }
 
 
-
 @SuppressLint("UnsafeOptInUsageError")
 private fun processImage(
     scanner: BarcodeScanner,
@@ -601,13 +613,12 @@ fun BlockingLoadingOverlay(
 }
 
 
-
 @Composable
 fun PermissionRationaleDialog(
     title: String = stringResource(R.string.permission_required),
     message: String = stringResource(R.string.permissions_required_message),
     onRetry: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     val textColor = MaterialTheme.colorScheme.primary
     androidx.compose.material3.AlertDialog(
@@ -633,7 +644,7 @@ fun GoToSettingsDialog(
     title: String = stringResource(R.string.enable_permissions),
     message: String = stringResource(R.string.permission_required_message_go_setting),
     onOpenSettings: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     val textColor = MaterialTheme.colorScheme.primary
     androidx.compose.material3.AlertDialog(
@@ -642,7 +653,10 @@ fun GoToSettingsDialog(
         text = { androidx.compose.material3.Text(message) },
         confirmButton = {
             androidx.compose.material3.TextButton(onClick = onOpenSettings) {
-                androidx.compose.material3.Text(stringResource(R.string.open_settings), color = textColor)
+                androidx.compose.material3.Text(
+                    stringResource(R.string.open_settings),
+                    color = textColor
+                )
             }
         },
         dismissButton = {
@@ -652,9 +666,6 @@ fun GoToSettingsDialog(
         }
     )
 }
-
-
-
 
 
 @Preview(showBackground = true)
