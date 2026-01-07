@@ -5,13 +5,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun PermissionHandler(
     onAllGranted: () -> Unit
@@ -20,12 +18,16 @@ fun PermissionHandler(
 
     val permissions = mutableListOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-        Manifest.permission.POST_NOTIFICATIONS,
-        Manifest.permission.NEARBY_WIFI_DEVICES
-
+        Manifest.permission.ACCESS_COARSE_LOCATION
     )
 
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+    }else{
+        permissions.add(Manifest.permission.RECORD_AUDIO)
+
+    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()

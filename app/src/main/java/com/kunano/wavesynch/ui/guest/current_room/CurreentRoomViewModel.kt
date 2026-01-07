@@ -5,7 +5,10 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
+import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
+import com.kunano.wavesynch.data.wifi.server.HandShake
+import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.utils.UiEvent
@@ -36,10 +39,38 @@ class CurrentRoomViewModel @Inject constructor(
     init {
         guestUseCases.startReceivingAudioStream()
         populateCurrentRoom()
-        collectConnectionEvents()
+        collectServerConnectionEvents()
         collectIsPlayingState()
+        collectHotspotConnectionState()
+        collectHandShakeResult()
 
     }
+
+    private fun collectHandShakeResult() {
+        viewModelScope.launch {
+            guestUseCases.hanShakeResponse.collect {
+                Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
+                when (it) {
+                    is HandShakeResult.ExpelledByHost -> {
+                        expelledByHost(it.handShake)
+                        Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
+
+                    }
+
+                    else -> {
+                        Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
+                    }
+
+                }
+            }
+        }
+    }
+
+    fun expelledByHost(handShake: HandShake?) {
+        val leavingRoomMessage = context.getString(R.string.expelled_by_host) + " ${handShake?.deviceName}"
+        leaveRoom(leavingRoomMessage = leavingRoomMessage)
+    }
+
 
     private fun collectIsPlayingState() {
         viewModelScope.launch {
@@ -77,13 +108,15 @@ class CurrentRoomViewModel @Inject constructor(
     }
 
 
-    fun leaveRoom() {
+    fun leaveRoom(showLeavingRoomMessage: Boolean = true,   leavingRoomMessage: String = context.getString(R.string.room_left_successfully)) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             val result = guestUseCases.leaveRoom()
             _uiState.value = _uiState.value.copy(isLoading = false)
             if (result) {
-                _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.room_left_successfully)))
+               if (showLeavingRoomMessage) {
+                   _uIEvents.emit(UiEvent.ShowSnackBar(leavingRoomMessage))
+               }
                 _uIEvents.emit(UiEvent.NavigateTo(Screen.MainScreen))
             } else {
                 _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.error_leaving_room)))
@@ -93,17 +126,39 @@ class CurrentRoomViewModel @Inject constructor(
         }
     }
 
-    private fun collectConnectionEvents() {
+    private fun collectHotspotConnectionState() {
         viewModelScope.launch {
-            guestUseCases.connectionEvents.collect {
+            guestUseCases.hotspotConnectionStates.collect {
                 when (it) {
-                    ClientConnectionsState.ConnectedToHotspot -> {}
-                    ClientConnectionsState.ConnectedToServer -> {}
-                    ClientConnectionsState.ConnectingToHotspot -> {}
-                    ClientConnectionsState.ConnectingToServer -> {}
-                    ClientConnectionsState.Disconnected -> {}
-                    ClientConnectionsState.Idle -> {}
-                    ClientConnectionsState.ReceivingAudioStream -> {}
+                    //If the connection is lost, leave the room
+                    HotSpotConnectionState.Disconnected -> {
+                        leaveRoom()
+                    }
+
+                    HotSpotConnectionState.ConnectionLost -> {
+                        leaveRoom(leavingRoomMessage = context.getString(R.string.connection_lost))
+                    }
+
+                    else -> {
+                        Log.d("CurrentRoomViewModel", "collectHotspotConnectionState: $it")
+                    }
+
+                }
+
+            }
+
+        }
+    }
+
+    private fun collectServerConnectionEvents() {
+        viewModelScope.launch {
+            guestUseCases.serverConnectionEvents.collect {
+                when (it) {
+                    ServerConnectionState.ConnectedToServer -> {}
+                    ServerConnectionState.ConnectingToServer -> {}
+                    ServerConnectionState.Disconnected -> {}
+                    ServerConnectionState.Idle -> {}
+                    ServerConnectionState.ReceivingAudioStream -> {}
                 }
             }
         }

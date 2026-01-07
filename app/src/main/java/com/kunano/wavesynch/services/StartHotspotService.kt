@@ -90,7 +90,7 @@ class StartHotspotService: Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.room_ready))
             .setContentText(context.getString(R.string.waiting_for_guest))
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }

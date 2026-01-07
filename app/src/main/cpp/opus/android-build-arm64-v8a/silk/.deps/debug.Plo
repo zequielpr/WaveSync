@@ -1,0 +1,6 @@
+silk/debug.lo: \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/silk/debug.c \
+  config.h \
+  D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/silk/debug.h
+config.h:
+D:/PortfolioProyects/wavesynch/app/src/main/cpp/opus/silk/debug.h:

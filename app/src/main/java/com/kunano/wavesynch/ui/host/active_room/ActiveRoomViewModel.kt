@@ -91,7 +91,11 @@ class ActiveRoomViewModel @Inject constructor(
     private fun collectHotSpotInfo() {
         viewModelScope.launch {
             hostUseCases.hotspotInfoFlow.collect {
-                setHotSpotSsidAndPassword(it)
+
+                if (it != null) {
+                    Log.d("ActiveRoomViewModel", "collectHotSpotInfo: ${it.password}")
+                    setHotSpotSsidAndPassword(it)
+                }
             }
 
         }
@@ -128,6 +132,15 @@ class ActiveRoomViewModel @Inject constructor(
                                 "collectHandShakeResults: Host approval required"
                             )
                         }
+                    }
+
+                    is HandShakeResult.UdpSocketOpen -> {
+                        Log.d("ActiveRoomViewModel", "collectHandShakeResults: Udp socket open")
+                        //It will ad the client to the udp broadcasting
+                        answer.handShake?.userId?.let {
+                            hostUseCases.addGuestToHostStreamer(it)
+                        }
+
                     }
 
                     else -> {
@@ -246,10 +259,8 @@ class ActiveRoomViewModel @Inject constructor(
                 hostUseCases.connectedGuest.collect { it ->
                     Log.d("ActiveRoomViewModel", "collectRoomGuests: $it")
                     if (it != null) {
-
-                        val newGuests = it.toList()
                         _uiState.update { uIState ->
-                            uIState.copy(guests = newGuests)
+                            uIState.copy(guests = it.toList())
                         }
                     }
                 }

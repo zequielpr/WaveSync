@@ -5,7 +5,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
+import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
@@ -39,9 +40,12 @@ class JoinRoomViewModel @Inject constructor(
 
     init {
         collectHandShakeResults()
-        collectConnectionEvents()
+        collectServerConnectionEvents()
         collectHotspotState()
+        collectHotspotConnectionState()
+
     }
+
 
 
     fun cancelJoinRoomRequest(){
@@ -138,39 +142,71 @@ class JoinRoomViewModel @Inject constructor(
         guestUseCases.connectToServer()
     }
 
-    fun collectConnectionEvents() {
-        viewModelScope.launch {
-            guestUseCases.connectionEvents.collect {
-                when (it) {
-                    ClientConnectionsState.ConnectedToHotspot -> {
-                        connectToServer()
-                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to hotspot")
-                    }
 
-                    ClientConnectionsState.ConnectedToServer -> {
+
+
+    private fun collectHotspotConnectionState() {
+        viewModelScope.launch {
+            guestUseCases.hotspotConnectionStates.collect {
+                when (it) {
+                    HotSpotConnectionState.Connected -> {
+                        connectToServer()
+                        Log.d("JoinRoomViewModel", "collectHotspotConnectionState: connected")
+                    }
+                    HotSpotConnectionState.Connecting -> {
+                        updateWaitingState(true)
+                        Log.d("JoinRoomViewModel", "collectHotspotConnectionState: connecting")
+
+                    }
+                    HotSpotConnectionState.ConnectionLost -> {
+                        updateWaitingState(false)
+                    }
+                    HotSpotConnectionState.ConnectionUnavailable -> {
+                        updateWaitingState(false)
+                        _uiEvent.send(UiEvent.ShowSnackBar(app.getString(R.string.connection_unavailable)))
+
+                    }
+                    HotSpotConnectionState.Disconnected -> {
+                        updateWaitingState(false)
+                        Log.d("JoinRoomViewModel", "collectHotspotConnectionState: disconnected")
+                    }
+                }
+            }
+
+        }
+    }
+
+
+
+
+    fun collectServerConnectionEvents() {
+        viewModelScope.launch {
+            guestUseCases.serverConnectionEvents.collect {
+                when (it) {
+
+                    ServerConnectionState.ConnectedToServer -> {
                         updateWaitingState(false)
                         guestUseCases.startReceivingAudioStream()
                         Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to server")
                     }
 
-                    ClientConnectionsState.ConnectingToHotspot -> {
-                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connecting to hotspot")
-                    }
-
-                    ClientConnectionsState.ConnectingToServer -> {
+                    ServerConnectionState.ConnectingToServer -> {
                         updateWaitingState(true)
                         Log.d("JoinRoomViewModel", "collectConnectionEvents: connecting to server")
                     }
 
-                    ClientConnectionsState.Disconnected -> {
+                    ServerConnectionState.Disconnected -> {
+                        updateWaitingState(false)
                         Log.d("JoinRoomViewModel", "collectConnectionEvents: disconnected")
                     }
 
-                    ClientConnectionsState.Idle -> {
+                    ServerConnectionState.Idle -> {
+
                         Log.d("JoinRoomViewModel", "collectConnectionEvents: idle")
                     }
 
-                    ClientConnectionsState.ReceivingAudioStream -> {
+                    ServerConnectionState.ReceivingAudioStream -> {
+                        updateWaitingState(false)
                         Log.d(
                             "JoinRoomViewModel",
                             "collectConnectionEvents: receiving audio stream"

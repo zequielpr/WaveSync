@@ -15,8 +15,11 @@ import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
@@ -34,6 +37,11 @@ class LocalHotspotController @Inject constructor(
     private val _hotspotInfoFLow = MutableStateFlow<HotspotInfo?>(null)
     val hotspotInfoFLow = _hotspotInfoFLow.asStateFlow()
 
+    private val _connectionStateFlow = MutableStateFlow<HotSpotConnectionState>(HotSpotConnectionState.Disconnected)
+    val connectionStateFlow = _connectionStateFlow.asStateFlow()
+
+
+
     var isConnectedToHotspotAsGuest: Boolean = false
 
 
@@ -42,7 +50,6 @@ class LocalHotspotController @Inject constructor(
 
     //I am gonna adda a generate password and the mobile device name as the ssid
     @SuppressLint("MissingPermission")
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     fun startHotspot(
         onStarted: (hotspotInfo: HotspotInfo) -> Unit,
@@ -64,18 +71,17 @@ class LocalHotspotController @Inject constructor(
         wifiManager.startLocalOnlyHotspot(
             object : WifiManager.LocalOnlyHotspotCallback() {
 
-
-                @RequiresApi(Build.VERSION_CODES.TIRAMISU)
                 override fun onStarted(res: WifiManager.LocalOnlyHotspotReservation) {
                     reservation = res
-
-                    val config = res.softApConfiguration
-                    val ssid = config.wifiSsid.toString()
-                    val pass = config.passphrase ?: ""
-                    _hotspotInfoFLow.tryEmit(HotspotInfo(ssid, pass))
-
-                    _hotspotStateFlow.tryEmit(HotspotState.Running)
-                    onStarted(HotspotInfo(ssid, pass))
+                    val hotspotInfo = getHotspotInfo()
+                    if (hotspotInfo != null) {
+                        _hotspotStateFlow.tryEmit(HotspotState.Running)
+                        _hotspotInfoFLow.tryEmit(hotspotInfo)
+                        onStarted(hotspotInfo)
+                    } else {
+                        onError(ERROR_GENERIC)
+                        _hotspotStateFlow.tryEmit(HotspotState.Stopped)
+                    }
                 }
 
                 override fun onStopped() {
@@ -95,6 +101,7 @@ class LocalHotspotController @Inject constructor(
         reservation?.close()
         reservation = null
         _hotspotStateFlow.tryEmit(HotspotState.Stopped)
+        _hotspotInfoFLow.tryEmit(null)
     }
 
     fun isHotspotRunning(): Boolean {
@@ -102,12 +109,29 @@ class LocalHotspotController @Inject constructor(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     fun getHotspotInfo(): HotspotInfo? {
         if (reservation == null) return null
-        val config = reservation!!.softApConfiguration
-        val ssid = config.wifiSsid.toString()
-        val pass = config.passphrase ?: ""
+        var ssid: String
+        val pass: String
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val config = reservation!!.softApConfiguration
+            ssid = config.wifiSsid.toString().replace("\"", "")
+            pass = config.passphrase ?: ""
+        } else {
+            @Suppress("DEPRECATION")
+            val config = reservation!!.wifiConfiguration
+            if (config == null) {
+                return null
+            }
+            ssid = config.SSID
+            pass = config.preSharedKey
+        }
+
+        if (ssid.isNullOrEmpty() || pass.isNullOrEmpty()) {
+            return null
+        }
+        ssid = "/$ssid"
 
         return HotspotInfo(ssid, pass)
     }
@@ -135,6 +159,7 @@ class LocalHotspotController @Inject constructor(
         onConnected: () -> Unit,
         onFailed: () -> Unit,
     ) {
+        _connectionStateFlow.tryEmit(HotSpotConnectionState.Connecting )
         val wifiSpecifier = WifiNetworkSpecifier.Builder()
             .setSsid(ssid)
             .setWpa2Passphrase(password)
@@ -153,14 +178,20 @@ class LocalHotspotController @Inject constructor(
                 //It force the app onto the hotspot network
                 connectivityManager.bindProcessToNetwork(network)
                 isConnectedToHotspotAsGuest = true
+                _connectionStateFlow.tryEmit(HotSpotConnectionState.Connected )
                 onConnected()
             }
 
             override fun onUnavailable() {
+                _connectionStateFlow.tryEmit(HotSpotConnectionState.ConnectionUnavailable )
                 onFailed()
             }
 
             override fun onLost(network: Network) {
+                hotspotNetwork = null
+                isConnectedToHotspotAsGuest = false
+                _connectionStateFlow.tryEmit(HotSpotConnectionState.ConnectionLost )
+                onFailed()
                 // Handle disconnect if you want
             }
         }
@@ -172,9 +203,10 @@ class LocalHotspotController @Inject constructor(
         }
     }
 
-    fun setIsConnectedToHotspotAsGuest(state: Boolean){
+    fun setIsConnectedToHotspotAsGuest(state: Boolean) {
         isConnectedToHotspotAsGuest = state
     }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun disconnectFromHotspot(): Boolean {
         val target = hotspotNetwork ?: return true
@@ -195,6 +227,7 @@ class LocalHotspotController @Inject constructor(
                     override fun onLost(network: Network) {
                         if (network == target && cont.isActive) cont.resume(true) {}
                     }
+
                     override fun onUnavailable() {
                         if (cont.isActive) cont.resume(true) {}
                     }

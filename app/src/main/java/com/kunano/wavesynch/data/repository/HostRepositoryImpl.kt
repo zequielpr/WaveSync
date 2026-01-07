@@ -6,9 +6,9 @@ import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import com.android.identity.flow.annotation.FlowState
-import com.kunano.wavesynch.data.stream.HostAudioCapturer
-import com.kunano.wavesynch.data.stream.HostStreamer
+import com.kunano.wavesynch.data.stream.AudioStreamConstants
+import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
+import com.kunano.wavesynch.data.stream.host.HostStreamer
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -18,19 +18,15 @@ import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.repositories.HostRepository
+import com.kunano.wavesynch.services.AudioCaptureService
 import com.kunano.wavesynch.services.StartHotspotService
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import java.net.Socket
+import java.net.InetSocketAddress
 import javax.inject.Inject
 
 // data/stream/AudioStreamRepositoryImpl.kt
@@ -46,7 +42,7 @@ class HostRepositoryImpl @Inject constructor(
 
     override val hotspotInfoFlow: Flow<HotspotInfo?> = localHotspotController.hotspotInfoFLow
     override val hotSpotStateFlow: Flow<HotspotState> = localHotspotController.hotspotStateFlow
-    override val connectedGuest: Flow<HashSet<Guest>?> = serverManager.connectedGuests
+    override val connectedGuest: Flow<LinkedHashSet<Guest>?> = serverManager.connectedGuests
 
     private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
 
@@ -81,32 +77,24 @@ class HostRepositoryImpl @Inject constructor(
         return localHotspotController.isHotspotRunning()
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+
     override fun getHotspotInfo(): HotspotInfo? {
         return localHotspotController.getHotspotInfo()
     }
 
     override fun finishSessionAsHost() {
-        hostStreamer.stopStreaming()
+        stopStreamingService()
+        emptyRoom()
         stopHotspot()
         serverManager.closeServerSocket()
-        emptyRoom()
-
-
     }
-
-
-
-
 
 
 
     override suspend fun startServer(room: Room) {
         _serverStateFlow.tryEmit(ServerState.Starting)
-        serverManager.startServerSocket(inComingHandShake = {
-            CoroutineScope(Dispatchers.IO).launch {
-                performHandShake(it, room)
-            }
+        serverManager.startServerSocket(room, inComingHandShakeResult = {
+            _handShakeResult.tryEmit(it)
         })
         _serverStateFlow.tryEmit(ServerState.Running)
     }
@@ -116,19 +104,11 @@ class HostRepositoryImpl @Inject constructor(
         _serverStateFlow.tryEmit(ServerState.Stopped)
     }
 
-    suspend fun performHandShake(socket: Socket?, room: Room) {
-        val guestHandShake = serverManager.readIncomingHandShake(socket)
-        val result = serverManager.verifyHandshake(guestHandShake, room)
-        _handShakeResult.tryEmit(result)
-    }
-
-
-
 
 
     override  fun expelGuest(guestId: String) {
         hostStreamer.removeGuest(guestId)
-        serverManager.closeGuestSocket(guestId)
+        serverManager.sendAnswerToGuest(guestId = guestId, answer = HandShakeResult.ExpelledByHost())
     }
 
     override fun sendAnswerToGuest(
@@ -144,27 +124,18 @@ class HostRepositoryImpl @Inject constructor(
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
 
 
-    private fun addGuestToHostStreamer(guestSocket: Socket, guestId: String){
-        hostStreamer.addGuest(guestId, guestSocket)
+  override fun addGuestToHostStreamer(guestId: String){
+        val guestSocket = serverManager.socketList[guestId]
+        val inetSocketAddress: InetSocketAddress = InetSocketAddress(guestSocket?.inetAddress, AudioStreamConstants.UDP_PORT)
+        hostStreamer.addGuest(guestId,inetSocketAddress )
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    override suspend fun acceptUserConnection(guest: Guest) {
+
+    override fun acceptUserConnection(guest: Guest) {
         serverManager.acceptUserConnection(guest)
-        val guestSocket = serverManager.socketList[guest.userId]
-        if (guestSocket != null) {
-            guestSocket.tcpNoDelay = true
-            addGuestToHostStreamer(guestSocket, guest.userId)
-        } else {
-            // Handle the case where the guestSocket is null
-        }
     }
 
-    override fun closeUserSocket(userId: String) {
-        serverManager.closeGuestSocket(userId)
-    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
@@ -184,6 +155,11 @@ class HostRepositoryImpl @Inject constructor(
         serverManager.setGuestPlayingState(guestId, false)
     }
 
+    fun stopStreamingService(){
+        val intent = Intent(context, AudioCaptureService::class.java)
+        context.stopService(intent)
+    }
+
     override fun stopStreaming(){
         hostStreamer.pauseStreaming()
         _serverStateFlow.tryEmit(ServerState.Idle)
@@ -192,7 +168,7 @@ class HostRepositoryImpl @Inject constructor(
 
     override fun emptyRoom() {
         hostStreamer.removeAllGuests()
-        serverManager.clearSockets()
+        serverManager.closeAndClearSockets()
         serverManager.clearConnectedGuests()
 
     }
