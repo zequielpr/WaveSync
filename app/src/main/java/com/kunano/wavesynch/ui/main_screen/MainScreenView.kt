@@ -2,6 +2,7 @@
 
 package com.kunano.wavesynch.ui.main_screen
 
+import PermissionHandler
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -48,8 +50,10 @@ import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
-import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
+import com.kunano.wavesynch.ui.utils.GoToSettingsDialog
+import com.kunano.wavesynch.ui.utils.PermissionRationaleDialog
 import com.kunano.wavesynch.ui.utils.UiEvent
+import com.kunano.wavesynch.ui.utils.openAppSettings
 
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -60,9 +64,18 @@ fun SyncWaveMainScreenWithAppBar(
     viewModel: MainScreenViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.UIState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
 
     var granted by remember { mutableStateOf(false) }
+    var relaunchPermissionHandler by remember { mutableStateOf(false) }
+    var showPermissionRationale by remember { mutableStateOf(false) }
+    var showPermissionSettings by remember { mutableStateOf(false) }
+
+
+
+
+
 
     if (!granted) {
         Log.d("MainScreen", "Launching permission handler")
@@ -70,11 +83,47 @@ fun SyncWaveMainScreenWithAppBar(
             onAllGranted = {
                 Log.d("MainScreen", "Permission granted")
                 granted = true
+            },
+            onNeedUserActionInSettings = {
+                Log.d("MainScreen", "User needs to go to settings")
+                showPermissionSettings = true
+            },
+            onShowRationale = {
+                showPermissionRationale = true
+                Log.d("MainScreen", "Showing permission rationale")
             }
         )
     }
 
-    LaunchedEffect( viewModel.uiEvent) {
+    if (relaunchPermissionHandler) {
+        PermissionHandler(
+            onAllGranted = {
+                Log.d("MainScreen", "Permission granted")
+                granted = true
+            },
+            onNeedUserActionInSettings = { showPermissionSettings = true },
+            onShowRationale = { showPermissionRationale = true }
+        )
+    }
+
+
+    if (showPermissionRationale) {
+        PermissionRationaleDialog(onRetry = {
+            relaunchPermissionHandler = true
+            showPermissionRationale = false
+        }, onCancel = { showPermissionRationale = false })
+
+    } else if (showPermissionSettings) {
+        GoToSettingsDialog(onOpenSettings = {
+            openAppSettings(context = context)
+            showPermissionSettings = false
+        }, onCancel = { showPermissionSettings = false })
+
+    }
+
+
+
+    LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect {
             when (it) {
                 is UiEvent.NavigateTo -> navigateTo(it.screen)
@@ -105,10 +154,7 @@ fun SyncWaveMainScreenWithAppBar(
         Box(modifier = Modifier.padding(it)) {
             SynchWaveMainScreen(
                 navigateToJoinRoom = { if (granted) viewModel.joinRoom() },
-                navigateToActiveRoom = {
-                    if (granted) navigateTo(Screen.ActiveRoomScreen) else
-                        Log.d("MainScreen", "Permission not granted")
-                }
+                navigateToActiveRoom = { if (granted) navigateTo(Screen.ActiveRoomScreen)}
             )
         }
     }
@@ -128,7 +174,10 @@ fun SynchWaveMainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = AppDimens.Padding.horizontal, vertical = AppDimens.Padding.vertical),
+                .padding(
+                    horizontal = AppDimens.Padding.horizontal,
+                    vertical = AppDimens.Padding.vertical
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
