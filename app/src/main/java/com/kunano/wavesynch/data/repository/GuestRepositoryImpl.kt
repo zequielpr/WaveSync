@@ -8,9 +8,10 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.services.AudioPlayerService
 import com.kunano.wavesynch.data.stream.guest.AudioReceiver
-import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
 import com.kunano.wavesynch.data.wifi.client.ClientManager
 import com.kunano.wavesynch.data.wifi.client.SessionData
+import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
@@ -30,10 +31,11 @@ class GuestRepositoryImpl @Inject constructor(
 
     ) : GuestRepository {
 
+    override val hotspotConnectionStates: Flow<HotSpotConnectionState> = localHotspotController.connectionStateFlow
     override val isPlayingState: StateFlow<Boolean> = audioReceiver.isPlayingState
-    private val _clientConnectionsStateFlow = MutableStateFlow<ClientConnectionsState>(ClientConnectionsState.Idle)
-    override val clientConnectionsStateFLow: Flow<ClientConnectionsState> =
-        _clientConnectionsStateFlow
+    private val _serverConnectionsStateFlow = MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
+    override val serverConnectionsStateFLow: Flow<ServerConnectionState> =
+        _serverConnectionsStateFlow
 
     override fun getSessionInfo(): SessionData? {
         return clientManager.sessionInfo
@@ -45,17 +47,16 @@ class GuestRepositoryImpl @Inject constructor(
         // Start the foreground service instead of directly starting the receiver
         val intent = Intent(context, AudioPlayerService::class.java)
         context.startForegroundService(intent)
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ReceivingAudioStream)
+        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ReceivingAudioStream)
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun connectToServer() {
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectingToServer)
 
         val hotIp: String? = localHotspotController.getGatewayInfo()
         hotIp?.let {
             clientManager.connectToServer(it, onConnecting = {
-                _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectingToServer)
+                _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectingToServer)
             })
         }
 
@@ -69,11 +70,10 @@ class GuestRepositoryImpl @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     override fun connectToHotspot(password: String, ssid: String) {
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectingToHotspot)
         localHotspotController.connectToHotspot(
             ssid = ssid,
             password = password,
-            onConnected = { _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ConnectedToHotspot) },
+            onConnected = {},
             onFailed = {})
     }
 
@@ -88,7 +88,7 @@ class GuestRepositoryImpl @Inject constructor(
         val intent = Intent(context, AudioPlayerService::class.java)
         context.stopService(intent)
         clientManager.disconnectFromServer()
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Disconnected)
+        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Disconnected)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -102,12 +102,12 @@ class GuestRepositoryImpl @Inject constructor(
 
     override fun pauseAudio() {
         audioReceiver.pause()
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.Idle)
+        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Idle)
     }
 
     override fun resumeAudio() {
         audioReceiver.resume()
-        _clientConnectionsStateFlow.tryEmit(ClientConnectionsState.ReceivingAudioStream)
+        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ReceivingAudioStream)
     }
 
     override fun isConnectedToHotspotAsGuest(): Boolean {

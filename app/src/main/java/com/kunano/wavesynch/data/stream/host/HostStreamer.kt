@@ -23,7 +23,6 @@ class HostStreamer(
     private val guests: HashMap<String, GuestStreamingData> = hashMapOf()
     private var isHostStreaming = false
 
-    private var job: Job? = null
 
     fun addGuest(id: String, inetSocketAddress: InetSocketAddress) {
         guests[id] = GuestStreamingData(id, inetSocketAddress, isPlaying = true)

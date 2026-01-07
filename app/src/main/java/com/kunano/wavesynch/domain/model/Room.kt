@@ -17,7 +17,7 @@ data class Guest(
     val userName: String,
     val userId: String,
     val deviceName: String,
-    val isPlaying: Boolean = false,
+    var isPlaying: Boolean = false,
 )
 
 

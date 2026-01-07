@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.BufferedWriter
-import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.DatagramSocket
@@ -36,8 +35,6 @@ class ClientManager(
         MutableSharedFlow<HandShakeResult>(extraBufferCapacity = 20)
     val handShakeResponse: SharedFlow<HandShakeResult> = _handShakeResponseFlow.asSharedFlow()
 
-    var inputStream: InputStream? = null
-    var outputStream: OutputStreamWriter? = null
     var handShakeFromHost: HandShake? = null
 
     var socket: Socket? = null
@@ -57,17 +54,16 @@ class ClientManager(
                 socket = Socket()
                 socket?.connect(InetSocketAddress(hostIp, AudioStreamConstants.TCP_PORT), 5000)
 
-                inputStream = socket?.getInputStream()
 
-                socket?.let {
-                    val connectionRequestHandShake = HandShake(
-                        appIdentifier = AppIdProvider.APP_ID,
-                        userId = AppIdProvider.getUserId(context),
-                        deviceName = Build.MODEL,
-                        protocolVersion = 1
-                    )
-                    sendHandShake(connectionRequestHandShake)
-                    receiveHandShakeResponse(it)
+                val connectionRequestHandShake = HandShake(
+                    appIdentifier = AppIdProvider.APP_ID,
+                    userId = AppIdProvider.getUserId(context),
+                    deviceName = Build.MODEL,
+                    protocolVersion = 1
+                )
+                sendHandShake(connectionRequestHandShake)
+                while (socket != null && socket!!.isConnected){
+                    receiveHandShakeResponse()
                 }
 
                 onConnecting
@@ -80,19 +76,22 @@ class ClientManager(
     private fun sendHandShake(handShake: HandShake) {
         // 1) Send handshake to host
         scope.launch {
-            outputStream = OutputStreamWriter(socket?.getOutputStream())
-            val output = BufferedWriter(outputStream)
-            val myJson = serializeHandshake(handShake)
-            output.write(myJson)
-            output.newLine()
-            output.flush()
-            Log.d(TAG, "Sent handshake: $myJson")
+            try {
+                val output = BufferedWriter(OutputStreamWriter(socket?.getOutputStream()))
+                val myJson = serializeHandshake(handShake)
+                output.write(myJson)
+                output.newLine()
+                output.flush()
+                Log.d(TAG, "Sent handshake: $myJson")
+            }catch (e: Exception){
+                Log.d(TAG, "sendHandShake: ${e.message}")
+            }
         }
     }
 
-    private fun receiveHandShakeResponse(socket: Socket) {
+    private fun receiveHandShakeResponse() {
         // 2) Receive host handshake
-        val input = BufferedReader(InputStreamReader(socket.getInputStream()))
+        val input = BufferedReader(InputStreamReader(socket?.getInputStream()))
         val hostJson = input.readLine()
         Log.d(TAG, "Received host handshake: $hostJson")
         handShakeFromHost = parseHandshake(hostJson)
@@ -101,7 +100,8 @@ class ClientManager(
         }
 
     }
-var udpSocket: DatagramSocket? = null
+
+    var udpSocket: DatagramSocket? = null
 
     fun openUdpSocket(): DatagramSocket {
 
@@ -139,10 +139,13 @@ var udpSocket: DatagramSocket? = null
 
         handShake.response?.let {
 
+            Log.d("tag", "processHandshakeResponse: $it")
             when (handShake.response) {
-                HandShakeResult.DeclinedByHost().intValue -> _handShakeResponseFlow.tryEmit(
-                    HandShakeResult.DeclinedByHost(handShake)
-                )
+                HandShakeResult.DeclinedByHost().intValue -> {
+                    _handShakeResponseFlow.tryEmit(
+                        HandShakeResult.DeclinedByHost(handShake)
+                    )
+                }
 
                 HandShakeResult.Success().intValue -> {
                     isConnectedToHostServer = true
@@ -150,9 +153,19 @@ var udpSocket: DatagramSocket? = null
                     _handShakeResponseFlow.tryEmit(HandShakeResult.Success(handShake))
                 }
 
-                HandShakeResult.HostApprovalRequired().intValue -> _handShakeResponseFlow.tryEmit(
-                    HandShakeResult.HostApprovalRequired(handShake)
-                )
+                HandShakeResult.HostApprovalRequired().intValue -> {
+                    _handShakeResponseFlow.tryEmit(
+                        HandShakeResult.HostApprovalRequired(handShake)
+                    )
+                }
+
+                HandShakeResult.ExpelledByHost().intValue -> {
+                    isConnectedToHostServer = false
+                    _handShakeResponseFlow.tryEmit(
+                        HandShakeResult.ExpelledByHost(handShake)
+                    )
+                }
+
 
             }
 

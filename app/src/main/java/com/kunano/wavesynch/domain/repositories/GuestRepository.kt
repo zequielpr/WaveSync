@@ -1,16 +1,17 @@
 package com.kunano.wavesynch.domain.repositories
 
-import com.kunano.wavesynch.data.wifi.client.ClientConnectionsState
+import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
 import com.kunano.wavesynch.data.wifi.client.SessionData
+import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 interface GuestRepository{
     val isPlayingState: StateFlow<Boolean>
     val hanShakeResponse: Flow<HandShakeResult>
-    val clientConnectionsStateFLow: Flow<ClientConnectionsState>
+    val serverConnectionsStateFLow: Flow<ServerConnectionState>
+    val hotspotConnectionStates: Flow<HotSpotConnectionState>
 
 
 

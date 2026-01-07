@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.collection.ArrayMap
+import androidx.collection.arrayMapOf
 import androidx.datastore.core.IOException
 import com.kunano.wavesynch.AppIdProvider
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
@@ -17,7 +19,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -45,12 +46,10 @@ class ServerManager(
     val logFlow: SharedFlow<String> = _logFlow
 
 
-    var socketList: HashMap<String, Socket> = HashMap()
+    var socketList: ArrayMap<String, Socket> = arrayMapOf<String, Socket>()
 
-    private val _connectedGuests = MutableStateFlow< ArrayList<Guest>?>(arrayListOf())
-    val connectedGuests: Flow< ArrayList<Guest>?> = _connectedGuests.asStateFlow()
-
-
+    private val _connectedGuests = MutableStateFlow<LinkedHashSet<Guest>?>(linkedSetOf())
+    val connectedGuests: Flow<LinkedHashSet<Guest>?> = _connectedGuests.asStateFlow()
 
 
     var isServerRunning = false
@@ -101,19 +100,21 @@ class ServerManager(
                     socketList[guestId] = clientSocket
 
 
-
                     val result = verifyHandshake(guestHandshake, room)
                     inComingHandShakeResult(result)
                 }
             } catch (e: IOException) {
                 // client disconnected abruptly
                 Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
-            }catch (e: Exception){
+            } catch (e: Exception) {
                 Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
             } finally {
                 // cleanup ALWAYS
                 closeGuestSocket(guestId = guestId)
-                try { clientSocket.close() } catch (_: Exception) {}
+                try {
+                    clientSocket.close()
+                } catch (_: Exception) {
+                }
             }
 
         }
@@ -147,122 +148,138 @@ class ServerManager(
         return guestHandShake
     }
 
-    fun sendAnswerToGuest(guestId: String, roomName: String?, answer: HandShakeResult) {
+    fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult) {
 
         CoroutineScope(Dispatchers.IO).launch {
-            val socket = socketList[guestId]
-
-            val output = BufferedWriter(OutputStreamWriter(socket?.getOutputStream()))
-
-            // 2) Send handshake from host
-            val hostHandshake = HandShake(
-                appIdentifier = AppIdProvider.APP_ID,
-                userId = AppIdProvider.getUserId(context),
-                deviceName = Build.MODEL,
-                roomName = roomName,
-                protocolVersion = 1,
-                response = answer.intValue
-            )
-            output.write(serializeHandshake(handshake = hostHandshake))
-            Log.d("", "Sent handshake: $hostHandshake")
-            output.newLine()
-            output.flush()
-            if (answer == HandShakeResult.DeclinedByHost()) {
-                closeGuestSocket(guestId)
-            }
-        }
-    }
-
-
-    suspend fun verifyHandshake(handshake: HandShake, room: Room): HandShakeResult {
-
-        if (room.id == null) {
-            return HandShakeResult.InvalidHandshake(handshake)
-        }
-        if (handshake.appIdentifier != AppIdProvider.APP_ID) {
-            return HandShakeResult.InvalidAppId(handshake)
-        }
-        if (handshake.protocolVersion != PROTOCOL_VERSION) {
-            return HandShakeResult.InvalidProtocol(handshake)
-        }
-
-        //If the handshake if indicating that UPD socket of the guest is open
-        if (handshake.response == HandShakeResult.UdpSocketOpen().intValue) {
-            return HandShakeResult.UdpSocketOpen(handshake)
-        }
-
-        /*Both app are the same and share the same protocol so
-            it proceeds to check if the guest is trusted
-             */
-        return checkIfUserIsTrusted(handShake = handshake, room)
-
-    }
-
-    private suspend fun checkIfUserIsTrusted(handShake: HandShake, room: Room): HandShakeResult {
-        val trustedGuestsList = getRoomTrustedGuestsUseCase(roomId = room.id!!)
-
-        val isGuestTrusted = trustedGuestsList.contains(handShake.userId)
-        Log.d("ServerManager", "checkIfUserIsTrusted: $isGuestTrusted")
-
-        return if (isGuestTrusted) {
-            HandShakeResult.Success(handShake)
-            //Proceed to streaming audio
-
-        } else {
-            //Ask is the user wants to trust this guest
-            HandShakeResult.HostApprovalRequired(handShake)
-        }
-    }
-
-
-    fun acceptUserConnection(guest: Guest) {
-
-        _connectedGuests.update { current ->
-            (current?.plus(guest.copy(isPlaying = true))) as ArrayList<Guest>?   // returns a new List
-        }
-        val guestSocket = socketList[guest.userId]
-        if (guestSocket != null) {
-            Log.d("HostRepositoryImpl", "acceptUserConnection: Socket accepted${socketList.size}")
-            Log.d("HostRepositoryImpl", "acceptUserConnection: Socket accepted")
-            // Start streaming for the guest
-        } else {
-            // Handle the case where the guestSocket is null
-        }
-    }
-
-    fun setGuestPlayingState(guestId: String, state: Boolean) {
-        _connectedGuests.update { current -> current?.map { guest ->
-            if (guest.userId == guestId)
-                guest.copy(isPlaying = state)
-            else guest
-        } as ArrayList<Guest> }
-    }
-
-
-    fun closeGuestSocket(guestId: String) {
-
-        val guestSocket = socketList[guestId]
-        if (guestSocket != null) {
             try {
-                _connectedGuests.update { current-> current?.filter { it.userId != guestId } as ArrayList<Guest>? }
-                guestSocket.close()
-                _logFlow.tryEmit("Guest socket closed")
+                val socket = socketList[guestId]
+
+                val output = BufferedWriter(OutputStreamWriter(socket?.getOutputStream()))
+
+                // 2) Send handshake from host
+                val hostHandshake = HandShake(
+                    appIdentifier = AppIdProvider.APP_ID,
+                    userId = AppIdProvider.getUserId(context),
+                    deviceName = Build.MODEL,
+                    roomName = roomName,
+                    protocolVersion = 1,
+                    response = answer.intValue
+                )
+                output.write(serializeHandshake(handshake = hostHandshake))
+                Log.d("", "Sent handshake: $hostHandshake")
+                output.newLine()
+                output.flush()
             } catch (e: Exception) {
-                _logFlow.tryEmit("Error closing guest socket: ${e.message}")
+                Log.d("ServerManager", "sendAnswerToGuest: ${e.message}")
             }
-            // Close the guestSocket
-        } else {
-            _logFlow.tryEmit("Guest socket not found")
+
+        if (answer == HandShakeResult.DeclinedByHost() || answer == HandShakeResult.ExpelledByHost()) {
+            closeGuestSocket(guestId)
         }
     }
 
-    fun clearConnectedGuests() {
+}
 
-        _connectedGuests.update { arrayListOf() }
+
+suspend fun verifyHandshake(handshake: HandShake, room: Room): HandShakeResult {
+
+    if (room.id == null) {
+        return HandShakeResult.InvalidHandshake(handshake)
+    }
+    if (handshake.appIdentifier != AppIdProvider.APP_ID) {
+        return HandShakeResult.InvalidAppId(handshake)
+    }
+    if (handshake.protocolVersion != PROTOCOL_VERSION) {
+        return HandShakeResult.InvalidProtocol(handshake)
     }
 
-    fun clearSockets() {
-        socketList.clear()
-
+    //If the handshake if indicating that UPD socket of the guest is open
+    if (handshake.response == HandShakeResult.UdpSocketOpen().intValue) {
+        return HandShakeResult.UdpSocketOpen(handshake)
     }
+
+    /*Both app are the same and share the same protocol so
+        it proceeds to check if the guest is trusted
+         */
+    return checkIfUserIsTrusted(handShake = handshake, room)
+
+}
+
+private suspend fun checkIfUserIsTrusted(handShake: HandShake, room: Room): HandShakeResult {
+    val trustedGuestsList = getRoomTrustedGuestsUseCase(roomId = room.id!!)
+
+    val isGuestTrusted = trustedGuestsList.contains(handShake.userId)
+    Log.d("ServerManager", "checkIfUserIsTrusted: $isGuestTrusted")
+
+    return if (isGuestTrusted) {
+        HandShakeResult.Success(handShake)
+        //Proceed to streaming audio
+
+    } else {
+        //Ask is the user wants to trust this guest
+        HandShakeResult.HostApprovalRequired(handShake)
+    }
+}
+
+
+fun acceptUserConnection(guest: Guest) {
+
+
+    _connectedGuests.update { current ->
+        val newSet = LinkedHashSet(current ?: emptySet())
+        newSet.add(guest.copy(isPlaying = true))
+        newSet
+    }
+
+}
+
+fun setGuestPlayingState(guestId: String, state: Boolean) {
+    _connectedGuests.update { currentGuestList ->
+
+        val old = currentGuestList ?: linkedSetOf()
+
+        val updated = old.map { g ->
+            if (g.userId == guestId) g.copy(isPlaying = state) else g
+        }
+
+        LinkedHashSet(updated)
+    }
+}
+
+
+fun closeGuestSocket(guestId: String) {
+
+    val guestSocket = socketList[guestId]
+    if (guestSocket != null) {
+        try {
+            _connectedGuests.update {
+                val newSet = LinkedHashSet(it ?: emptySet())
+                newSet.removeIf { g -> g.userId == guestId }
+                newSet
+            }
+            guestSocket.close()
+            _logFlow.tryEmit("Guest socket closed")
+        } catch (e: Exception) {
+            _logFlow.tryEmit("Error closing guest socket: ${e.message}")
+        }
+        // Close the guestSocket
+    } else {
+        _logFlow.tryEmit("Guest socket not found")
+    }
+}
+
+fun clearConnectedGuests() {
+
+    _connectedGuests.update {
+        linkedSetOf()
+    }
+}
+
+fun closeAndClearSockets() {
+    socketList.forEach {
+        it.value.close()
+    }
+    socketList.clear()
+
+}
 }

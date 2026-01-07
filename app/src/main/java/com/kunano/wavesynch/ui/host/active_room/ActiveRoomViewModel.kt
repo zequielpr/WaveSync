@@ -259,10 +259,8 @@ class ActiveRoomViewModel @Inject constructor(
                 hostUseCases.connectedGuest.collect { it ->
                     Log.d("ActiveRoomViewModel", "collectRoomGuests: $it")
                     if (it != null) {
-
-                        val newGuests = it
                         _uiState.update { uIState ->
-                            uIState.copy(guests = newGuests)
+                            uIState.copy(guests = it.toList())
                         }
                     }
                 }

@@ -71,6 +71,9 @@
     <string name="generating_qr_code">Generating QR code</string>
     <string name="cancel_request">Cancel request</string>
     <string name="are_you_sure_you_want_to_cancel_request">Are you sure you want to cancel this request</string>
+    <string name="connection_lost">Connection lost</string>
+    <string name="connection_unavailable">Connection unavailable. Activate this device\'s WIFI</string>
+    <string name="expelled_by_host">You have been expelled from this room by</string>
 
 
 </resources>

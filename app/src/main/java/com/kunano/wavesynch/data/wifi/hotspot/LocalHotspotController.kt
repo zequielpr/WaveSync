@@ -15,8 +15,11 @@ import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
@@ -33,6 +36,11 @@ class LocalHotspotController @Inject constructor(
 
     private val _hotspotInfoFLow = MutableStateFlow<HotspotInfo?>(null)
     val hotspotInfoFLow = _hotspotInfoFLow.asStateFlow()
+
+    private val _connectionStateFlow = MutableStateFlow<HotSpotConnectionState>(HotSpotConnectionState.Disconnected)
+    val connectionStateFlow = _connectionStateFlow.asStateFlow()
+
+
 
     var isConnectedToHotspotAsGuest: Boolean = false
 
@@ -93,6 +101,7 @@ class LocalHotspotController @Inject constructor(
         reservation?.close()
         reservation = null
         _hotspotStateFlow.tryEmit(HotspotState.Stopped)
+        _hotspotInfoFLow.tryEmit(null)
     }
 
     fun isHotspotRunning(): Boolean {
@@ -150,6 +159,7 @@ class LocalHotspotController @Inject constructor(
         onConnected: () -> Unit,
         onFailed: () -> Unit,
     ) {
+        _connectionStateFlow.tryEmit(HotSpotConnectionState.Connecting )
         val wifiSpecifier = WifiNetworkSpecifier.Builder()
             .setSsid(ssid)
             .setWpa2Passphrase(password)
@@ -168,14 +178,20 @@ class LocalHotspotController @Inject constructor(
                 //It force the app onto the hotspot network
                 connectivityManager.bindProcessToNetwork(network)
                 isConnectedToHotspotAsGuest = true
+                _connectionStateFlow.tryEmit(HotSpotConnectionState.Connected )
                 onConnected()
             }
 
             override fun onUnavailable() {
+                _connectionStateFlow.tryEmit(HotSpotConnectionState.ConnectionUnavailable )
                 onFailed()
             }
 
             override fun onLost(network: Network) {
+                hotspotNetwork = null
+                isConnectedToHotspotAsGuest = false
+                _connectionStateFlow.tryEmit(HotSpotConnectionState.ConnectionLost )
+                onFailed()
                 // Handle disconnect if you want
             }
         }

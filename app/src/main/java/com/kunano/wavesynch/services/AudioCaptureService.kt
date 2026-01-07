@@ -97,7 +97,7 @@ class AudioCaptureService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.audio_capture_service))
             .setContentText(context.getString(R.string.streaming_audio))
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your icon
+            .setSmallIcon(R.mipmap.ic_launcher_foreground) // Replace with your icon
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
     }

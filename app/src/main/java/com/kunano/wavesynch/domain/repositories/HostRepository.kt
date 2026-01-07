@@ -15,7 +15,7 @@ interface HostRepository {
     val serverStateFlow: Flow<ServerState>
     val logFlow : Flow<String>
     val handShakeResultFlow: Flow<HandShakeResult>
-    val connectedGuest: Flow<ArrayList<Guest>?>
+    val connectedGuest: Flow<LinkedHashSet<Guest>?>
 
     fun addGuestToHostStreamer(guestId: String)
 
@@ -39,8 +39,7 @@ interface HostRepository {
     fun expelGuest(guestId: String)
     fun sendAnswerToGuest(guestId: String, roomName: String?, answer: HandShakeResult)
 
-    suspend fun acceptUserConnection(guest: Guest)
-    fun closeUserSocket(userId: String)
+    fun acceptUserConnection(guest: Guest)
     fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer)
     fun playGuest(guestId: String)
     fun pauseGuest(guestId: String)

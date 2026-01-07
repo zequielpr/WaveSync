@@ -22,7 +22,7 @@ class HostUseCases @Inject constructor(
     val serverStateFlow: Flow<ServerState> = hostRepository.serverStateFlow
     val logFlow : Flow<String> = hostRepository.logFlow
     val handShakeResultFlow: Flow<HandShakeResult> = hostRepository.handShakeResultFlow
-    val connectedGuest: Flow<ArrayList<Guest>?> = hostRepository.connectedGuest
+    val connectedGuest: Flow<LinkedHashSet<Guest>?> = hostRepository.connectedGuest
 
     fun addGuestToHostStreamer(guestId: String) = hostRepository.addGuestToHostStreamer(guestId)
 
@@ -52,14 +52,13 @@ class HostUseCases @Inject constructor(
     fun playGuest(guestId: String) = hostRepository.playGuest(guestId)
     fun pauseGuest(guestId: String) = hostRepository.pauseGuest(guestId)
     fun expelGuest(guestId: String) = hostRepository.expelGuest(guestId)
-    suspend fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult) = hostRepository.sendAnswerToGuest(guestId, roomName, answer)
-    suspend fun acceptUserConnection(guest: Guest) = hostRepository.acceptUserConnection(guest)
+    fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult) = hostRepository.sendAnswerToGuest(guestId, roomName, answer)
+    fun acceptUserConnection(guest: Guest) = hostRepository.acceptUserConnection(guest)
 
     //Manage streaming
     suspend fun startServer(room: Room) = hostRepository.startServer(room)
     fun stopServer() = hostRepository.stopServer()
     fun stopStreaming() = hostRepository.stopStreaming()
-    fun closeUserSocket(userId: String) = hostRepository.closeUserSocket(userId)
 
 
 
