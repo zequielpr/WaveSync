@@ -434,19 +434,6 @@ fun QrScannerScreen(
         // 2) Frame overlay
         QrScanFrame()
 
-        // 3) Show last scanned text at bottom (debug)
-        lastScanned?.let { text ->
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text, color = Color.White)
-            }
-        }
     }
 }
 
@@ -666,6 +653,50 @@ fun GoToSettingsDialog(
         }
     )
 }
+
+
+@Composable
+fun ConnectingToHostScreen(
+    visible: Boolean = true
+) {
+    if (!visible) return
+
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 4.dp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.connecting_to_host),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+        }
+    }
+
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ConnectingToHostScreenPreview() {
+    ConnectingToHostScreen( )
+}
+
+
 
 
 @Preview(showBackground = true)

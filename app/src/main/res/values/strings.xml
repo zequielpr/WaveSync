@@ -81,6 +81,7 @@
     <string name="enable_permissions">Enable permissions in Settings</string>
     <string name="permission_required_message_go_setting">Permissions were permanently denied. Please enable them manually in app settings.</string>
     <string name="open_settings">Open Settings</string>
+    <string name="connecting_to_host">Connecting to host</string>
 
 
 </resources>

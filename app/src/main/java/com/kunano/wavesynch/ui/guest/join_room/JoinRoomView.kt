@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -24,7 +22,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,9 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
-import com.kunano.wavesynch.ui.theme.OverlayColor
-import com.kunano.wavesynch.ui.theme.TransParent
-import com.kunano.wavesynch.ui.utils.BlockingLoadingOverlay
+import com.kunano.wavesynch.ui.utils.ConnectingToHostScreen
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
 import com.kunano.wavesynch.ui.utils.QrScannerScreen
 import com.kunano.wavesynch.ui.utils.UiEvent
@@ -57,7 +52,7 @@ fun JoinRoomViewCompose(
     onBack: () -> Unit,
     navigateTo: (screen: Screen) -> Unit,
 ) {
-    val UIState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackBarHostState by remember { mutableStateOf(SnackbarHostState()) }
 
 
@@ -82,7 +77,7 @@ fun JoinRoomViewCompose(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack,) {
+                    IconButton(onClick = onBack) {
                         Image(
                             painter = painterResource(id = R.drawable.arrow_back_ios_48px),
                             contentDescription = "Back"
@@ -96,7 +91,7 @@ fun JoinRoomViewCompose(
                 .padding(it)
         ) {
             CheckIfDeviceIsHost(navigateBack = onBack)
-            if (!UIState.isThisDeviceHost && !UIState.waitingForHostAnswer) {
+            if (!uIState.isThisDeviceHost && !uIState.waitingForHostAnswer && !uIState.isConnectingToHotspot) {
                 QrScannerScreen(
                     navigateBack = onBack,
                     onResult = { qrContent ->
@@ -112,10 +107,13 @@ fun JoinRoomViewCompose(
                 )
             }
 
-            //I need a screen to tell the user that they are waiting for the host to answer
+            //Connecting to host screen
+            ConnectingToHostScreen(visible = uIState.isConnectingToHotspot)
+
+
             WaitingForHostScreen(
                 onCancel = { viewModel.setShowCancelRequestDialog(true) },
-                visible = UIState.waitingForHostAnswer
+                visible = uIState.waitingForHostAnswer
             )
 
             CustomDialogueCompose(
@@ -123,11 +121,8 @@ fun JoinRoomViewCompose(
                 text = stringResource(R.string.are_you_sure_you_want_to_cancel_request),
                 onDismiss = { viewModel.setShowCancelRequestDialog(false) },
                 onConfirm = viewModel::cancelJoinRoomRequest,
-                show = UIState.showCancelRequestDialog
+                show = uIState.showCancelRequestDialog
             )
-
-
-
 
 
         }
@@ -137,7 +132,7 @@ fun JoinRoomViewCompose(
 @Composable
 fun WaitingForHostScreen(
     onCancel: () -> Unit,
-    visible: Boolean = true
+    visible: Boolean = true,
 ) {
     if (!visible) return
     Box(
@@ -182,21 +177,20 @@ fun WaitingForHostScreen(
             ) {
                 Text(
                     text = stringResource(R.string.cancel),
-                    style = MaterialTheme.typography.bodyMedium)
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
 }
 
-@Preview (showBackground = true)
+@Preview(showBackground = true)
 @Composable
 fun WaitingForHostScreenPreview() {
     WaitingForHostScreen(
         onCancel = {}
     )
 }
-
-
 
 
 @Composable

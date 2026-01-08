@@ -31,14 +31,14 @@ class LocalHotspotController @Inject constructor(
     val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    private val _hotspotStateFlow = MutableStateFlow<HotspotState>(HotspotState.Idle)
-    val hotspotStateFlow = _hotspotStateFlow.asStateFlow()
+    private val _hotspotStateFlow = MutableSharedFlow<HotspotState>(extraBufferCapacity = 1)
+    val hotspotStateFlow = _hotspotStateFlow.asSharedFlow()
 
     private val _hotspotInfoFLow = MutableStateFlow<HotspotInfo?>(null)
     val hotspotInfoFLow = _hotspotInfoFLow.asStateFlow()
 
-    private val _connectionStateFlow = MutableStateFlow<HotSpotConnectionState>(HotSpotConnectionState.Disconnected)
-    val connectionStateFlow = _connectionStateFlow.asStateFlow()
+    private val _connectionStateFlow = MutableSharedFlow<HotSpotConnectionState>(extraBufferCapacity = 1)
+    val connectionStateFlow = _connectionStateFlow.asSharedFlow()
 
 
 
@@ -139,7 +139,7 @@ class LocalHotspotController @Inject constructor(
     var hotspotNetwork: Network? = null
 
 
-    @RequiresApi(Build.VERSION_CODES.Q)
+
     fun getGatewayInfo(): String? {
         val linkProperties = connectivityManager.getLinkProperties(hotspotNetwork)
 
@@ -152,7 +152,7 @@ class LocalHotspotController @Inject constructor(
 
     var guestRequestCallback: ConnectivityManager.NetworkCallback? = null
 
-    @RequiresApi(Build.VERSION_CODES.Q)
+
     fun connectToHotspot(
         ssid: String,
         password: String,
@@ -225,7 +225,9 @@ class LocalHotspotController @Inject constructor(
             suspendCancellableCoroutine<Boolean> { cont ->
                 val lossCb = object : ConnectivityManager.NetworkCallback() {
                     override fun onLost(network: Network) {
-                        if (network == target && cont.isActive) cont.resume(true) {}
+                        if (network == target && cont.isActive) cont.resume(true) {
+                            _connectionStateFlow.tryEmit(HotSpotConnectionState.Disconnected)
+                        }
                     }
 
                     override fun onUnavailable() {

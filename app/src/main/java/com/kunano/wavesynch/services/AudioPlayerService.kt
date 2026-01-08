@@ -93,15 +93,11 @@ class AudioPlayerService : Service() {
         if (intent?.action != Intent.ACTION_MEDIA_BUTTON) {
             val notification = buildNotification(true)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                )
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
             collectIsplayinState()
 
             val udpSocket: DatagramSocket = clientManager.openUdpSocket()
@@ -135,7 +131,8 @@ class AudioPlayerService : Service() {
     override fun onDestroy() {
         Log.d("AudioPlayerService", "onDestroy: ")
         audioReceiver.stop()
-        mediaSession.release() // Release the media session
+        mediaSession.release()// Release the media session
+        clientManager.disconnectFromServer()
         serviceScope.cancel()  // Cancel all coroutines started by this service
         super.onDestroy()
     }
