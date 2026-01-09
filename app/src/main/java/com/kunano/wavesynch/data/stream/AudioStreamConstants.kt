@@ -4,28 +4,33 @@ import android.media.AudioFormat
 
 object AudioStreamConstants {
     const val SAMPLE_RATE = 48_000
-    const val CHANNEL_MASK_IN = AudioFormat.CHANNEL_IN_MONO
-    const val CHANNEL_MASK_OUT = AudioFormat.CHANNEL_OUT_MONO
+
+    // Stereo end-to-end
+    const val CHANNELS = 2
+    const val CHANNEL_MASK_IN = AudioFormat.CHANNEL_IN_STEREO
+    const val CHANNEL_MASK_OUT = AudioFormat.CHANNEL_OUT_STEREO
+
     const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-    const val CHANNELS = 1
+    const val BYTES_PER_SAMPLE = 2
 
     const val MONO_BITRATE = 64_000
     const val STEREO_BITRATE = 128_000
     const val HOST_SPOT_COMPLEXITY = 5
 
-    const val PACKET_MS = 10
-    const val BYTES_PER_FRAME = 2
-    const val PCM_FRAME_BYTES = (SAMPLE_RATE * PACKET_MS / 1000) * BYTES_PER_FRAME // 960
+    // Opus frame duration
+    const val PACKET_MS = 20
 
-    const val SAMPLES_PER_PACKET = (SAMPLE_RATE * PACKET_MS / 1000) // 480
+    // PCM sizing (INTERLEAVED)
+    const val SAMPLES_PER_CHANNEL = (SAMPLE_RATE * PACKET_MS / 1000) // 960
+    const val SAMPLES_PER_PACKET = SAMPLES_PER_CHANNEL * CHANNELS     // 1920 shorts
+    const val PCM_FRAME_BYTES = SAMPLES_PER_PACKET * BYTES_PER_SAMPLE // 3840 bytes
 
-    const val FRAME_MS = PACKET_MS.toLong()
-    const val FRAME_NS = FRAME_MS * 1_000_000L
+    const val FRAME_NS = PACKET_MS.toLong() * 1_000_000L
 
-    // Balanced tuning (stable + not laggy)
-    const val PREBUFFER_FRAMES = 4          // 40ms startup cushion
-    const val MAX_JITTER_FRAMES = 20        // 200ms cap (prevents latency creep)
-    const val RESYNC_THRESHOLD_FRAMES = 8   // 80ms behind => resync
+    // Tuning
+    const val PREBUFFER_FRAMES = 20
+    const val MAX_JITTER_FRAMES = 25
+    const val RESYNC_THRESHOLD_FRAMES = 15
 
     const val UDP_PORT = 8989
     const val TCP_PORT = 8988

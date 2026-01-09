@@ -39,24 +39,17 @@ class HostAudioCapturer(
             .addMatchingUsage(AudioAttributes.USAGE_GAME)
             .build()
 
-        val sampleRate = AudioStreamConstants.SAMPLE_RATE
-        val channelMask = AudioStreamConstants.CHANNEL_MASK_IN
         val encoding = AudioStreamConstants.AUDIO_FORMAT
 
         val format = AudioFormat.Builder()
             .setEncoding(encoding)
-            .setSampleRate(sampleRate)
-            .setChannelMask(channelMask)
+            .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
+            .setChannelMask(AudioStreamConstants.CHANNEL_MASK_IN)
             .build()
 
-        val channels = when (channelMask) {
-            AudioFormat.CHANNEL_IN_MONO -> 1
-            AudioFormat.CHANNEL_IN_STEREO -> 2
-            else -> 1
-        }
 
         // AudioRecord buffer size in BYTES
-        val minBufferBytes = AudioRecord.getMinBufferSize(sampleRate, channelMask, encoding)
+        val minBufferBytes = AudioRecord.getMinBufferSize(AudioStreamConstants.SAMPLE_RATE, AudioStreamConstants.CHANNEL_MASK_IN, encoding)
             .coerceAtLeast(4096)
 
         audioRecord = AudioRecord.Builder()
@@ -67,7 +60,7 @@ class HostAudioCapturer(
 
         // ---------- Correct frame sizing ----------
         // 10ms @ 48kHz => 480 samples per channel
-        val frameShorts = AudioStreamConstants.SAMPLES_PER_PACKET * channels // total shorts in one frame across channels
+        val frameShorts = AudioStreamConstants.SAMPLES_PER_PACKET // total shorts in one frame across channels
 
         // Read in small-ish chunks to avoid extra latency; assembler will pack exact frames
         val readShorts = maxOf(frameShorts * 2, 1024)

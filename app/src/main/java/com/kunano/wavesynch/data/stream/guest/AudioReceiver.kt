@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class AudioReceiver(
-    private val scope: CoroutineScope,
 ) {
     init {
         // Load opus library
@@ -93,6 +92,9 @@ class AudioReceiver(
             var nextTick = System.nanoTime()
 
             val prebufferTarget = AudioStreamConstants.PREBUFFER_FRAMES
+            var pcmFrame: ShortArray = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
+            val silence = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
+
 
             try {
                 while (running.get()) {
@@ -122,15 +124,30 @@ class AudioReceiver(
                     val seq = expectedSeq ?: continue
 
                     // Decode one frame for this seq (normal / FEC / PLC inside decodeForPlayout)
-                    val pcmFrame: ShortArray = synchronized(bufferLock) {
+
+
+                    // Decode one frame for this seq (normal / FEC / PLC inside decodeForPlayout)
+                    val payload = takePayLoad(seq)
+                    if (payload != null) {
+                        pcmFrame = decoder.decode(payload)
+                    }else{
+                        val nextPayload = peekPayLoad(seq+1)
+                        pcmFrame = if (nextPayload != null) {
+                            decoder.decodeWithFEC(nextPayload)
+                        }else{
+                            decoder.decodeWithPLC()
+                        }
+
+                    }
+                    synchronized(bufferLock) {
                         // Prevent latency creep: if buffer is huge, drop old frames before seq
                         while (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
                             val first = buffer.firstKey()
                             if (first >= seq) break
                             buffer.pollFirstEntry()
                         }
-                        decoder.decodeForPlayout(seq, buffer)
                     }
+
 
                     // Resync if stream jumped far ahead or restarted
                     val lowest = synchronized(bufferLock) { buffer.firstKeyOrNull() }
@@ -146,6 +163,8 @@ class AudioReceiver(
                     if (!isPaused) {
                         // IMPORTANT: write SHORTS count (samples), not bytes
                         writeFixed(track, pcmFrame)
+                    }else{
+                        writeFixed(track, silence)
                     }
 
                     expectedSeq = seq + 1
@@ -166,6 +185,18 @@ class AudioReceiver(
                 running.set(false)
             }
         }.apply { start() }
+    }
+
+    private fun takePayLoad(seq: Int):ByteArray?{
+        synchronized(bufferLock) {
+            return buffer.remove(seq)
+        }
+    }
+
+    private fun peekPayLoad(seq: Int):ByteArray?{
+        synchronized(bufferLock) {
+            return buffer[seq]
+        }
     }
 
     fun stop() {

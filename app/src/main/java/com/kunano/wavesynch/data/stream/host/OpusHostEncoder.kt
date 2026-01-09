@@ -14,12 +14,12 @@ class OpusHostEncoder(
         encoder.setInbandFecEnabled(true)
         encoder.setExpectedPacketLossPercent(10)
         encoder.setSignalMusic()
-        encoder.setBitrate(AudioStreamConstants.MONO_BITRATE)
+        encoder.setBitrate(AudioStreamConstants.STEREO_BITRATE)
         encoder.setComplexity(AudioStreamConstants.HOST_SPOT_COMPLEXITY)
     }
 
     fun encode(framePcm: ShortArray): ByteArray {
-        val out = encoder.encode(framePcm, AudioStreamConstants.SAMPLES_PER_PACKET)
+        val out = encoder.encode(framePcm, AudioStreamConstants.SAMPLES_PER_CHANNEL)
         return out
     }
 

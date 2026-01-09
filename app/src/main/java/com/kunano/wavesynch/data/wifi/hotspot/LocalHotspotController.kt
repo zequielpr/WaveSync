@@ -31,8 +31,8 @@ class LocalHotspotController @Inject constructor(
     val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    private val _hotspotStateFlow = MutableSharedFlow<HotspotState>(extraBufferCapacity = 1)
-    val hotspotStateFlow = _hotspotStateFlow.asSharedFlow()
+    private val _hotspotStateFlow = MutableStateFlow<HotspotState>(HotspotState.Idle)
+    val hotspotStateFlow = _hotspotStateFlow.asStateFlow()
 
     private val _hotspotInfoFLow = MutableStateFlow<HotspotInfo?>(null)
     val hotspotInfoFLow = _hotspotInfoFLow.asStateFlow()

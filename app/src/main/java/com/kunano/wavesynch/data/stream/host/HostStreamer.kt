@@ -2,112 +2,101 @@ package com.kunano.wavesynch.data.stream.host
 
 import android.Manifest
 import android.os.Build
-import android.os.Process
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 
-class HostStreamer(
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-) {
+class HostStreamer {
 
+    private val lock = Any()
+    private val guests = HashMap<String, GuestStreamingData>()
 
-    private val guests: HashMap<String, GuestStreamingData> = hashMapOf()
-    private var isHostStreaming = false
-
-
-    fun addGuest(id: String, inetSocketAddress: InetSocketAddress) {
-        guests[id] = GuestStreamingData(id, inetSocketAddress, isPlaying = true)
-    }
+    @Volatile private var isHostStreaming = false
 
     private var audioCapturer: HostAudioCapturer? = null
     private var udpSocket: DatagramSocket? = null
 
     init {
-        udpSocket = DatagramSocket().apply {
-            reuseAddress = true
-        }
-
+        udpSocket = DatagramSocket().apply { reuseAddress = true }
     }
+
+    fun addGuest(id: String, inetSocketAddress: InetSocketAddress) = synchronized(lock) {
+        guests[id] = GuestStreamingData(id, inetSocketAddress, isPlaying = true)
+    }
+
+    fun pauseGuest(id: String) = synchronized(lock) { guests[id]?.isPlaying = false }
+    fun resumeGuest(id: String) = synchronized(lock) { guests[id]?.isPlaying = true }
+    fun removeGuest(id: String) = synchronized(lock) { guests.remove(id) }
+    fun removeAllGuests() = synchronized(lock) { guests.clear() }
+
+    fun isHostStreaming(): Boolean = isHostStreaming
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
+        if (isHostStreaming) return
 
-
-        val audioStreamerThread = Thread{
-            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
-            isHostStreaming = true
+        synchronized(lock) {
+            if (udpSocket == null || udpSocket?.isClosed == true) {
+                udpSocket = DatagramSocket().apply { reuseAddress = true }
+            }
             audioCapturer = capturer
-            // Reuse DatagramPacket object to reduce allocations
-            val dp = DatagramPacket(ByteArray(0), 0)
+            isHostStreaming = true
+        }
 
+        // IMPORTANT: capturer.start runs its own capture thread; no need to create another thread here.
+        capturer.start { chunk ->
+            if (!isHostStreaming) return@start
 
-            //It receive the already encoded audio frames from the audio capturer and send them to the guests
-            capturer.start { chunk ->
+            // If there’s any chance the encoder reuses `chunk`, copy it.
+            // Start with copyOf() to make it correct; optimize later with a buffer pool.
+            val payload = chunk.copyOf()
 
-                dp.data = chunk
-                dp.length = chunk.size
-                guests.values.filter { it.isPlaying }.forEach { guest ->
-                    dp.socketAddress = guest.inetSocketAddress
-                    try {
-                        // Send the packet to the guest
-                        udpSocket?.send(dp)
+            val (sock, targets) = synchronized(lock) {
+                val s = udpSocket
+                val t = guests.values
+                    .asSequence()
+                    .filter { it.isPlaying }
+                    .map { it.inetSocketAddress }
+                    .toList()
+                s to t
+            }
 
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+            val s = sock ?: return@start
+            if (s.isClosed) return@start
+            if (targets.isEmpty()) return@start
+
+            for (addr in targets) {
+                try {
+                    val dp = DatagramPacket(payload, payload.size, addr)
+                    s.send(dp)
+                } catch (_: Exception) {
+                    // swallow per guest
                 }
             }
         }
-        audioStreamerThread.start()
     }
 
-    fun pauseGuest(id: String) {
-        guests[id]?.isPlaying = false
-    }
-
-    fun resumeGuest(id: String) {
-        guests[id]?.isPlaying = true
-    }
-
-    fun removeGuest(id: String) {
-        val g = guests[id] ?: return
-        guests.remove(id)
-
-    }
-
-    fun pauseStreaming(){
+    fun pauseStreaming() {
         stopCapturingAudio()
     }
 
     fun stopStreaming() {
         isHostStreaming = false
         stopCapturingAudio()
-        udpSocket?.close()
-        udpSocket = null
+
+        synchronized(lock) {
+            try { udpSocket?.close() } catch (_: Exception) {}
+            udpSocket = null
+            audioCapturer = null
+        }
     }
 
-    fun stopCapturingAudio(){
-        audioCapturer?.stop()
+    fun stopCapturingAudio() {
+        val capturer = synchronized(lock) { audioCapturer }
+        try { capturer?.stop() } catch (_: Exception) {}
     }
-
-    fun removeAllGuests(){
-        guests.clear()
-    }
-
-    fun isHostStreaming(): Boolean {
-        return isHostStreaming
-    }
-
-
-
 }
