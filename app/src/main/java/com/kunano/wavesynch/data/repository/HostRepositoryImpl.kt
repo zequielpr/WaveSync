@@ -161,7 +161,7 @@ class HostRepositoryImpl @Inject constructor(
     }
 
     override fun stopStreaming(){
-        hostStreamer.pauseStreaming()
+        hostStreamer.stopStreaming()
         _serverStateFlow.tryEmit(ServerState.Idle)
 
     }

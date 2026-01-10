@@ -100,8 +100,7 @@ class AudioReceiver(
                 while (running.get()) {
 
                     // Startup (or after resync): wait for prebuffer
-                    val exp = expectedSeq
-                    if (exp != null) {
+                    if (expectedSeq != null) {
                         val buffered = synchronized(bufferLock) { buffer.size }
                         if (buffered < prebufferTarget) {
                             Thread.sleep(2)
@@ -113,20 +112,24 @@ class AudioReceiver(
                     }
 
                     // Clock-driven tick
+                    //If now is bigger than nextTick, it is too early to play the next frame
                     val now = System.nanoTime()
                     if (now < nextTick) {
+                        Log.d("AudioReceiver", "Underflow: now=$now nextTick=$nextTick")
                         val sleepMs = ((nextTick - now) / 1_000_000L).coerceAtMost(5)
                         if (sleepMs > 0) Thread.sleep(sleepMs)
+                        Log.d("AudioReceiver", "The thread slept for $sleepMs ms")
                         continue
                     }
                     nextTick += frameNs
 
+
+
+
                     val seq = expectedSeq ?: continue
 
-                    // Decode one frame for this seq (normal / FEC / PLC inside decodeForPlayout)
 
-
-                    // Decode one frame for this seq (normal / FEC / PLC inside decodeForPlayout)
+                    // Decode one frame for this seq normal / FEC / PLC
                     val payload = takePayLoad(seq)
                     if (payload != null) {
                         pcmFrame = decoder.decode(payload)
@@ -139,11 +142,13 @@ class AudioReceiver(
                         }
 
                     }
+
                     synchronized(bufferLock) {
                         // Prevent latency creep: if buffer is huge, drop old frames before seq
                         while (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
                             val first = buffer.firstKey()
-                            if (first >= seq) break
+                            if (first > seq) break
+                            Log.d("AudioReceiver", "Jitter: buffer.size=${buffer.size}")
                             buffer.pollFirstEntry()
                         }
                     }
@@ -153,7 +158,7 @@ class AudioReceiver(
                     val lowest = synchronized(bufferLock) { buffer.firstKeyOrNull() }
                     if (lowest != null) {
                         val gap = lowest - seq
-                        if (gap > AudioStreamConstants.RESYNC_THRESHOLD_FRAMES || lowest < seq) {
+                        if (gap >= AudioStreamConstants.RESYNC_THRESHOLD_FRAMES || lowest < seq) {
                             Log.d("AudioReceiver", "Resync: gap=$gap oldExp=$seq newExp=$lowest")
                             expectedSeq = lowest
                             continue
@@ -166,6 +171,7 @@ class AudioReceiver(
                     }else{
                         writeFixed(track, silence)
                     }
+
 
                     expectedSeq = seq + 1
                 }
