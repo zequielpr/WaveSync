@@ -6,19 +6,17 @@ import android.media.AudioTrack
 import android.util.Log
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.PacketCodec
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.SocketTimeoutException
 import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
-class AudioReceiver(
-) {
+class AudioReceiver {
+
     init {
-        // Load opus library
         System.loadLibrary("wavesynch")
     }
 
@@ -27,18 +25,17 @@ class AudioReceiver(
 
     private val running = AtomicBoolean(false)
 
-    @Volatile
-    private var isPaused = false
+    @Volatile private var isPaused = false
+    @Volatile private var expectedSeq: Int? = null
 
     private var rxThread: Thread? = null
     private var playoutThread: Thread? = null
 
+    @Volatile private var udpSocket: DatagramSocket? = null
+
     // jitter buffer: seq -> opus payload
     private val buffer = TreeMap<Int, ByteArray>()
     private val bufferLock = Any()
-
-    @Volatile
-    private var expectedSeq: Int? = null
 
     private lateinit var decoder: OpusGuestDecoder
 
@@ -47,6 +44,8 @@ class AudioReceiver(
 
     fun start(socket: DatagramSocket) {
         if (running.getAndSet(true)) return
+
+        udpSocket = socket
 
         decoder = OpusGuestDecoder(AudioStreamConstants.SAMPLE_RATE, AudioStreamConstants.CHANNELS)
         _isPlayingState.tryEmit(true)
@@ -92,15 +91,14 @@ class AudioReceiver(
             var nextTick = System.nanoTime()
 
             val prebufferTarget = AudioStreamConstants.PREBUFFER_FRAMES
-            var pcmFrame: ShortArray = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
             val silence = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
-
 
             try {
                 while (running.get()) {
 
                     // Startup (or after resync): wait for prebuffer
-                    if (expectedSeq != null) {
+                    val exp = expectedSeq
+                    if (exp != null) {
                         val buffered = synchronized(bufferLock) { buffer.size }
                         if (buffered < prebufferTarget) {
                             Thread.sleep(2)
@@ -112,47 +110,82 @@ class AudioReceiver(
                     }
 
                     // Clock-driven tick
-                    //If now is bigger than nextTick, it is too early to play the next frame
                     val now = System.nanoTime()
                     if (now < nextTick) {
-                        Log.d("AudioReceiver", "Underflow: now=$now nextTick=$nextTick")
                         val sleepMs = ((nextTick - now) / 1_000_000L).coerceAtMost(5)
                         if (sleepMs > 0) Thread.sleep(sleepMs)
-                        Log.d("AudioReceiver", "The thread slept for $sleepMs ms")
                         continue
                     }
+
+                    // How late are we for the tick we were supposed to hit?
+                    val lateFrames = ((now - nextTick) / frameNs).toInt().coerceAtLeast(0)
+
+                    // If we’re extremely late, drop backlog + resync and skip this tick
+                    if (lateFrames >= AudioStreamConstants.MAX_JITTER_FRAMES) {
+                        var dropped = 0
+                        synchronized(bufferLock) {
+                            repeat(lateFrames.coerceAtMost(buffer.size)) {
+                                buffer.pollFirstEntry()
+                                dropped++
+                            }
+                            expectedSeq = buffer.firstKeyOrNull()
+                        }
+
+                        nextTick = now + frameNs
+                        Log.d(
+                            "AudioReceiver",
+                            "Hard catch-up: late=$lateFrames dropped=$dropped buffer=${synchronized(bufferLock) { buffer.size }}"
+                        )
+                        continue
+                    } else if (lateFrames > 0) {
+                        // Soft catch-up: skip missed ticks (don’t try to “replay the past”)
+                        nextTick += lateFrames * frameNs
+                    }
+
+                    // Schedule the next frame
                     nextTick += frameNs
-
-
-
 
                     val seq = expectedSeq ?: continue
 
-
                     // Decode one frame for this seq normal / FEC / PLC
-                    val payload = takePayLoad(seq)
-                    if (payload != null) {
-                        pcmFrame = decoder.decode(payload)
-                    }else{
-                        val nextPayload = peekPayLoad(seq+1)
-                        pcmFrame = if (nextPayload != null) {
+                    val payload = takePayload(seq)
+
+                    val pcmFrame: ShortArray = if (payload != null) {
+                        decoder.decode(payload)
+                    } else {
+                        val nextPayload = peekPayload(seq + 1)
+                        if (nextPayload != null) {
                             decoder.decodeWithFEC(nextPayload)
-                        }else{
+                        } else {
+                            // True underflow: nothing usable, use PLC
+                            val bufSize = synchronized(bufferLock) { buffer.size }
+                            Log.d("AudioReceiver", "PLC: missing seq=$seq buffer=$bufSize")
                             decoder.decodeWithPLC()
                         }
-
                     }
 
+                    // Drop packets that are already behind the playhead (never needed again)
                     synchronized(bufferLock) {
-                        // Prevent latency creep: if buffer is huge, drop old frames before seq
-                        while (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
-                            val first = buffer.firstKey()
-                            if (first > seq) break
-                            Log.d("AudioReceiver", "Jitter: buffer.size=${buffer.size}")
-                            buffer.pollFirstEntry()
+                        val playheadNext = seq + 1
+                        while (true) {
+                            val first = buffer.firstKeyOrNull() ?: break
+                            if (first < playheadNext) buffer.pollFirstEntry() else break
                         }
                     }
 
+                    // Latency cap: if buffer is huge but it's mostly "future" packets, resync forward.
+                    synchronized(bufferLock) {
+                        if (buffer.size > AudioStreamConstants.MAX_JITTER_FRAMES) {
+                            while (buffer.size > prebufferTarget) {
+                                buffer.pollFirstEntry()
+                            }
+                            expectedSeq = buffer.firstKeyOrNull()
+                            Log.d(
+                                "AudioReceiver",
+                                "Latency cap resync: expectedSeq=$expectedSeq buffer=${buffer.size}"
+                            )
+                        }
+                    }
 
                     // Resync if stream jumped far ahead or restarted
                     val lowest = synchronized(bufferLock) { buffer.firstKeyOrNull() }
@@ -166,65 +199,61 @@ class AudioReceiver(
                     }
 
                     if (!isPaused) {
-                        // IMPORTANT: write SHORTS count (samples), not bytes
+                        // Optional: measure blocking writes (useful for headphone route debugging)
+                        val t0 = System.nanoTime()
                         writeFixed(track, pcmFrame)
-                    }else{
+                        val writeMs = (System.nanoTime() - t0) / 1_000_000
+                        if (writeMs > 10) Log.d("AudioReceiver", "AudioTrack.write blocked ${writeMs}ms")
+                    } else {
                         writeFixed(track, silence)
                     }
-
 
                     expectedSeq = seq + 1
                 }
             } catch (e: Exception) {
                 Log.e("AudioReceiver", "Playout error", e)
             } finally {
-                try {
-                    socket.close()
-                } catch (_: Exception) {
-                }
-                try {
-                    track.stop()
-                } catch (_: Exception) {
-                }
-                track.release()
+                try { socket.close() } catch (_: Exception) {}
+                try { track.stop() } catch (_: Exception) {}
+                try { track.release() } catch (_: Exception) {}
+
                 _isPlayingState.tryEmit(false)
                 running.set(false)
+
+                try {
+                    if (::decoder.isInitialized) decoder.close()
+                } catch (_: Exception) {}
+
+                synchronized(bufferLock) { buffer.clear() }
+                expectedSeq = null
+                udpSocket = null
             }
         }.apply { start() }
-    }
-
-    private fun takePayLoad(seq: Int):ByteArray?{
-        synchronized(bufferLock) {
-            return buffer.remove(seq)
-        }
-    }
-
-    private fun peekPayLoad(seq: Int):ByteArray?{
-        synchronized(bufferLock) {
-            return buffer[seq]
-        }
     }
 
     fun stop() {
         if (!running.getAndSet(false)) return
         _isPlayingState.tryEmit(false)
 
-        try {
-            rxThread?.interrupt()
-        } catch (_: Exception) {
-        }
-        try {
-            playoutThread?.interrupt()
-        } catch (_: Exception) {
-        }
+        // Fastest way to unblock receive()
+        try { udpSocket?.close() } catch (_: Exception) {}
+
+        try { rxThread?.interrupt() } catch (_: Exception) {}
+        try { playoutThread?.interrupt() } catch (_: Exception) {}
+
+        try { rxThread?.join(500) } catch (_: Exception) {}
+        try { playoutThread?.join(500) } catch (_: Exception) {}
 
         rxThread = null
         playoutThread = null
+        udpSocket = null
 
         synchronized(bufferLock) { buffer.clear() }
         expectedSeq = null
 
-        if (::decoder.isInitialized) decoder.close()
+        try {
+            if (::decoder.isInitialized) decoder.close()
+        } catch (_: Exception) {}
     }
 
     fun pause() {
@@ -236,6 +265,12 @@ class AudioReceiver(
         isPaused = false
         _isPlayingState.tryEmit(true)
     }
+
+    private fun takePayload(seq: Int): ByteArray? =
+        synchronized(bufferLock) { buffer.remove(seq) }
+
+    private fun peekPayload(seq: Int): ByteArray? =
+        synchronized(bufferLock) { buffer[seq] }
 
     private fun buildAudioTrack(): AudioTrack {
         val minOut = AudioTrack.getMinBufferSize(
@@ -268,16 +303,14 @@ class AudioReceiver(
             .build()
     }
 
-    private fun writeFixed(track: AudioTrack, data: ShortArray, frameShorts: Int = AudioStreamConstants.SAMPLES_PER_PACKET) {
+    private fun writeFixed(
+        track: AudioTrack,
+        data: ShortArray,
+        frameShorts: Int = AudioStreamConstants.SAMPLES_PER_PACKET
+    ) {
         when {
-            data.size == frameShorts -> {
-                track.write(data, 0, frameShorts)
-            }
-            data.size > frameShorts -> {
-                track.write(data, 0, frameShorts)
-            }
+            data.size >= frameShorts -> track.write(data, 0, frameShorts)
             else -> {
-                // Pad with zeros without allocating every frame
                 java.util.Arrays.fill(padBuf, 0.toShort())
                 System.arraycopy(data, 0, padBuf, 0, data.size)
                 track.write(padBuf, 0, frameShorts)

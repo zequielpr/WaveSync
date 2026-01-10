@@ -29,7 +29,7 @@ object AudioStreamConstants {
 
     // Tuning
     const val PREBUFFER_FRAMES = 10
-    const val MAX_JITTER_FRAMES = 30
+    const val MAX_JITTER_FRAMES = 25
     const val RESYNC_THRESHOLD_FRAMES = 15
 
     const val UDP_PORT = 8989

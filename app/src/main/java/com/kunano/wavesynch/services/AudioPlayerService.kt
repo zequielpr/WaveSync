@@ -71,7 +71,7 @@ class AudioPlayerService : Service() {
         )
         createNotificationChannel()
         mediaSession = MediaSessionCompat(context, "AudioSession")
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         setMediaSessionCallBack(mediaSession)
         mediaSession.isActive = true
     }
