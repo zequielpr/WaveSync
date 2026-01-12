@@ -86,8 +86,6 @@ class HostAudioCapturer(
                     // Timestamp can be whatever your PacketCodec expects
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
 
-                    Log.d("tag", "Frame size: ${frame.size}")
-
                     // Encode frame -> Opus payload (variable length)
                     val opusPayload = opusEncoder.encode(frame)
 

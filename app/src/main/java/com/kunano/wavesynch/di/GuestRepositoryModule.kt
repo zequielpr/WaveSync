@@ -38,7 +38,7 @@ abstract class GuestRepositoryModule {
 
         @Provides
         @Singleton
-        fun provideAudioReceiver(): AudioReceiver = AudioReceiver()
+        fun provideAudioReceiver(@ApplicationContext context: Context): AudioReceiver = AudioReceiver(context)
 
 
     }
