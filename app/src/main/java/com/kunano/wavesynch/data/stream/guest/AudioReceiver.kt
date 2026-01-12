@@ -43,9 +43,9 @@ class AudioReceiver(
     private val padBuf = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
 
     // -------- BASE TUNING (speaker/wired) --------
-    private var targetFrames = 15
-    private val minFrames = 8
-    private val maxFrames = 20
+    private var targetFrames = 20
+    private val minFrames = 12
+    private val maxFrames = 30
 
     private val reorderWaitMs = 12L
     private val lateToleranceFrames = 48
@@ -60,7 +60,7 @@ class AudioReceiver(
     @Volatile private var btMode: Boolean = false
 
     // Keep app-added latency small, but don't over-correct.
-    private val btTargetFrames = 20          // slightly higher than 8 = fewer corrections
+    private val btTargetFrames = 30          // slightly higher than 8 = fewer corrections
     private val btHighWater = 40            // start draining only above this
     private val btLowWater = 18              // stop draining once below this (hysteresis)
     private val btMaxDropPerSecond = 2       // safety cap
