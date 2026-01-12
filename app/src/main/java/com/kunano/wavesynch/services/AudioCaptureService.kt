@@ -120,7 +120,10 @@ class AudioCaptureService : Service() {
 
     override fun onDestroy() {
         //Stop streaming
-        hostRepository.stopStreaming()
+        hostAudioCapturer?.let {
+            hostRepository.stopStreaming(it)
+        }
+
         super.onDestroy()
     }
 }

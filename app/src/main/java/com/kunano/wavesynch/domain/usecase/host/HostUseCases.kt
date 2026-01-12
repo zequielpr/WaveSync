@@ -35,7 +35,6 @@ class HostUseCases @Inject constructor(
     fun stopHotspot() = hostRepository.stopHotspot()
     fun isHotspotRunning() = hostRepository.isHotspotRunning()
     fun finishSessionAsHost() = hostRepository.finishSessionAsHost()
-    fun isHostStreaming() = hostRepository.isHostStreaming()
 
 
 
@@ -58,7 +57,6 @@ class HostUseCases @Inject constructor(
     //Manage streaming
     suspend fun startServer(room: Room) = hostRepository.startServer(room)
     fun stopServer() = hostRepository.stopServer()
-    fun stopStreaming() = hostRepository.stopStreaming()
 
 
 

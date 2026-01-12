@@ -1,27 +1,24 @@
 package com.kunano.wavesynch.data.stream.host
 
 import android.Manifest
-import android.os.Build
-import androidx.annotation.RequiresApi
+import android.os.Process
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicBoolean
 
 class HostStreamer {
-
     private val lock = Any()
     private val guests = HashMap<String, GuestStreamingData>()
 
-    @Volatile private var isHostStreaming = false
-
-    private var audioCapturer: HostAudioCapturer? = null
     private var udpSocket: DatagramSocket? = null
 
-    init {
-        udpSocket = DatagramSocket().apply { reuseAddress = true }
-    }
+    private val running = AtomicBoolean(false)
+    private var senderThread: Thread? = null
+
+    private val queue = PacketQueue(capacity = 128) // ~0.6s @ 20ms, tune as you want
 
     fun addGuest(id: String, inetSocketAddress: InetSocketAddress) = synchronized(lock) {
         guests[id] = GuestStreamingData(id, inetSocketAddress, isPlaying = true)
@@ -32,71 +29,68 @@ class HostStreamer {
     fun removeGuest(id: String) = synchronized(lock) { guests.remove(id) }
     fun removeAllGuests() = synchronized(lock) { guests.clear() }
 
-    fun isHostStreaming(): Boolean = isHostStreaming
-
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    @RequiresApi(Build.VERSION_CODES.Q)
     fun startStreaming(capturer: HostAudioCapturer) {
-        if (isHostStreaming) return
+        if (running.getAndSet(true)) return
 
         synchronized(lock) {
             if (udpSocket == null || udpSocket?.isClosed == true) {
                 udpSocket = DatagramSocket().apply { reuseAddress = true }
             }
-            audioCapturer = capturer
-            isHostStreaming = true
         }
 
-        // IMPORTANT: capturer.start runs its own capture thread; no need to create another thread here.
-        capturer.start { chunk ->
-            if (!isHostStreaming) return@start
+        // start capture -> queue
+        capturer.start(queue)
 
-            // If there’s any chance the encoder reuses `chunk`, copy it.
-            // Start with copyOf() to make it correct; optimize later with a buffer pool.
-            val payload = chunk.copyOf()
+        // start sender
+        senderThread = Thread {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
 
-            val (sock, targets) = synchronized(lock) {
-                val s = udpSocket
-                val t = guests.values
-                    .asSequence()
-                    .filter { it.isPlaying }
-                    .map { it.inetSocketAddress }
-                    .toList()
-                s to t
-            }
+            var cachedTargets: Array<InetSocketAddress> = emptyArray()
+            var lastTargetsRefreshNs = 0L
 
-            val s = sock ?: return@start
-            if (s.isClosed) return@start
-            if (targets.isEmpty()) return@start
+            while (running.get()) {
+                val pkt = queue.take(timeoutMs = 50) ?: continue
 
-            for (addr in targets) {
-                try {
-                    val dp = DatagramPacket(payload, payload.size, addr)
-                    s.send(dp)
-                } catch (_: Exception) {
-                    // swallow per guest
+                val sock = synchronized(lock) { udpSocket } ?: continue
+                if (sock.isClosed) continue
+
+                val now = System.nanoTime()
+                if (now - lastTargetsRefreshNs > 200_000_000L) { // refresh ~5x/sec
+                    cachedTargets = synchronized(lock) {
+                        guests.values
+                            .asSequence()
+                            .filter { it.isPlaying }
+                            .map { it.inetSocketAddress }
+                            .toList()
+                            .toTypedArray()
+                    }
+                    lastTargetsRefreshNs = now
+                }
+
+                if (cachedTargets.isEmpty()) continue
+
+                for (addr in cachedTargets) {
+                    try {
+                        sock.send(DatagramPacket(pkt.buf, pkt.len, addr))
+                    } catch (_: Exception) { }
                 }
             }
-        }
+        }.apply { start() }
     }
 
-    fun pauseStreaming() {
-        stopCapturingAudio()
-    }
+    fun stopStreaming(capturer: HostAudioCapturer) {
+        running.set(false)
+        queue.clear()
 
-    fun stopStreaming() {
-        isHostStreaming = false
-        stopCapturingAudio()
+        try { senderThread?.join(500) } catch (_: Throwable) {}
+        senderThread = null
+
+        try { capturer.stop() } catch (_: Throwable) {}
 
         synchronized(lock) {
-            try { udpSocket?.close() } catch (_: Exception) {}
+            try { udpSocket?.close() } catch (_: Throwable) {}
             udpSocket = null
-            audioCapturer = null
         }
-    }
-
-    fun stopCapturingAudio() {
-        val capturer = synchronized(lock) { audioCapturer }
-        try { capturer?.stop() } catch (_: Exception) {}
     }
 }

@@ -9,7 +9,6 @@ import android.media.AudioTrack
 import android.media.PlaybackParams
 import android.os.Build
 import android.util.Log
-import com.kunano.wavesynch.data.stream.AudioPacket
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.PacketCodec
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,6 +86,7 @@ class AudioReceiver(
 
         // ---------------- RX THREAD ----------------
         rxThread = Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
             val recvBuf = ByteArray(4096)
             val dp = DatagramPacket(recvBuf, recvBuf.size)
 
@@ -96,9 +96,15 @@ class AudioReceiver(
                     if (!running.get() || socket.isClosed) break
                     if (isPaused) continue
 
-                    val pkt = PacketCodec.decode(dp.data, dp.length) ?: continue
+                    val h = PacketCodec.decodeHeader(dp.data, dp.length) ?: continue
+
+                    // Copy only the Opus payload into your jitter buffer storage
+                    // (or even store a pooled buffer slice if you want to go harder)
+                    val payload = ByteArray(h.payloadLen)
+                    System.arraycopy(dp.data, h.payloadOffset, payload, 0, h.payloadLen)
+
                     lastRxNs = System.nanoTime()
-                    buffer.put(pkt)
+                    buffer.put(payload, seq = h.seq)
 
                 } catch (_: SocketTimeoutException) {
                     // normal
@@ -192,23 +198,23 @@ class AudioReceiver(
                 }
 
                 // 1) Try exact packet
-                var pkt = buffer.pop(expectedSeq)
+                var payload = buffer.pop(expectedSeq)
 
                 // 2) If missing, wait briefly for reorder
-                if (pkt == null) {
+                if (payload == null) {
                     buffer.waitForSeq(expectedSeq, reorderWaitMs)
-                    pkt = buffer.pop(expectedSeq)
+                    payload = buffer.pop(expectedSeq)
                 }
 
-                val pcm: ShortArray = if (pkt != null) {
+                val pcm: ShortArray = if (payload != null) {
                     okWindow++
-                    decoder.decode(pkt.payload)
+                    decoder.decode(payload)
                 } else {
                     // 3) Try Opus FEC using packet N+1
-                    val next = buffer.peek(expectedSeq + 1)
-                    if (next != null) {
+                    val nextPayload = buffer.peek(expectedSeq + 1)
+                    if (nextPayload != null) {
                         fecWindow++
-                        decoder.decodeWithFEC(next.payload)
+                        decoder.decodeWithFEC(nextPayload)
                     } else {
                         lateWindow++
                         decoder.decodeWithPLC()
@@ -423,20 +429,20 @@ class AudioReceiver(
 }
 
 class JitterBuffer(private val maxFrames: Int = 2048) {
-    private val map = java.util.TreeMap<Int, AudioPacket>()
+    private val map = java.util.TreeMap<Int, ByteArray>()
     private val lock = Object()
 
-    fun put(pkt: AudioPacket) {
+    fun put(payload: ByteArray, seq: Int) {
         synchronized(lock) {
             if (map.size >= maxFrames) map.pollFirstEntry()
-            map[pkt.seq] = pkt
+            map[seq] = payload
             lock.notifyAll()
         }
     }
 
-    fun pop(seq: Int): AudioPacket? = synchronized(lock) { map.remove(seq) }
+    fun pop(seq: Int): ByteArray? = synchronized(lock) { map.remove(seq) }
 
-    fun peek(seq: Int): AudioPacket? = synchronized(lock) { map[seq] }
+    fun peek(seq: Int): ByteArray? = synchronized(lock) { map[seq] }
 
     fun firstSeq(): Int? = synchronized(lock) { map.firstKeyOrNull() }
 

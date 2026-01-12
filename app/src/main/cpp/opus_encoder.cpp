@@ -83,6 +83,46 @@ Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_encodePcm16(
     return arr;
 }
 
+
+
+JNIEXPORT jint JNICALL
+Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_encodePcm16Into(
+        JNIEnv* env, jobject /*thiz*/, jlong pointer,
+        jshortArray pcm, jint frameSize, jint channels,
+        jbyteArray outBuf) {
+
+    OpusEncoder* enc = GET_ENCODER(pointer);
+    if (!enc || pcm == nullptr || outBuf == nullptr) return -1;
+
+    const jsize pcmLen = env->GetArrayLength(pcm);
+    if (pcmLen < frameSize * channels) return -2;
+
+    const jsize outCap = env->GetArrayLength(outBuf);
+    if (outCap <= 0) return -3;
+
+    jshort* pcmPtr = env->GetShortArrayElements(pcm, nullptr);
+    if (!pcmPtr) return -4;
+
+    // Write directly into a temporary native buffer then copy to Java outBuf
+    // (If you want absolute max perf, use GetByteArrayElements and write there.)
+    std::vector<unsigned char> tmp((size_t)outCap);
+
+    int n = opus_encode(enc,
+                        reinterpret_cast<const opus_int16*>(pcmPtr),
+                        int(frameSize),
+                        tmp.data(),
+                        (opus_int32)outCap);
+
+    env->ReleaseShortArrayElements(pcm, pcmPtr, JNI_ABORT);
+
+    if (n < 0) return n;
+
+    env->SetByteArrayRegion(outBuf, 0, n, reinterpret_cast<const jbyte*>(tmp.data()));
+    return n;
+}
+
+
+
 JNIEXPORT void JNICALL
 Java_com_kunano_wavesynch_data_stream_OpusNative_00024Encoder_destroyEncoder(
         JNIEnv* /*env*/, jobject /*thiz*/, jlong pointer) {

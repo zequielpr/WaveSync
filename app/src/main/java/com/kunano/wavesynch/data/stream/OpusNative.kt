@@ -19,6 +19,9 @@ object OpusNative {
         fun encode(pcm: ShortArray, frameSize: Int): ByteArray =
             encodePcm16(pointer, pcm, frameSize, channels)
                 ?: error("Opus encode returned null")
+        fun encodeInto(pcm: ShortArray, frameSize: Int, outBuf: ByteArray): Int =
+            encodePcm16Into(pointer, pcm, frameSize, channels, outBuf)
+
 
         fun setInbandFecEnabled(enabled: Boolean) {
             setInbandFecEnabled(pointer, enabled)
@@ -54,6 +57,13 @@ object OpusNative {
             frameSize: Int,
             channels: Int,
         ): ByteArray?
+        private external fun encodePcm16Into(
+            pointer: Long,
+            pcm: ShortArray,
+            frameSize: Int,
+            channels: Int,
+            outBuf: ByteArray
+        ): Int
 
         private external fun destroyEncoder(pointer: Long)
 
