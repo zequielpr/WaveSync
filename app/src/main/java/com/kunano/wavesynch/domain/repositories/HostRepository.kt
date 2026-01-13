@@ -28,7 +28,6 @@ interface HostRepository {
     fun isHotspotRunning(): Boolean
     fun getHotspotInfo(): HotspotInfo?
     fun finishSessionAsHost()
-    fun isHostStreaming(): Boolean
 
     //New server implementation
 
@@ -43,7 +42,7 @@ interface HostRepository {
     fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer)
     fun playGuest(guestId: String)
     fun pauseGuest(guestId: String)
-    fun stopStreaming()
+    fun stopStreaming(capturer: HostAudioCapturer)
     fun emptyRoom()
 
 

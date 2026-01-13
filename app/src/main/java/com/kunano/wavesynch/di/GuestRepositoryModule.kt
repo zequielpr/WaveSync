@@ -38,9 +38,7 @@ abstract class GuestRepositoryModule {
 
         @Provides
         @Singleton
-        fun provideAudioReceiver(): AudioReceiver = AudioReceiver(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        )
+        fun provideAudioReceiver(@ApplicationContext context: Context): AudioReceiver = AudioReceiver(context)
 
 
     }

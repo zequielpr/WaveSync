@@ -74,6 +74,14 @@
     <string name="connection_lost">Connection lost</string>
     <string name="connection_unavailable">Connection unavailable. Activate this device\'s WIFI</string>
     <string name="expelled_by_host">You have been expelled from this room by</string>
+    <string name="permission_required">Permissions required</string>
+    <string name="permissions_required_message">This app needs these permissions to stream audio and connect devices locally.</string>
+    <string name="permission_required_message">This app needs this permissions to stream audio and connect devices locally.</string>
+    <string name="retry">Try again</string>
+    <string name="enable_permissions">Enable permissions in Settings</string>
+    <string name="permission_required_message_go_setting">Permissions were permanently denied. Please enable them manually in app settings.</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="connecting_to_host">Connecting to host</string>
 
 
 </resources>

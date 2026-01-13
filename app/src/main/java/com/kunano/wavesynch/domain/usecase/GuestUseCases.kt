@@ -39,6 +39,4 @@ class GuestUseCases @Inject constructor(
     fun resumeAudio() = guestRepository.resumeAudio()
     suspend fun cancelJoinRoomRequest(): Boolean = guestRepository.cancelJoinRoomRequest()
 
-
-
 }

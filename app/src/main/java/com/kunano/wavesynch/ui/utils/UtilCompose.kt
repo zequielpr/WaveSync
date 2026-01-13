@@ -1,21 +1,15 @@
 package com.kunano.wavesynch.ui.utils
 
+import PermissionHandler
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,7 +41,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,7 +48,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -86,10 +78,9 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.kunano.wavesynch.R
+import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.theme.OverlayColor
 import java.util.concurrent.Executors
 import kotlin.math.min
@@ -325,35 +316,101 @@ fun QrScanFrame(
 @Composable
 fun QrScannerScreen(
     onResult: (String) -> Unit,
+    navigateBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
+    var hasCameraPermission by remember { mutableStateOf(false) }
+
+    var relaunchPermissionHandler by remember { mutableStateOf(false) }
+    var showPermissionRationale by remember { mutableStateOf(false) }
+    var showPermissionSettings by remember { mutableStateOf(false) }
+    var permissionPermanentlyDenied by remember { mutableStateOf(false) }
+
+
+    val required: List<String> = buildList {
+        add(Manifest.permission.CAMERA)
+    } // show UI like "We need this because..."
+
+    val permissionRequiredMessage = stringResource(R.string.permission_required_message)
+
+
+
+
+
+    if (!hasCameraPermission) {
+        Log.d("MainScreen", "Launching permission handler")
+        PermissionHandler(
+            required = required,
+            onAllGranted = {
+                Log.d("MainScreen", "Permission granted")
+                hasCameraPermission = true
+            },
+            onNeedUserActionInSettings = {
+                Log.d("MainScreen", "User needs to go to settings")
+                showPermissionSettings = true
+                permissionPermanentlyDenied = true
+            },
+            onShowRationale = {
+                showPermissionRationale = true
+                Log.d("MainScreen", "Showing permission rationale")
+            }
         )
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> hasCameraPermission = granted }
-    )
+    if (relaunchPermissionHandler) {
+        PermissionHandler(
+            required = required,
+            onAllGranted = {
+                Log.d("MainScreen", "Permission granted")
+                hasCameraPermission = true
+            },
+            onNeedUserActionInSettings = {
+                showPermissionSettings = true
+                permissionPermanentlyDenied = true
+            },
+            onShowRationale = { showPermissionRationale = true }
+        )
+    }
 
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            launcher.launch(Manifest.permission.CAMERA)
-        }
+
+    if (showPermissionRationale) {
+        PermissionRationaleDialog(message = permissionRequiredMessage, onRetry = {
+            relaunchPermissionHandler = true
+            showPermissionRationale = false
+        }, onCancel = { showPermissionRationale = false
+        navigateBack()})
+
+    } else if (showPermissionSettings) {
+        GoToSettingsDialog(onOpenSettings = {
+            openAppSettings(context = context)
+            showPermissionSettings = false
+        }, onCancel = { showPermissionSettings = false })
+
     }
 
     // Show something while waiting for permission
     if (!hasCameraPermission) {
-        Box(
+        Column(
             Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Camera permission is required to scan QR codes")
+            if (permissionPermanentlyDenied) {
+                Box(
+                    Modifier.padding(horizontal = AppDimens.Padding.horizontal),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        stringResource(R.string.permission_required_message_go_setting),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = { openAppSettings(context = context) }) {
+                    Text(stringResource(R.string.open_settings))
+                }
+            }
+
         }
         return
     }
@@ -377,19 +434,6 @@ fun QrScannerScreen(
         // 2) Frame overlay
         QrScanFrame()
 
-        // 3) Show last scanned text at bottom (debug)
-        lastScanned?.let { text ->
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text, color = Color.White)
-            }
-        }
     }
 }
 
@@ -475,7 +519,6 @@ fun generateQrBitmap(
 }
 
 
-
 @SuppressLint("UnsafeOptInUsageError")
 private fun processImage(
     scanner: BarcodeScanner,
@@ -556,25 +599,104 @@ fun BlockingLoadingOverlay(
     }
 }
 
-@Composable
-fun PulsingDots() {
-    val transition = rememberInfiniteTransition(label = "dots")
-    val alpha by transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
 
-    Text(
-        text = "Waiting…",
-        modifier = Modifier.alpha(alpha),
-        style = MaterialTheme.typography.bodyMedium
+@Composable
+fun PermissionRationaleDialog(
+    title: String = stringResource(R.string.permission_required),
+    message: String = stringResource(R.string.permissions_required_message),
+    onRetry: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val textColor = MaterialTheme.colorScheme.primary
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        title = { androidx.compose.material3.Text(title) },
+        text = { androidx.compose.material3.Text(message) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onRetry) {
+                androidx.compose.material3.Text(stringResource(R.string.retry), color = textColor)
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onCancel) {
+                androidx.compose.material3.Text(stringResource(R.string.cancel), color = textColor)
+            }
+        }
     )
 }
+
+
+@Composable
+fun GoToSettingsDialog(
+    title: String = stringResource(R.string.enable_permissions),
+    message: String = stringResource(R.string.permission_required_message_go_setting),
+    onOpenSettings: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val textColor = MaterialTheme.colorScheme.primary
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        title = { androidx.compose.material3.Text(title) },
+        text = { androidx.compose.material3.Text(message) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onOpenSettings) {
+                androidx.compose.material3.Text(
+                    stringResource(R.string.open_settings),
+                    color = textColor
+                )
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onCancel) {
+                androidx.compose.material3.Text(stringResource(R.string.cancel), color = textColor)
+            }
+        }
+    )
+}
+
+
+@Composable
+fun ConnectingToHostScreen(
+    visible: Boolean = true
+) {
+    if (!visible) return
+
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 4.dp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.connecting_to_host),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+        }
+    }
+
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ConnectingToHostScreenPreview() {
+    ConnectingToHostScreen( )
+}
+
+
 
 
 @Preview(showBackground = true)
