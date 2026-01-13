@@ -1,5 +1,3 @@
-package com.kunano.wavesynch.ui.main_screen
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -12,39 +10,47 @@ import androidx.core.content.ContextCompat
 
 @Composable
 fun PermissionHandler(
-    onAllGranted: () -> Unit
+    onAllGranted: () -> Unit,
+    onNeedUserActionInSettings: () -> Unit, // show UI like "Go to settings"
+    onShowRationale: () -> Unit,
+    required: List<String> = buildList {
+        // Camera
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
+
+        // Notifications only needed on 33+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+            add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        } else {
+            add(Manifest.permission.RECORD_AUDIO)
+
+        }
+    } // show UI like "We need this because..."
 ) {
     val context = LocalContext.current
+    val activity = context as? android.app.Activity
 
-    val permissions = mutableListOf(
-        Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION
-    )
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
-    }else{
-        permissions.add(Manifest.permission.RECORD_AUDIO)
-
-    }
+    fun hasAllPermissions(): Boolean =
+        required.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
 
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        val allGranted = results.values.all { it }
-        if (allGranted) onAllGranted()
+        val allGranted = required.all { results[it] == true }
+        if (allGranted) {
+            onAllGranted()
+        } else {
+            // Decide whether we can ask again or must send to Settings
+            val canAskAgain = activity != null && required.any { perm ->
+                androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, perm)
+            }
+
+            if (canAskAgain) onShowRationale() else onNeedUserActionInSettings()
+        }
     }
 
     LaunchedEffect(Unit) {
-        val allPermissionsGranted = permissions.all {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-        }
-
-        if (allPermissionsGranted) {
-            onAllGranted()
-        } else {
-            launcher.launch(permissions.toTypedArray())
-        }
+        if (hasAllPermissions()) onAllGranted()
+        else launcher.launch(required.toTypedArray())
     }
 }

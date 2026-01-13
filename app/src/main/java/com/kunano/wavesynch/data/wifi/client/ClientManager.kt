@@ -47,7 +47,7 @@ class ClientManager(
 
 
     /** Open TCP socket to host and do handshake */
-    fun connectToServer(hostIp: String, onConnecting: () -> Unit) {
+    fun connectToServer(hostIp: String, onConnected: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             runCatching {
                 // Create a new socket for each connection attempt
@@ -66,7 +66,7 @@ class ClientManager(
                     receiveHandShakeResponse()
                 }
 
-                onConnecting
+                onConnected()
             }.onFailure { e ->
                 Log.e(TAG, "Error connecting to server", e)
             }

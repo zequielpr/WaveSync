@@ -103,7 +103,6 @@ class AudioCaptureService : Service() {
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun startCapture(mediaProjection: MediaProjection) {
         hostAudioCapturer = HostAudioCapturer(mediaProjection)
 
@@ -121,7 +120,10 @@ class AudioCaptureService : Service() {
 
     override fun onDestroy() {
         //Stop streaming
-        hostRepository.stopStreaming()
+        hostAudioCapturer?.let {
+            hostRepository.stopStreaming(it)
+        }
+
         super.onDestroy()
     }
 }

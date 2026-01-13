@@ -20,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 class GuestRepositoryImpl @Inject constructor(
@@ -35,7 +36,7 @@ class GuestRepositoryImpl @Inject constructor(
     override val isPlayingState: StateFlow<Boolean> = audioReceiver.isPlayingState
     private val _serverConnectionsStateFlow = MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
     override val serverConnectionsStateFLow: Flow<ServerConnectionState> =
-        _serverConnectionsStateFlow
+        _serverConnectionsStateFlow.asStateFlow()
 
     override fun getSessionInfo(): SessionData? {
         return clientManager.sessionInfo
@@ -50,13 +51,13 @@ class GuestRepositoryImpl @Inject constructor(
         _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ReceivingAudioStream)
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    override fun connectToServer() {
 
+    override fun connectToServer() {
+        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectingToServer)
         val hotIp: String? = localHotspotController.getGatewayInfo()
         hotIp?.let {
-            clientManager.connectToServer(it, onConnecting = {
-                _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectingToServer)
+            clientManager.connectToServer(it, onConnected = {
+                _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectedToServer)
             })
         }
 
@@ -67,7 +68,6 @@ class GuestRepositoryImpl @Inject constructor(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
     override fun connectToHotspot(password: String, ssid: String) {
         localHotspotController.connectToHotspot(
@@ -87,11 +87,10 @@ class GuestRepositoryImpl @Inject constructor(
     fun discConnectFromServer(){
         val intent = Intent(context, AudioPlayerService::class.java)
         context.stopService(intent)
-        clientManager.disconnectFromServer()
         _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Disconnected)
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
+
     override suspend fun leaveRoom(): Boolean{
         discConnectFromServer()
         val result = disconnectFromHotspot()
@@ -119,7 +118,8 @@ class GuestRepositoryImpl @Inject constructor(
     }
 
     override suspend fun cancelJoinRoomRequest(): Boolean {
-        discConnectFromServer()
+        clientManager.disconnectFromServer()
+        localHotspotController.disconnectFromHotspot()
         return disconnectFromHotspot()
     }
 

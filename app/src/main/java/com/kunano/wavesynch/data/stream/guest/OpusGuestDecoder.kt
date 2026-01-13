@@ -1,5 +1,6 @@
 package com.kunano.wavesynch.data.stream.guest
 
+import android.util.Log
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.OpusNative
 
@@ -9,28 +10,34 @@ class OpusGuestDecoder(
 ) {
     private val decoder = OpusNative.Decoder(sampleRate, channels)
 
-    fun decodeForPlayout(
-        expectedSeq: Int,
-        packetBuffer: MutableMap<Int, ByteArray> // seq -> opus payload bytes (NOT including header)
-    ): ShortArray {
+    // Reused output buffer: ONE allocation total.
+    private val outPcm = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
 
-        val p0 = packetBuffer[expectedSeq]
-        if (p0 != null) {
-            packetBuffer.remove(expectedSeq)
-            return decoder.decode(p0, AudioStreamConstants.SAMPLES_PER_PACKET)
-        }
+    /**
+     * Decode normal frame into reused buffer.
+     * Returns the same outPcm reference every time.
+     */
+    fun decode(p: ByteArray): ShortArray {
+        decoder.decodeInto(p, AudioStreamConstants.SAMPLES_PER_CHANNEL, outPcm)
+        return outPcm
+    }
 
-        // Missing expected packet: try FEC from next packet if available
-        val p1 = packetBuffer[expectedSeq + 1]
-        if (p1 != null) {
-            // IMPORTANT: do NOT remove p1 here.
-            // We use p1 to reconstruct expectedSeq (previous frame),
-            // then next tick we still need p1 for normal decode.
-            return decoder.decodeFecFromNextPcm16( p1, AudioStreamConstants.SAMPLES_PER_PACKET)
-        }
+    /**
+     * Decode missing frame using FEC from next packet (packet N+1 contains redundancy for N).
+     * Returns the same outPcm reference every time.
+     */
+    fun decodeWithFEC(nextPacket: ByteArray): ShortArray {
+        decoder.decodeFecInto(nextPacket, AudioStreamConstants.SAMPLES_PER_CHANNEL, outPcm)
+        return outPcm
+    }
 
-        // Neither packet nor next packet is available -> PLC
-        return decoder.decodeWithPLC(AudioStreamConstants.SAMPLES_PER_PACKET)
+    /**
+     * PLC (concealment) into reused buffer.
+     * Returns the same outPcm reference every time.
+     */
+    fun decodeWithPLC(): ShortArray {
+        decoder.decodePlcInto(AudioStreamConstants.SAMPLES_PER_CHANNEL, outPcm)
+        return outPcm
     }
 
     fun close() {
