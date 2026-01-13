@@ -6,29 +6,24 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
-import android.os.Build
 import android.os.Process
-import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
-import com.kunano.wavesynch.data.stream.PacketCodec
 
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
-    init { System.loadLibrary("wavesynch") }
-
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
 
-    private lateinit var opusEncoder: OpusHostEncoder
+    /** Shorts per PCM frame (fixed) */
+    val frameShorts: Int =
+        AudioStreamConstants.SAMPLES_PER_CHANNEL * AudioStreamConstants.CHANNELS
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(queue: PacketQueue) {
+    fun start(queue: PcmFrameQueue, pool: PcmBufferPool) {
         if (isCapturing) return
-
-        opusEncoder = OpusHostEncoder()
 
         val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
@@ -47,7 +42,7 @@ class HostAudioCapturer(
             AudioStreamConstants.SAMPLE_RATE,
             AudioStreamConstants.CHANNEL_MASK_IN,
             encoding
-        ).coerceAtLeast(16 * 1024) // phones benefit from a bit more headroom
+        ).coerceAtLeast(16 * 1024)
 
         audioRecord = AudioRecord.Builder()
             .setAudioFormat(format)
@@ -55,25 +50,8 @@ class HostAudioCapturer(
             .setAudioPlaybackCaptureConfig(config)
             .build()
 
-        // IMPORTANT: frameSize for Opus is samples per channel.
-        // total shorts in PCM frame = framePerChannel * channels
-        val framePerChannel = AudioStreamConstants.SAMPLES_PER_CHANNEL
-        val frameShorts = framePerChannel * AudioStreamConstants.CHANNELS
-
         val readBuf = ShortArray(maxOf(frameShorts * 2, 2048))
         val assembler = ShortFrameAssembler(frameShorts)
-
-        // PCM frame ring (no allocations)
-        val pcm0 = ShortArray(frameShorts)
-        val pcm1 = ShortArray(frameShorts)
-        val pcm2 = ShortArray(frameShorts)
-        var pcmIx = 0
-
-        // Packet ring (no allocations). 1500 is MTU-ish; adjust if you want safer like 1400.
-        val pkt0 = ByteArray(1500)
-        val pkt1 = ByteArray(1500)
-        val pkt2 = ByteArray(1500)
-        var pktIx = 0
 
         isCapturing = true
 
@@ -89,31 +67,21 @@ class HostAudioCapturer(
                 if (readCount <= 0) continue
 
                 assembler.push(readBuf, readCount) { frameView ->
-                    // copy into pcm ring (fixed-size, no allocations)
-                    val pcm = when (pcmIx) { 0 -> pcm0; 1 -> pcm1; else -> pcm2 }
-                    pcmIx = (pcmIx + 1) % 3
-                    System.arraycopy(frameView, 0, pcm, 0, frameShorts)
+                    val pcm = pool.acquire()
+                    if (pcm == null) {
+                        // Streamer is lagging; drop frame (do NOT block audio thread)
+                        return@push
+                    }
 
+                    System.arraycopy(frameView, 0, pcm, 0, frameShorts)
                     val tsMs = (System.nanoTime() / 1_000_000L).toInt()
 
-                    // Opus encode into reusable buf; get actual len
-                    val opus = opusEncoder.encodeInto(pcm) // (buf,len)
-
-                    // write packet into packet ring
-                    val pkt = when (pktIx) { 0 -> pkt0; 1 -> pkt1; else -> pkt2 }
-                    pktIx = (pktIx + 1) % 3
-
-                    val packetLen = PacketCodec.writeInto(
-                        out = pkt,
-                        seq = seq,
-                        tsMs = tsMs,
-                        payload = opus.buf,
-                        payloadLen = opus.len
-                    )
-
-                    if (packetLen > 0) {
-                        queue.offer(PacketQueue.PacketRef(pkt, packetLen))
+                    val ok = queue.offer(PcmFrameQueue.Frame(pcm, frameShorts, seq, tsMs))
+                    if (ok) {
                         seq++
+                    } else {
+                        // Queue full; drop + release buffer back to pool
+                        pool.release(pcm)
                     }
                 }
             }
@@ -130,12 +98,16 @@ class HostAudioCapturer(
         audioRecord?.let { try { it.release() } catch (_: Throwable) {} }
         audioRecord = null
 
-        if (::opusEncoder.isInitialized) opusEncoder.close()
         try { mediaProjection.stop() } catch (_: Throwable) {}
     }
 }
 
-private class ShortFrameAssembler(private val frameShorts: Int) {
+
+/**
+ * Assembles arbitrary short chunks into fixed frames of frameShorts.
+ * It passes an internal buffer to onFrame; caller MUST copy immediately.
+ */
+class ShortFrameAssembler(private val frameShorts: Int) {
     private val buf = ShortArray(frameShorts)
     private var filled = 0
 
@@ -148,9 +120,10 @@ private class ShortFrameAssembler(private val frameShorts: Int) {
             offset += toCopy
 
             if (filled == frameShorts) {
-                onFrame(buf) // no clone()
+                onFrame(buf)
                 filled = 0
             }
         }
     }
 }
+

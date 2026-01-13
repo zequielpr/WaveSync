@@ -1,32 +1,44 @@
 package com.kunano.wavesynch.data.stream.host
 
-class PacketQueue(capacity: Int) {
-    data class PacketRef(val buf: ByteArray, val len: Int)
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 
-    private val lock = Object()
-    private val q = ArrayDeque<PacketRef>(capacity)
-    private val cap = capacity
+/**
+ * Reusable PCM buffers (ShortArray) so the capturer never overwrites frames
+ * that the streamer hasn't processed yet.
+ */
+class PcmBufferPool(
+    val frameShorts: Int,
+    poolSize: Int
+) {
+    private val free = ArrayBlockingQueue<ShortArray>(poolSize)
 
-    fun offer(p: PacketRef) {
-        synchronized(lock) {
-            // drop oldest when full (prefer fresh audio)
-            if (q.size >= cap) q.removeFirst()
-            q.addLast(p)
-            lock.notifyAll()
-        }
+    init {
+        repeat(poolSize) { free.offer(ShortArray(frameShorts)) }
     }
 
-    fun take(timeoutMs: Long): PacketRef? {
-        val end = System.currentTimeMillis() + timeoutMs
-        synchronized(lock) {
-            while (q.isEmpty()) {
-                val rem = end - System.currentTimeMillis()
-                if (rem <= 0) return null
-                lock.wait(rem)
-            }
-            return q.removeFirst()
-        }
-    }
+    fun acquire(): ShortArray? = free.poll()
 
-    fun clear() = synchronized(lock) { q.clear() }
+    fun release(buf: ShortArray) {
+        free.offer(buf)
+    }
+}
+
+/** Capturer -> Streamer queue of PCM frames that point to pooled buffers. */
+class PcmFrameQueue(capacity: Int) {
+
+    data class Frame(
+        val pcm: ShortArray,
+        val shorts: Int,
+        val seq: Int,
+        val tsMs: Int
+    )
+
+    private val q = ArrayBlockingQueue<Frame>(capacity)
+
+    fun offer(frame: Frame): Boolean = q.offer(frame)
+
+    fun take(timeoutMs: Long): Frame? = q.poll(timeoutMs, TimeUnit.MILLISECONDS)
+
+    fun clear() = q.clear()
 }
