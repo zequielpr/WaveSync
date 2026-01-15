@@ -41,7 +41,6 @@ class CurrentRoomViewModel @Inject constructor(
         populateCurrentRoom()
         collectServerConnectionEvents()
         collectIsPlayingState()
-        collectHotspotConnectionState()
         collectHandShakeResult()
 
     }
@@ -126,29 +125,6 @@ class CurrentRoomViewModel @Inject constructor(
         }
     }
 
-    private fun collectHotspotConnectionState() {
-        viewModelScope.launch {
-            guestUseCases.hotspotConnectionStates.collect {
-                when (it) {
-                    //If the connection is lost, leave the room
-                    HotSpotConnectionState.Disconnected -> {
-                        leaveRoom()
-                    }
-
-                    HotSpotConnectionState.ConnectionLost -> {
-                        leaveRoom(leavingRoomMessage = context.getString(R.string.connection_lost))
-                    }
-
-                    else -> {
-                        Log.d("CurrentRoomViewModel", "collectHotspotConnectionState: $it")
-                    }
-
-                }
-
-            }
-
-        }
-    }
 
     private fun collectServerConnectionEvents() {
         viewModelScope.launch {

@@ -4,11 +4,14 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
 import com.kunano.wavesynch.data.stream.host.HostStreamer
+import com.kunano.wavesynch.data.wifi.WifiLocalPortInfo
+import com.kunano.wavesynch.data.wifi.getWifiIpAddress
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
@@ -34,14 +37,11 @@ import javax.inject.Inject
 class HostRepositoryImpl @Inject constructor(
     private val serverManager: ServerManager,
     private val hostStreamer: HostStreamer,
-    private val localHotspotController: LocalHotspotController,
     @ApplicationContext private val context: Context,
 
 
     ) : HostRepository {
 
-    override val hotspotInfoFlow: Flow<HotspotInfo?> = localHotspotController.hotspotInfoFLow
-    override val hotSpotStateFlow: Flow<HotspotState> = localHotspotController.hotspotStateFlow
     override val connectedGuest: Flow<LinkedHashSet<Guest>?> = serverManager.connectedGuests
 
     private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
@@ -54,42 +54,18 @@ class HostRepositoryImpl @Inject constructor(
     override val handShakeResultFlow: Flow<HandShakeResult> = _handShakeResult.asSharedFlow()
 
 
-    //Hotspot implementation
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.NEARBY_WIFI_DEVICES])
-    override fun startHotspot(
-        onStarted: (HotspotInfo) -> Unit,
-        onError: (Int) -> Unit,
-    ) {
 
-        localHotspotController.startHotspot(onStarted, onError)
-    }
-
-    override fun stopHotspot() {
-        val intent = Intent(context, StartHotspotService::class.java)
-        context.stopService(intent)
-    }
-
-    override fun isHotspotRunning(): Boolean {
-        return localHotspotController.isHotspotRunning()
-    }
-
-
-    override fun getHotspotInfo(): HotspotInfo? {
-        return localHotspotController.getHotspotInfo()
-    }
 
     override fun finishSessionAsHost() {
         stopStreamingService()
         emptyRoom()
-        stopHotspot()
         serverManager.closeServerSocket()
     }
 
 
-    override suspend fun startServer(room: Room) {
+    override fun startServer(room: Room, hostIp: String) {
         _serverStateFlow.tryEmit(ServerState.Starting)
-        serverManager.startServerSocket(room, inComingHandShakeResult = {
+        serverManager.startServerSocket(hostIp, room, inComingHandShakeResult = {
             _handShakeResult.tryEmit(it)
         })
         _serverStateFlow.tryEmit(ServerState.Running)
@@ -171,6 +147,24 @@ class HostRepositoryImpl @Inject constructor(
         serverManager.closeAndClearSockets()
         serverManager.clearConnectedGuests()
 
+    }
+
+    override fun openPortOverLocalWifi(room: Room): WifiLocalPortInfo? {
+        val hostIp = getWifiIpAddress(context)
+        if (hostIp == null) return null
+        _serverStateFlow.tryEmit(ServerState.Starting)
+        val serverSocket = serverManager.startServerSocket(hostIp, room, inComingHandShakeResult = {
+            _handShakeResult.tryEmit(it)
+        })
+        _serverStateFlow.tryEmit(ServerState.Running)
+
+        val ipAddress = "/" + serverSocket?.inetAddress?.hostAddress
+        Log.d("HostRepositoryImpl", "openPortOverLocalWifi: $ipAddress")
+
+        val wifiLocalPortInfo =
+            WifiLocalPortInfo(ipAddress = ipAddress, port = AudioStreamConstants.TCP_PORT)
+
+        return wifiLocalPortInfo
     }
 
 }

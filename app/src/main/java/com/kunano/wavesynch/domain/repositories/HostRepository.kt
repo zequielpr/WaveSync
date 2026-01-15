@@ -1,6 +1,7 @@
 package com.kunano.wavesynch.domain.repositories
 
 import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
+import com.kunano.wavesynch.data.wifi.WifiLocalPortInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -10,8 +11,7 @@ import com.kunano.wavesynch.domain.model.Room
 import kotlinx.coroutines.flow.Flow
 
 interface HostRepository {
-    val hotSpotStateFlow: Flow<HotspotState>
-    val hotspotInfoFlow: Flow<HotspotInfo?>
+
     val serverStateFlow: Flow<ServerState>
     val logFlow : Flow<String>
     val handShakeResultFlow: Flow<HandShakeResult>
@@ -19,20 +19,12 @@ interface HostRepository {
 
     fun addGuestToHostStreamer(guestId: String)
 
-
-    //New hotspot implementation
-    fun startHotspot(
-        onStarted: (HotspotInfo) -> Unit,
-        onError: (Int) -> Unit,)
-    fun stopHotspot()
-    fun isHotspotRunning(): Boolean
-    fun getHotspotInfo(): HotspotInfo?
     fun finishSessionAsHost()
 
     //New server implementation
 
 
-    suspend fun startServer(room: Room)
+    fun startServer(room: Room, hostIp: String)
     fun stopServer()
 
     fun expelGuest(guestId: String)
@@ -44,6 +36,7 @@ interface HostRepository {
     fun pauseGuest(guestId: String)
     fun stopStreaming(capturer: HostAudioCapturer)
     fun emptyRoom()
+    fun openPortOverLocalWifi(room: Room): WifiLocalPortInfo?
 
 
 }

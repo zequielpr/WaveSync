@@ -26,6 +26,7 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 
@@ -56,14 +57,24 @@ class ServerManager(
 
 
     fun startServerSocket(
+        ipAddress: String,
         room: Room,
         inComingHandShakeResult: (handShakeResult: HandShakeResult) -> Unit,
-    ) {
+    ): ServerSocket? {
+
+        val inetAddress = InetAddress.getByName(ipAddress)
+
+        if (isServerRunning) {
+            return serverSocket
+        }
+
+        if (serverSocket == null) {
+            serverSocket = ServerSocket( AudioStreamConstants.TCP_PORT,
+                50,
+                inetAddress)
+            _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
+            isServerRunning = true
         CoroutineScope(Dispatchers.IO).launch {
-            if (serverSocket == null) {
-                serverSocket = ServerSocket(AudioStreamConstants.TCP_PORT)
-                _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
-                isServerRunning = true
                 //this block is an infinite loop
                 while (isServerRunning) {
                     if (serverSocket?.isClosed != true) {
@@ -81,6 +92,7 @@ class ServerManager(
                 }
             }
         }
+        return serverSocket
     }
 
     private fun handleClient(

@@ -1,5 +1,6 @@
 package com.kunano.wavesynch.domain.usecase.host
 
+import com.kunano.wavesynch.data.wifi.WifiLocalPortInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
@@ -17,8 +18,7 @@ class HostUseCases @Inject constructor(
     private val hostRepository: HostRepository,
     private val soundRoomRepository: SoundRoomRepository,
 ) {
-    val hotspotInfoFlow: Flow<HotspotInfo?> = hostRepository.hotspotInfoFlow
-    val hotSpotStateFlow: Flow<HotspotState> = hostRepository.hotSpotStateFlow
+
     val serverStateFlow: Flow<ServerState> = hostRepository.serverStateFlow
     val logFlow : Flow<String> = hostRepository.logFlow
     val handShakeResultFlow: Flow<HandShakeResult> = hostRepository.handShakeResultFlow
@@ -27,13 +27,7 @@ class HostUseCases @Inject constructor(
     fun addGuestToHostStreamer(guestId: String) = hostRepository.addGuestToHostStreamer(guestId)
 
 
-    //Manage hotspot
-    fun startHotspot(
-        onStarted: (HotspotInfo) -> Unit, onError: (Int) -> Unit,
-    ) = hostRepository.startHotspot(onStarted, onError)
 
-    fun stopHotspot() = hostRepository.stopHotspot()
-    fun isHotspotRunning() = hostRepository.isHotspotRunning()
     fun finishSessionAsHost() = hostRepository.finishSessionAsHost()
 
 
@@ -55,7 +49,7 @@ class HostUseCases @Inject constructor(
     fun acceptUserConnection(guest: Guest) = hostRepository.acceptUserConnection(guest)
 
     //Manage streaming
-    suspend fun startServer(room: Room) = hostRepository.startServer(room)
+    fun startServer(room: Room, hostIp: String) = hostRepository.startServer(hostIp = hostIp, room = room)
     fun stopServer() = hostRepository.stopServer()
 
 
@@ -89,8 +83,7 @@ class HostUseCases @Inject constructor(
         soundRoomRepository.observerRoomGuests(roomId)
 
     fun emptyRoom()  = hostRepository.emptyRoom()
-
-
+    fun openPortOverLocalWifi(room: Room): WifiLocalPortInfo?  = hostRepository.openPortOverLocalWifi(room)
 
 
 

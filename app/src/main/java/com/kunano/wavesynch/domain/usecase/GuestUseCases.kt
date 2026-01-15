@@ -2,7 +2,6 @@ package com.kunano.wavesynch.domain.usecase
 
 import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
 import com.kunano.wavesynch.data.wifi.client.SessionData
-import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.repositories.GuestRepository
 import kotlinx.coroutines.flow.Flow
@@ -15,28 +14,24 @@ class GuestUseCases @Inject constructor(
     val isPlayingState: StateFlow<Boolean> = guestRepository.isPlayingState
     val serverConnectionEvents: Flow<ServerConnectionState> = guestRepository.serverConnectionsStateFLow
     val hanShakeResponse: Flow<HandShakeResult> = guestRepository.hanShakeResponse
-    val hotspotConnectionStates: Flow<HotSpotConnectionState> = guestRepository.hotspotConnectionStates
+
 
 
 
 
     fun startReceivingAudioStream() = guestRepository.startReceivingAudioStream()
 
-    fun connectToHotspot(password: String, ssid: String) =
-        guestRepository.connectToHotspot(password, ssid)
-    suspend fun disconnectFromHotspot() = guestRepository.disconnectFromHotspot()
-    fun connectToServer() = guestRepository.connectToServer()
     fun isConnectedToServer(): Boolean = guestRepository.isConnectedToServer()
 
 
 
     fun getSessionInfo(): SessionData? = guestRepository.getSessionInfo()
-    fun isConnectedToHotspotAsGuest(): Boolean = guestRepository.isConnectedToHotspotAsGuest()
     fun isConnectedToAudioServer(): Boolean = guestRepository.isConnectedToAudioServer()
 
     suspend fun leaveRoom(): Boolean = guestRepository.leaveRoom()
     fun pauseAudio() = guestRepository.pauseAudio()
     fun resumeAudio() = guestRepository.resumeAudio()
     suspend fun cancelJoinRoomRequest(): Boolean = guestRepository.cancelJoinRoomRequest()
+    fun connectToHostOverLocalWifi(ip: String) = guestRepository.connectToHostOverLocalWifi(ip)
 
 }

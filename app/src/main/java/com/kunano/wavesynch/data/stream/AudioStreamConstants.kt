@@ -18,7 +18,7 @@ object AudioStreamConstants {
     const val HOST_SPOT_COMPLEXITY = 5
 
     // Opus frame duration
-    const val PACKET_MS = 10
+    const val PACKET_MS = 20
 
     // PCM sizing (INTERLEAVED)
     const val SAMPLES_PER_CHANNEL = (SAMPLE_RATE * PACKET_MS / 1000) // 960
