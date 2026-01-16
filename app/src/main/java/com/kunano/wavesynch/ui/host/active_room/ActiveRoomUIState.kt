@@ -1,6 +1,5 @@
 package com.kunano.wavesynch.ui.host.active_room
 
-import com.kunano.wavesynch.data.wifi.WifiLocalPortInfo
 import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.Room
@@ -17,5 +16,5 @@ data class ActiveRoomUIState(
     val isHostStreaming: Boolean = false,
     val showAskToStopStreaming: Boolean = false,
     val showAskToEmptyRoom: Boolean = false,
-    val wifiLocalPortInfo: WifiLocalPortInfo? = null,
+    val hostIp: String? = null,
     )

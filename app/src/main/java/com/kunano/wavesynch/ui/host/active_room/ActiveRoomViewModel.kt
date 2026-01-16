@@ -6,9 +6,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.wifi.WifiLocalPortInfo
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -53,6 +50,8 @@ class ActiveRoomViewModel @Inject constructor(
 
     init {
         Log.d("ActiveRoomViewModel", "ActiveRoomViewModel init")
+        collectIsConnectedToWifi()
+        collectHostIpAddress()
         retrieveRoom()
         collectServerStates()
         collectLogs()
@@ -60,9 +59,7 @@ class ActiveRoomViewModel @Inject constructor(
 
     }
 
-
-
-
+    
 
     private fun addTrustedGuest(handShake: HandShake) {
         viewModelScope.launch {
@@ -103,24 +100,17 @@ class ActiveRoomViewModel @Inject constructor(
                 throwable.printStackTrace()
             }.collect {
                 if (it.isNotEmpty()) {
-                    _uiState.value = _uiState.value.copy(room = it[0],)
-                    //Only host room if not already running/hosted to avoid re-hosting on config changes/updates
-                    //Or you can rely on the repository to handle idempotency
-                    openPortOverLocalWifi(it[0])
-                    collectRoomGuests(it[0].id)
+                    val room = it[0]
+                    _uiState.update { state -> state.copy(room = room) }
+                    hostUseCases.setCurrentRoom(room)
+                    collectRoomGuests(room.id)
                 }
-
-
             }
         }
     }
 
-    private fun openPortOverLocalWifi(room: Room) {
-        val wifiLocalPortInfo =  hostUseCases.openPortOverLocalWifi(room)
-        wifiLocalPortInfo?.let {
-            setWifiLocalPortInfo(it)
-        }
-
+    private fun openPortOverLocalWifi(hostIp: String) {
+        hostUseCases.openPortOverLocalWifi(hostIp)
     }
 
 
@@ -196,6 +186,33 @@ class ActiveRoomViewModel @Inject constructor(
     fun pauseGuest(guestId: String) {
         hostUseCases.pauseGuest(guestId)
     }
+
+
+    private fun collectIsConnectedToWifi() {
+        viewModelScope.launch { 
+            hostUseCases.isConnectedToWifi.collect {
+                if (it) {
+                    _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.ready_to_stream)))
+                }else{
+                    _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.connect_this_device_to_wifi)))
+                }
+
+            }
+        }
+    }
+
+    private fun collectHostIpAddress() {
+        viewModelScope.launch {
+            hostUseCases.hostIpAddress.collect { hostIp ->
+                Log.d("ActiveRoomViewModel", "collectHostIpAddress: $hostIp")
+                setWifiLocalPortInfo(hostIp)
+                if (hostIp != null && _uiState.value.room != null) {
+                    openPortOverLocalWifi(hostIp)
+                }
+            }
+        }
+    }
+
 
 
     private fun collectHandShakeResults() {
@@ -347,9 +364,9 @@ class ActiveRoomViewModel @Inject constructor(
         }
     }
 
-    private fun setWifiLocalPortInfo(wifiLocalPortInfo: WifiLocalPortInfo) {
+    private fun setWifiLocalPortInfo(hostIp: String?) {
         _uiState.update { uIState ->
-            uIState.copy(wifiLocalPortInfo = wifiLocalPortInfo,)
+            uIState.copy(hostIp = hostIp,)
         }
     }
     fun setShowAskToEmptyRoom(show: Boolean){

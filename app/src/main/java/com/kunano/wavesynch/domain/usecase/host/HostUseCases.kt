@@ -1,8 +1,5 @@
 package com.kunano.wavesynch.domain.usecase.host
 
-import com.kunano.wavesynch.data.wifi.WifiLocalPortInfo
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
 import com.kunano.wavesynch.domain.model.Guest
@@ -18,7 +15,8 @@ class HostUseCases @Inject constructor(
     private val hostRepository: HostRepository,
     private val soundRoomRepository: SoundRoomRepository,
 ) {
-
+    val isConnectedToWifi: Flow<Boolean> = hostRepository.isConnectedToWifi
+    val hostIpAddress: Flow<String?> = hostRepository.hostIpAddress
     val serverStateFlow: Flow<ServerState> = hostRepository.serverStateFlow
     val logFlow : Flow<String> = hostRepository.logFlow
     val handShakeResultFlow: Flow<HandShakeResult> = hostRepository.handShakeResultFlow
@@ -41,16 +39,14 @@ class HostUseCases @Inject constructor(
 
 
     //Host room
-
+    fun setCurrentRoom(room: Room) = hostRepository.setCurrentRoom(room)
     fun playGuest(guestId: String) = hostRepository.playGuest(guestId)
     fun pauseGuest(guestId: String) = hostRepository.pauseGuest(guestId)
     fun expelGuest(guestId: String) = hostRepository.expelGuest(guestId)
     fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult) = hostRepository.sendAnswerToGuest(guestId, roomName, answer)
     fun acceptUserConnection(guest: Guest) = hostRepository.acceptUserConnection(guest)
 
-    //Manage streaming
-    fun startServer(room: Room, hostIp: String) = hostRepository.startServer(hostIp = hostIp, room = room)
-    fun stopServer() = hostRepository.stopServer()
+    
 
 
 
@@ -83,7 +79,8 @@ class HostUseCases @Inject constructor(
         soundRoomRepository.observerRoomGuests(roomId)
 
     fun emptyRoom()  = hostRepository.emptyRoom()
-    fun openPortOverLocalWifi(room: Room): WifiLocalPortInfo?  = hostRepository.openPortOverLocalWifi(room)
+    fun openPortOverLocalWifi(hostIp: String)  = hostRepository.openPortOverLocalWifi(hostIp)
+    
 
 
 

@@ -415,12 +415,11 @@ fun OverFlowMenuCompose(
 
 @Composable
 fun QrCode(
-    port: String,
     hostIp: String,
     modifier: Modifier = Modifier,
     size: Int = 200,
 ) {
-    val qrContent = remember(port, hostIp) { port + hostIp }
+    val qrContent = remember( hostIp) {  hostIp }
     val qrBackgroundColor = MaterialTheme.colorScheme.surface
     val qrBitmap = remember(qrContent) {
         generateQrBitmap(qrContent, size, bgColor = qrBackgroundColor)
@@ -530,8 +529,7 @@ fun QrCardCompose(
     //val ssid = uiState.hotspotInfo?.ssid ?: ""
     //val password = uiState.hotspotInfo?.password ?: ""
 
-    val hostIp = uiState.wifiLocalPortInfo?.ipAddress ?: ""
-    val port = uiState.wifiLocalPortInfo?.port.toString()
+    val hostIp = uiState.hostIp ?: ""
 
 
 
@@ -584,7 +582,7 @@ fun QrCardCompose(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (hostIp.isNotEmpty()) {
-                        QrCode(hostIp = hostIp, port = port, size = qrSize.value.toInt())
+                        QrCode(hostIp = hostIp, size = qrSize.value.toInt())
                     } else {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp))
                     }
@@ -633,7 +631,7 @@ fun QrCardCompose(
                         verticalArrangement = Arrangement.Center
                     ) {
                         if (hostIp.isNotEmpty()) {
-                            QrCode(hostIp = hostIp, port = port)
+                            QrCode(hostIp = hostIp)
                         } else {
                             CircularProgressIndicator(modifier = Modifier.size(22.dp))
                             Text(
