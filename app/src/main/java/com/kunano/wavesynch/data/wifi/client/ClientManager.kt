@@ -12,8 +12,10 @@ import com.kunano.wavesynch.data.wifi.server.serializeHandshake
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.BufferedWriter
@@ -35,6 +37,10 @@ class ClientManager(
         MutableSharedFlow<HandShakeResult>(extraBufferCapacity = 20)
     val handShakeResponse: SharedFlow<HandShakeResult> = _handShakeResponseFlow.asSharedFlow()
 
+    private val _serverConnectionsStateFlow = MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
+    val serverConnectionsStateFlow = _serverConnectionsStateFlow.asStateFlow()
+
+
     var handShakeFromHost: HandShake? = null
 
     var socket: Socket? = null
@@ -47,9 +53,10 @@ class ClientManager(
 
 
     /** Open TCP socket to host and do handshake */
-    fun connectToServer(hostIp: String, onConnected: () -> Unit) {
+    fun connectToServer(hostIp: String) {
         scope.launch(Dispatchers.IO) {
             runCatching {
+                _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectingToServer)
                 // Create a new socket for each connection attempt
                 socket = Socket()
                 socket?.connect(InetSocketAddress(hostIp, AudioStreamConstants.TCP_PORT), 5000)
@@ -63,10 +70,20 @@ class ClientManager(
                 )
                 sendHandShake(connectionRequestHandShake)
                 while (socket != null && socket!!.isConnected){
-                    receiveHandShakeResponse()
+                    try {
+                        receiveHandShakeResponse()
+                    }catch (e: Exception){
+                        if(e.javaClass == NullPointerException::class.java){
+                            _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
+                        }
+                        Log.d(TAG, "connectToServer: ${e.javaClass}")
+
+                        Log.d(TAG, "connectToServer: ${e.message}")
+                        break
+                    }
                 }
 
-                onConnected()
+
             }.onFailure { e ->
                 Log.e(TAG, "Error connecting to server", e)
             }
@@ -148,6 +165,7 @@ class ClientManager(
                 }
 
                 HandShakeResult.Success().intValue -> {
+                    _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectedToServer)
                     isConnectedToHostServer = true
                     sessionData = SessionData(handShake.roomName, handShake.deviceName)
                     _handShakeResponseFlow.tryEmit(HandShakeResult.Success(handShake))
@@ -180,6 +198,7 @@ class ClientManager(
         sessionData = null
         udpSocket?.close()
         udpSocket = null
+        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Disconnected)
     }
 
     fun isConnectedToServer(): Boolean {

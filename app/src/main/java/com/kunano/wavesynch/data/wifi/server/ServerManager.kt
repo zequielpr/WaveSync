@@ -55,12 +55,6 @@ class ServerManager(
         onRunning: () -> Unit = {},
         inComingHandShakeResult: (handShakeResult: HandShakeResult) -> Unit,
     ): ServerSocket? {
-        val room = currentRoom
-        if (room == null) {
-            _logFlow.tryEmit("Error: Room is not set in ServerManager.")
-            return null
-        }
-
         val inetAddress = InetAddress.getByName(ipAddress)
 
         if (isServerRunning && serverSocket?.inetAddress == inetAddress) {

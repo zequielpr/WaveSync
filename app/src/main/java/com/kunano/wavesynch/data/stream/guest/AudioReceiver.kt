@@ -41,6 +41,9 @@ class AudioReceiver(
 
     private val padBuf = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
 
+    // Wake/sleep signal: playout REALLY blocks here, RX wakes it
+    private val rxSignal = Object()
+
     // -------- BASE TUNING (speaker/wired) --------
     private var targetFrames = 20
     private val minFrames = 12
@@ -49,7 +52,7 @@ class AudioReceiver(
     private val reorderWaitMs = 12L
     private val lateToleranceFrames = 48
 
-    private val jumpForwardThreshold = 250
+    // NOTE: big fixed thresholds are fragile; we use a dynamic jump check too.
     private val bufferBehindDropThreshold = 450
 
     @Volatile private var lastRxNs: Long = 0L
@@ -58,14 +61,13 @@ class AudioReceiver(
     // -------- BLUETOOTH MODE (gentle hysteresis drain) --------
     @Volatile private var btMode: Boolean = false
 
-    // Keep app-added latency small, but don't over-correct.
-    private val btTargetFrames = 28          // slightly higher than 8 = fewer corrections
-    private val btHighWater = 35            // start draining only above this
-    private val btLowWater = 25              // stop draining once below this (hysteresis)
-    private val btMaxDropPerSecond = 1       // safety cap
+    private val btTargetFrames = 28
+    private val btHighWater = 35
+    private val btLowWater = 25
+    private val btMaxDropPerSecond = 1
 
-    private val btDropStepFrames = 1         // drop 1 frame at a time (gentle)
-    private val btDropCooldownNs = 500_000_000L // 500ms between drops
+    private val btDropStepFrames = 1
+    private val btDropCooldownNs = 500_000_000L // 500ms
 
     private var btDropsThisSecond = 0
     private var btSecondMarkNs = 0L
@@ -97,13 +99,14 @@ class AudioReceiver(
 
                     val h = PacketCodec.decodeHeader(dp.data, dp.length) ?: continue
 
-                    // Copy only the Opus payload into your jitter buffer storage
-                    // (or even store a pooled buffer slice if you want to go harder)
                     val payload = ByteArray(h.payloadLen)
                     System.arraycopy(dp.data, h.payloadOffset, payload, 0, h.payloadLen)
 
                     lastRxNs = System.nanoTime()
                     buffer.put(payload, seq = h.seq)
+
+                    // Wake playout (even if buffer isn't empty)
+                    synchronized(rxSignal) { rxSignal.notifyAll() }
 
                 } catch (_: SocketTimeoutException) {
                     // normal
@@ -118,29 +121,6 @@ class AudioReceiver(
         playoutThread = Thread {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
 
-            try { track.play() } catch (_: Exception) {}
-
-            // If BT is active, start with BT target (avoid waiting for large initial buffer)
-            if (btMode) targetFrames = btTargetFrames
-
-            // Wait for initial fill + first seq
-            var seq: Int? = null
-            while (running.get()) {
-                val first = buffer.firstSeq()
-                val size = buffer.size()
-                if (first != null && size >= targetFrames) {
-                    seq = first
-                    break
-                }
-                if (lastRxNs != 0L && System.nanoTime() - lastRxNs > connectionTimeoutNs) break
-                buffer.waitForData(10)
-            }
-
-            var expectedSeq = seq ?: run {
-                safeStopTrack(track)
-                return@Thread
-            }
-
             // Stats + controllers
             var lateWindow = 0
             var okWindow = 0
@@ -151,161 +131,258 @@ class AudioReceiver(
             var driftScore = 0
             val driftThreshold = 40
 
-            // hysteresis state
+            // Soft resync: if we're PLC-ing while buffer has plenty -> we're desynced
+            var missStreak = 0
+            val maxMissStreak = 12 // ~120ms at 10ms frames (tune 8..20)
+
+            // Current expected sequence
+            var expectedSeq: Int? = null
+
+            // BT hysteresis state
             var btDraining = false
 
-            while (running.get()) {
+            fun resetControllers() {
+                lateWindow = 0
+                okWindow = 0
+                fecWindow = 0
+                lastStatsNs = System.nanoTime()
+                lastDriftNs = System.nanoTime()
+                driftScore = 0
+                missStreak = 0
+            }
 
-                // Route can change mid-stream
-                val btNow = isBluetoothOutputActive()
-                if (btNow != btMode) {
-                    btMode = btNow
-                    btDropsThisSecond = 0
-                    btSecondMarkNs = 0L
-                    btLastDropNs = 0L
-                    btDraining = false
-                    Log.w("AudioReceiver", "Route change detected. btMode=$btMode")
-                    if (btMode) targetFrames = btTargetFrames
+            fun hardSleepUntilRxResumes() {
+                // We consider stream "paused". Stop adding latency inside AudioTrack.
+                try { track.pause() } catch (_: Exception) {}
+                try { track.flush() } catch (_: Exception) {}
+
+                val mark = lastRxNs
+                synchronized(rxSignal) {
+                    while (running.get() && lastRxNs == mark) {
+                        rxSignal.wait(250)
+                    }
                 }
 
-                // Connection-loss fail-safe
-                if (lastRxNs != 0L && System.nanoTime() - lastRxNs > connectionTimeoutNs) {
-                    Log.w("AudioReceiver", "No packets for too long → stopping playout")
-                    break
-                }
+                if (!running.get()) return
 
-                // Drop packets too late to ever be used
-                buffer.dropOlderThan(expectedSeq - lateToleranceFrames)
-
-                // Jump forward on restart / huge forward gap
+                // Resync to live edge immediately (low latency)
                 val first = buffer.firstSeq()
                 if (first != null) {
-                    val gapForward = first - expectedSeq
-                    val gapBackward = expectedSeq - first
+                    buffer.dropOlderThan(first)     // drop backlog
+                    expectedSeq = first             // jump to live stream
+                }
 
-                    if (gapForward > jumpForwardThreshold) {
-                        Log.w("AudioReceiver", "Jump forward: first=$first expected=$expectedSeq gapF=$gapForward")
+                // restart audio
+                try { track.play() } catch (_: Exception) {}
+
+                // reset drift/stat logic so it doesn't overreact to the gap
+                resetControllers()
+            }
+
+            try {
+                track.play()
+
+                if (btMode) targetFrames = btTargetFrames
+
+                // ---- Initial sync: wait for enough fill, then start at buffer head
+                while (running.get()) {
+                    val first = buffer.firstSeq()
+                    val size = buffer.size()
+                    if (first != null && size >= targetFrames) {
                         expectedSeq = first
-                        // If you exposed OPUS_RESET_STATE, call it here:
-                        // decoder.reset()
+                        break
+                    }
+
+                    // if we've never received anything for too long, give up
+                    if (lastRxNs != 0L && System.nanoTime() - lastRxNs > connectionTimeoutNs) break
+
+                    // tiny wait: only for bootstrap
+                    buffer.waitForData(10)
+                }
+
+                if (expectedSeq == null) return@Thread
+
+                while (running.get()) {
+
+                    // ---- Route can change mid-stream
+                    val btNow = isBluetoothOutputActive()
+                    if (btNow != btMode) {
+                        btMode = btNow
+                        btDropsThisSecond = 0
+                        btSecondMarkNs = 0L
+                        btLastDropNs = 0L
+                        btDraining = false
+                        Log.w("AudioReceiver", "Route change detected. btMode=$btMode")
+                        if (btMode) targetFrames = btTargetFrames
+                        resetControllers()
+                    }
+
+                    // ---- If no packets have arrived for too long -> SLEEP until RX resumes
+                    val nowNs = System.nanoTime()
+                    if (lastRxNs != 0L && nowNs - lastRxNs > connectionTimeoutNs) {
+                        Log.w("AudioReceiver", "No packets for too long → playout sleeping")
+                        hardSleepUntilRxResumes()
+                        if (!running.get()) break
+                        // after wake, expectedSeq may be updated
+                        if (expectedSeq == null) break
                         continue
                     }
 
-                    if (gapBackward > bufferBehindDropThreshold) {
-                        buffer.dropOlderThan(expectedSeq - lateToleranceFrames)
-                    }
-                }
+                    val exp = expectedSeq ?: break
 
-                // 1) Try exact packet
-                var payload = buffer.pop(expectedSeq)
+                    // Drop packets too late to ever be used
+                    buffer.dropOlderThan(exp - lateToleranceFrames)
 
-                // 2) If missing, wait briefly for reorder
-                if (payload == null) {
-                    buffer.waitForSeq(expectedSeq, reorderWaitMs)
-                    payload = buffer.pop(expectedSeq)
-                }
+                    // Dynamic jump forward on restart / big forward gap
+                    val first = buffer.firstSeq()
+                    if (first != null) {
+                        val gapForward = first - exp
+                        val gapBackward = exp - first
 
-                val pcm: ShortArray = if (payload != null) {
-                    okWindow++
-                    decoder.decode(payload)
-                } else {
-                    // 3) Try Opus FEC using packet N+1
-                    val nextPayload = buffer.peek(expectedSeq + 1)
-                    if (nextPayload != null) {
-                        fecWindow++
-                        decoder.decodeWithFEC(nextPayload)
-                    } else {
-                        lateWindow++
-                        decoder.decodeWithPLC()
-                    }
-                }
-
-                writeFixed(track, pcm)
-                expectedSeq++
-
-                val now = System.nanoTime()
-
-                // -------- Drift correction / latency control --------
-                if (!btMode) {
-                    // Speaker/wired: speed nudges are good
-                    if (now - lastDriftNs > 250_000_000L) {
-                        applyDriftCorrection(track, buffer.size(), targetFrames)
-                        lastDriftNs = now
-                    }
-                } else {
-                    // Bluetooth: use hysteresis drain (gentle, capped)
-                    targetFrames = btTargetFrames
-
-                    val bufNow = buffer.size()
-
-                    // hysteresis: enter draining above high-water, exit below low-water
-                    if (!btDraining && bufNow > btHighWater) btDraining = true
-                    if (btDraining && bufNow < btLowWater) btDraining = false
-
-                    // per-second limiter reset
-                    if (btSecondMarkNs == 0L) btSecondMarkNs = now
-                    if (now - btSecondMarkNs >= 1_000_000_000L) {
-                        btDropsThisSecond = 0
-                        btSecondMarkNs = now
-                    }
-
-                    val canDrain =
-                        (now - btLastDropNs) >= btDropCooldownNs &&
-                                btDropsThisSecond < btMaxDropPerSecond
-
-                    if (btDraining && canDrain) {
-                        expectedSeq += btDropStepFrames
-                        buffer.dropOlderThan(expectedSeq - lateToleranceFrames)
-
-                        btLastDropNs = now
-                        btDropsThisSecond++
-
-                        Log.w("AudioReceiver", "BT drain: dropped $btDropStepFrames frame(s). buf=$bufNow")
-                    }
-                }
-
-                // -------- Buffer target update (every 1s) --------
-                if (now - lastStatsNs > 1_000_000_000L) {
-                    val total = okWindow + fecWindow + lateWindow
-                    val lateRate = if (total == 0) 0.0 else lateWindow.toDouble() / total.toDouble()
-                    val bufSize = buffer.size()
-
-                    if (!btMode) {
-                        // Grow faster if PLC often
-                        if (lateRate > 0.02) targetFrames = (targetFrames + 1).coerceAtMost(maxFrames)
-
-                        // Shrink slowly only if stable AND buffer is healthy
-                        if (lateRate < 0.003 && bufSize > targetFrames + 3) {
-                            targetFrames = (targetFrames - 1).coerceAtLeast(minFrames)
+                        val dynamicJump = (targetFrames * 3).coerceIn(40, 90)
+                        if (gapForward > dynamicJump) {
+                            Log.w("AudioReceiver", "Jump forward: first=$first expected=$exp gapF=$gapForward")
+                            buffer.dropOlderThan(first)
+                            expectedSeq = first
+                            resetControllers()
+                            continue
                         }
 
-                        // Gentle drift controller around target
-                        val e = bufSize - targetFrames
-                        driftScore += e
-                        if (abs(driftScore) > driftThreshold) {
-                            targetFrames = (targetFrames + if (driftScore < 0) 1 else -1)
-                                .coerceIn(minFrames, maxFrames)
+                        if (gapBackward > bufferBehindDropThreshold) {
+                            buffer.dropOlderThan(exp - lateToleranceFrames)
+                        }
+                    }
+
+                    // 1) Try exact packet
+                    var payload = buffer.pop(exp)
+
+                    // 2) If missing, wait briefly for reorder
+                    if (payload == null) {
+                        buffer.waitForSeq(exp, reorderWaitMs)
+                        payload = buffer.pop(exp)
+                    }
+
+                    val nextPayload = if (payload == null) buffer.peek(exp + 1) else null
+
+                    val pcm: ShortArray = when {
+                        payload != null -> {
+                            missStreak = 0
+                            okWindow++
+                            decoder.decode(payload)
+                        }
+                        nextPayload != null -> {
+                            missStreak = 0
+                            fecWindow++
+                            decoder.decodeWithFEC(nextPayload)
+                        }
+                        else -> {
+                            missStreak++
+                            lateWindow++
+                            decoder.decodeWithPLC()
+                        }
+                    }
+
+                    writeFixed(track, pcm)
+
+                    // advance
+                    expectedSeq = exp + 1
+
+                    // ---- Soft resync: if we keep missing but buffer has data, we are desynced
+                    if (missStreak >= maxMissStreak) {
+                        val head = buffer.firstSeq()
+                        val bufNow = buffer.size()
+                        if (head != null && bufNow >= targetFrames) {
+                            Log.w("AudioReceiver", "Soft resync: missStreak=$missStreak buf=$bufNow expected=${expectedSeq} -> head=$head")
+                            buffer.dropOlderThan(head)
+                            expectedSeq = head
+                            missStreak = 0
+                            // Optional: decoder.reset() if you implement OPUS_RESET_STATE
+                        }
+                    }
+
+                    val now = System.nanoTime()
+
+                    // -------- Drift correction / latency control --------
+                    if (!btMode) {
+                        // Speaker/wired: speed nudges are OK
+                        if (now - lastDriftNs > 250_000_000L) {
+                            applyDriftCorrection(track, buffer.size(), targetFrames)
+                            lastDriftNs = now
+                        }
+                    } else {
+                        // Bluetooth: hysteresis drain (gentle, capped)
+                        targetFrames = btTargetFrames
+
+                        val bufNow = buffer.size()
+
+                        if (!btDraining && bufNow > btHighWater) btDraining = true
+                        if (btDraining && bufNow < btLowWater) btDraining = false
+
+                        if (btSecondMarkNs == 0L) btSecondMarkNs = now
+                        if (now - btSecondMarkNs >= 1_000_000_000L) {
+                            btDropsThisSecond = 0
+                            btSecondMarkNs = now
+                        }
+
+                        val canDrain =
+                            (now - btLastDropNs) >= btDropCooldownNs &&
+                                    btDropsThisSecond < btMaxDropPerSecond
+
+                        if (btDraining && canDrain) {
+                            val newExp = (expectedSeq ?: 0) + btDropStepFrames
+                            expectedSeq = newExp
+                            buffer.dropOlderThan(newExp - lateToleranceFrames)
+
+                            btLastDropNs = now
+                            btDropsThisSecond++
+
+                            Log.w("AudioReceiver", "BT drain: dropped $btDropStepFrames frame(s). buf=$bufNow")
+                        }
+                    }
+
+                    // -------- Buffer target update (every 1s) --------
+                    if (now - lastStatsNs > 1_000_000_000L) {
+                        val total = okWindow + fecWindow + lateWindow
+                        val lateRate = if (total == 0) 0.0 else lateWindow.toDouble() / total.toDouble()
+                        val bufSize = buffer.size()
+
+                        if (!btMode) {
+                            if (lateRate > 0.02) targetFrames = (targetFrames + 1).coerceAtMost(maxFrames)
+
+                            if (lateRate < 0.003 && bufSize > targetFrames + 3) {
+                                targetFrames = (targetFrames - 1).coerceAtLeast(minFrames)
+                            }
+
+                            val e = bufSize - targetFrames
+                            driftScore += e
+                            if (abs(driftScore) > driftThreshold) {
+                                targetFrames = (targetFrames + if (driftScore < 0) 1 else -1)
+                                    .coerceIn(minFrames, maxFrames)
+                                driftScore = 0
+                            }
+                        } else {
+                            targetFrames = btTargetFrames
                             driftScore = 0
                         }
-                    } else {
-                        // Bluetooth mode: fixed target; draining logic handles growth
-                        targetFrames = btTargetFrames
-                        driftScore = 0
+
+                        Log.d(
+                            "AudioReceiver",
+                            "buf=$bufSize target=$targetFrames lateRate=${"%.3f".format(lateRate)} ok=$okWindow fec=$fecWindow plc=$lateWindow bt=$btMode draining=$btDraining drops1s=$btDropsThisSecond"
+                        )
+
+                        okWindow = 0
+                        fecWindow = 0
+                        lateWindow = 0
+                        lastStatsNs = now
                     }
-
-                    Log.d(
-                        "AudioReceiver",
-                        "buf=$bufSize target=$targetFrames lateRate=${"%.3f".format(lateRate)} ok=$okWindow fec=$fecWindow plc=$lateWindow bt=$btMode draining=$btDraining drops1s=$btDropsThisSecond"
-                    )
-
-                    okWindow = 0
-                    fecWindow = 0
-                    lateWindow = 0
-                    lastStatsNs = now
                 }
+            } catch (e: InterruptedException) {
+                Log.d("AudioReceiver", "Playout thread interrupted, shutting down.")
+            } catch (e: Exception) {
+                Log.e("AudioReceiver", "Playout thread error", e)
+            } finally {
+                safeStopTrack(track)
             }
-
-            safeStopTrack(track)
         }.also { it.start() }
     }
 
@@ -316,6 +393,9 @@ class AudioReceiver(
         try { udpSocket?.close() } catch (_: Exception) {}
         try { rxThread?.interrupt() } catch (_: Exception) {}
         try { playoutThread?.interrupt() } catch (_: Exception) {}
+
+        // Wake playout if it's blocked on rxSignal
+        synchronized(rxSignal) { rxSignal.notifyAll() }
 
         try { rxThread?.join(500) } catch (_: Exception) {}
         try { playoutThread?.join(500) } catch (_: Exception) {}
@@ -388,10 +468,6 @@ class AudioReceiver(
         track.write(out, 0, frameShorts, AudioTrack.WRITE_BLOCKING)
     }
 
-    /**
-     * Speaker/Wired drift correction:
-     * Bluetooth often ignores PlaybackParams or behaves poorly, so we don't use it in btMode.
-     */
     private fun applyDriftCorrection(track: AudioTrack, bufSize: Int, target: Int) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
 
@@ -464,14 +540,18 @@ class JitterBuffer(private val maxFrames: Int = 2048) {
             while (!map.containsKey(seq)) {
                 val remaining = end - System.currentTimeMillis()
                 if (remaining <= 0) break
-                lock.wait(remaining)
+                try { lock.wait(remaining) }
+                catch (e: InterruptedException) { Thread.currentThread().interrupt(); break }
             }
         }
     }
 
     fun waitForData(waitMs: Long) {
         synchronized(lock) {
-            if (map.isEmpty()) lock.wait(waitMs)
+            if (map.isEmpty()) {
+                try { lock.wait(waitMs) }
+                catch (e: InterruptedException) { Thread.currentThread().interrupt() }
+            }
         }
     }
 

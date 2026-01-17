@@ -42,13 +42,14 @@ class HostStreamer {
             if (encoder == null) encoder = OpusHostEncoder()
         }
 
+        var sock: DatagramSocket
+        var enc: OpusHostEncoder
+        var targets: Array<InetSocketAddress>
         // capturer pushes frames -> we encode+send inline (same capture thread)
         capturer.start { pcm, seq, tsMs ->
             if (!running.get()) return@start
 
-            val sock: DatagramSocket
-            val enc: OpusHostEncoder
-            val targets: Array<InetSocketAddress>
+
 
             synchronized(lock) {
                 sock = udpSocket ?: return@start

@@ -206,7 +206,7 @@ class ActiveRoomViewModel @Inject constructor(
             hostUseCases.hostIpAddress.collect { hostIp ->
                 Log.d("ActiveRoomViewModel", "collectHostIpAddress: $hostIp")
                 setWifiLocalPortInfo(hostIp)
-                if (hostIp != null && _uiState.value.room != null) {
+                if (hostIp != null) {
                     openPortOverLocalWifi(hostIp)
                 }
             }

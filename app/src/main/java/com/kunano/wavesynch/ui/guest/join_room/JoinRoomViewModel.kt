@@ -113,14 +113,11 @@ class JoinRoomViewModel @Inject constructor(
         hostUseCases.finishSessionAsHost()
     }
 
-    fun connectToHostOverLocalWifi(ip: String){
+    fun connectToHostOverLocalWifi(ip: String) {
         updateWaitingState(true)
         guestUseCases.connectToHostOverLocalWifi(ip)
 
     }
-
-
-
 
 
     fun collectServerConnectionEvents() {
@@ -150,6 +147,10 @@ class JoinRoomViewModel @Inject constructor(
                             "JoinRoomViewModel",
                             "collectConnectionEvents: receiving audio stream"
                         )
+                    }
+
+                    ServerConnectionState.ConnectionLost -> {
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connection lost")
                     }
                 }
 

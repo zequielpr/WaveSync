@@ -29,32 +29,28 @@ class GuestRepositoryImpl @Inject constructor(
     ) : GuestRepository {
 
     override val isPlayingState: StateFlow<Boolean> = audioReceiver.isPlayingState
-    private val _serverConnectionsStateFlow = MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
-    override val serverConnectionsStateFLow: Flow<ServerConnectionState> =
-        _serverConnectionsStateFlow.asStateFlow()
+
+    override val serverConnectionsStateFLow: Flow<ServerConnectionState> = clientManager.serverConnectionsStateFlow
+
+    override val hanShakeResponse: Flow<HandShakeResult> = clientManager.handShakeResponse
+
+
+
 
     override fun getSessionInfo(): SessionData? {
         return clientManager.sessionInfo
     }
 
-    override val hanShakeResponse: Flow<HandShakeResult> = clientManager.handShakeResponse
     
     override fun startReceivingAudioStream() {
         // Start the foreground service instead of directly starting the receiver
         val intent = Intent(context, AudioPlayerService::class.java)
         context.startForegroundService(intent)
-        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ReceivingAudioStream)
     }
 
 
     override fun connectToServer(hostIp: String) {
-        Log.d("GuestRepositoryImpl", "connectToServer: $hostIp")
-        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectingToServer)
-
-        clientManager.connectToServer(hostIp, onConnected = {
-            _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectedToServer)
-        })
-
+        clientManager.connectToServer(hostIp)
     }
 
     override fun isConnectedToServer(): Boolean {
@@ -66,7 +62,6 @@ class GuestRepositoryImpl @Inject constructor(
     fun discConnectFromServer(){
         val intent = Intent(context, AudioPlayerService::class.java)
         context.stopService(intent)
-        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Disconnected)
     }
 
 
@@ -78,12 +73,10 @@ class GuestRepositoryImpl @Inject constructor(
 
     override fun pauseAudio() {
         audioReceiver.pause()
-        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Idle)
     }
 
     override fun resumeAudio() {
         audioReceiver.resume()
-        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ReceivingAudioStream)
     }
 
 
