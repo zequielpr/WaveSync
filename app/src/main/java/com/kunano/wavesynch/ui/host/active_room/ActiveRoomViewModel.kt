@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
@@ -55,6 +56,11 @@ class ActiveRoomViewModel @Inject constructor(
         collectLogs()
         collectHandShakeResults()
         collectIsHostStreaming()
+        val c = FirebaseCrashlytics.getInstance()
+        c.setCustomKey("vm", "ActiveRoomViewModel")
+        c.log("ActiveRoomViewModel init reached")
+        c.recordException(IllegalStateException("ActiveRoomViewModel init test @${System.currentTimeMillis()}"))
+
     }
 
 

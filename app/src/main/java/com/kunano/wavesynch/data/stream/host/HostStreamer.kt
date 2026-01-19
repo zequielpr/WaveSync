@@ -1,7 +1,9 @@
 package com.kunano.wavesynch.data.stream.host
 
 import android.Manifest
+import android.util.Log
 import androidx.annotation.RequiresPermission
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.data.stream.PacketCodec
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,7 +88,10 @@ class HostStreamer {
             for (addr in targets) {
                 try {
                     sock.send(DatagramPacket(outPkt, packetLen, addr))
-                } catch (_: Exception) { }
+                } catch (e: Exception) {
+                    FirebaseCrashlytics.getInstance().recordException(e)
+                    Log.e("AudioReceiver", "Playout thread error", e)
+                }
             }
         }
     }

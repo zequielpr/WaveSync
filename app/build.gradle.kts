@@ -1,10 +1,12 @@
 plugins {
+    id("com.google.gms.google-services")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -29,11 +31,18 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true // Enable R8 for code shrinking and obfuscation
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // The Crashlytics plugin will automatically upload the R8 mapping file.
+            // The block below is for C/C++ native symbols, which is also used in this project.
+            //noinspection WrongGradleMethod
+            firebaseCrashlytics {
+                nativeSymbolUploadEnabled = true
+                unstrippedNativeLibsDir = file("build/intermediates/merged_native_libs/release/out/lib")
+            }
         }
     }
     compileOptions {
@@ -58,6 +67,11 @@ android {
 }
 
 dependencies {
+
+    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-crashlytics")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

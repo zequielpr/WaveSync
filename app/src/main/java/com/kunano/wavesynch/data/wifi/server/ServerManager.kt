@@ -7,8 +7,8 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.collection.ArrayMap
 import androidx.collection.arrayMapOf
-import androidx.datastore.core.IOException
 import com.kunano.wavesynch.AppIdProvider
+import com.kunano.wavesynch.CrashReporter
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.wifi.ConnectionProtocol
 import com.kunano.wavesynch.domain.model.Guest
@@ -26,11 +26,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.BufferedWriter
+import java.io.IOException
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 @SuppressLint("MissingPermission")
 class ServerManager(
@@ -61,75 +64,77 @@ class ServerManager(
     fun startServerSocket(
         ipAddress: String,
     ): ServerSocket? {
-        _serverStateFlow.tryEmit(ServerState.Starting)
+        try {
+            _serverStateFlow.tryEmit(ServerState.Starting)
+            val inetAddress = InetAddress.getByName(ipAddress)
 
-        val inetAddress = InetAddress.getByName(ipAddress)
-
-
-        if (isServerRunning && serverSocket?.inetAddress?.hostAddress == ipAddress) {
-            _serverStateFlow.tryEmit(ServerState.Running)
+            if (isServerRunning && serverSocket?.inetAddress?.hostAddress == ipAddress) {
+                _serverStateFlow.tryEmit(ServerState.Running)
+                _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
+                return serverSocket
+            } else {
+                serverSocket?.close()
+                serverSocket = ServerSocket(AudioStreamConstants.TCP_PORT, 50, inetAddress)
+                _logFlow.tryEmit("Server restarted")
+            }
             _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
-            return serverSocket
-        } else if (serverSocket == null) {
-            _logFlow.tryEmit("Server started")
-        } else {
-            serverSocket?.close()
-            serverSocket = null
-            _logFlow.tryEmit("Server restarted")
-        }
-        serverSocket = ServerSocket(
-            AudioStreamConstants.TCP_PORT,
-            50,
-            inetAddress
-        )
-        _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
+            isServerRunning = true
+            _serverStateFlow.tryEmit(ServerState.Running)
 
-        isServerRunning = true
-        _serverStateFlow.tryEmit(ServerState.Running)
-        CoroutineScope(Dispatchers.IO).launch {
-            while (isServerRunning) {
-                if (serverSocket?.isClosed != true) {
-                    try {
-                        val clientSocket = serverSocket?.accept()
-                        handleClient(clientSocket!!)
-                    } catch (e: Exception) {
-                        Log.d("ServerManager", "startServerSocket: ${e.message}")
-                        if (serverSocket?.isClosed == true){
-                            _logFlow.tryEmit("Server closed")
-                            serverSocket = null
+            CoroutineScope(Dispatchers.IO).launch {
+                while (isServerRunning) {
+                    if (serverSocket?.isClosed == false) {
+                        try {
+                            val clientSocket = serverSocket?.accept()
+                            clientSocket?.let { handleClient(it) }
+                        } catch (e: IOException) {
+                            if (serverSocket?.isClosed == true) {
+                                _logFlow.tryEmit("Server closed")
+                            } else {
+                                CrashReporter.set("operation_tag", "accept_client_connection")
+                                CrashReporter.record(e)
+                            }
+                            break
                         }
-                        break
                     }
                 }
             }
+        } catch (e: UnknownHostException) {
+            CrashReporter.set("operation_tag", "start_server_socket_unknown_host")
+            CrashReporter.record(e)
+        } catch (e: IOException) {
+            CrashReporter.set("operation_tag", "start_server_socket_io")
+            CrashReporter.record(e)
+        } catch (e: SecurityException) {
+            CrashReporter.set("operation_tag", "start_server_socket_security")
+            CrashReporter.record(e)
+        } catch (e: IllegalArgumentException) {
+            CrashReporter.set("operation_tag", "start_server_socket_illegal_argument")
+            CrashReporter.record(e)
         }
         return serverSocket
     }
 
-    private fun handleClient(
-        clientSocket: Socket
-    ) {
+    private fun handleClient(clientSocket: Socket) {
         scope.launch {
             var guestId: String = ""
-            val input = BufferedReader(InputStreamReader(clientSocket.getInputStream()))
-
             try {
+                val input = BufferedReader(InputStreamReader(clientSocket.getInputStream()))
                 while (isServerRunning) {
                     val guestHandshake = readIncomingHandShake(input)
-                    guestId = guestHandshake.userId
+                    guestId = guestHandshake!!.userId
                     socketList[guestId] = clientSocket
                     val result = verifyHandshake(guestHandshake)
                     _handShakeResult.emit(result)
                 }
             } catch (e: IOException) {
                 Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
-            } catch (e: Exception) {
-                Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
             } finally {
-                //closeGuestSocket(guestId = guestId)
                 try {
                     clientSocket.close()
-                } catch (_: Exception) {
+                } catch (e: IOException) {
+                    CrashReporter.set("operation_tag", "handle_client_close_socket")
+                    CrashReporter.record(e)
                 }
             }
         }
@@ -140,18 +145,13 @@ class ServerManager(
             isServerRunning = false
             serverSocket?.close()
             serverSocket = null
-        } catch (_: Exception) {
+        } catch (e: IOException) {
+            CrashReporter.set("operation_tag", "close_server_socket")
+            CrashReporter.record(e)
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private fun removeGuestFromWifiGroup() {
-        /*manager.removeClient(channel, guestId, object : WifiP2pManager.ActionListener {
-
-        })*/
-    }
-
-    fun readIncomingHandShake(input: BufferedReader): HandShake {
+    fun readIncomingHandShake(input: BufferedReader): HandShake? {
         val guestHandshakeJson = input.readLine()
         val guestHandShake = parseHandshake(guestHandshakeJson)
         Log.d("", "Received handshake: $guestHandShake")
@@ -175,9 +175,20 @@ class ServerManager(
                 Log.d("", "Sent handshake: $hostHandshake")
                 output.newLine()
                 output.flush()
-            } catch (e: Exception) {
-                Log.d("ServerManager", "sendAnswerToGuest: ${e.message}")
+            } catch (e: IOException) {
+                CrashReporter.set("operation_tag", "send_answer_to_guest")
+                CrashReporter.record(e)
+            }catch (e: NullPointerException) {
+                CrashReporter.set("operation_tag", "send_answer_to_guest_npe")
+                CrashReporter.record(e)
+            }catch (e: SecurityException) {
+                CrashReporter.set("operation_tag", "send_answer_to_guest_security")
+                CrashReporter.record(e)
+            }catch (e: Exception) {
+                CrashReporter.set("operation_tag", "send_answer_to_guest")
+                CrashReporter.record(e)
             }
+
 
             if (answer == HandShakeResult.DeclinedByHost() || answer == HandShakeResult.ExpelledByHost()) {
                 closeGuestSocket(guestId)
@@ -245,8 +256,10 @@ class ServerManager(
                 }
                 guestSocket.close()
                 _logFlow.tryEmit("Guest socket closed")
-            } catch (e: Exception) {
+            } catch (e: IOException) {
                 _logFlow.tryEmit("Error closing guest socket: ${e.message}")
+                CrashReporter.set("operation_tag", "close_guest_socket")
+                CrashReporter.record(e)
             }
         } else {
             _logFlow.tryEmit("Guest socket not found")
@@ -261,7 +274,12 @@ class ServerManager(
 
     fun closeAndClearSockets() {
         socketList.forEach {
-            it.value.close()
+            try {
+                it.value.close()
+            } catch (e: IOException) {
+                CrashReporter.set("operation_tag", "close_and_clear_sockets")
+                CrashReporter.record(e)
+            }
         }
         socketList.clear()
     }

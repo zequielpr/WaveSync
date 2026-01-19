@@ -8,11 +8,14 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Process
 import androidx.annotation.RequiresPermission
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
+    val firebaseCrashlytics = FirebaseCrashlytics.getInstance()
+
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
@@ -78,7 +81,11 @@ class HostAudioCapturer(
                         seq++
                     }
                 }
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
+                firebaseCrashlytics.setCustomKey("rzThread", "Audio capturer thread")
+                firebaseCrashlytics.log("Audio capturer thread error")
+                firebaseCrashlytics.recordException(t)
+
             } finally {
                 try { recorder.stop() } catch (_: Throwable) {}
             }

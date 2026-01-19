@@ -9,6 +9,7 @@ import android.media.AudioTrack
 import android.media.PlaybackParams
 import android.os.Build
 import android.util.Log
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.PacketCodec
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,8 @@ class AudioReceiver(
 ) {
 
     init { System.loadLibrary("wavesynch") }
+
+    val firebaseCrashlytics = FirebaseCrashlytics.getInstance()
 
     private val _isPlayingState = MutableStateFlow(false)
     val isPlayingState = _isPlayingState.asStateFlow()
@@ -74,6 +77,7 @@ class AudioReceiver(
     private var btLastDropNs = 0L
 
     fun start(socket: DatagramSocket) {
+
         if (running.getAndSet(true)) return
 
         udpSocket = socket
@@ -111,6 +115,9 @@ class AudioReceiver(
                 } catch (_: SocketTimeoutException) {
                     // normal
                 } catch (e: Exception) {
+                    firebaseCrashlytics.setCustomKey("rzThread", "Audio receiver thread")
+                    firebaseCrashlytics.log("Audio receiver thread error")
+                    firebaseCrashlytics.recordException(e)
                     if (!running.get() || socket.isClosed) break
                     Log.e("AudioReceiver", "RX error", e)
                 }
@@ -212,7 +219,7 @@ class AudioReceiver(
                         btSecondMarkNs = 0L
                         btLastDropNs = 0L
                         btDraining = false
-                        Log.w("AudioReceiver", "Route change detected. btMode=$btMode")
+                        Log.w("AudioPlayer", "Route change detected. btMode=$btMode")
                         if (btMode) targetFrames = btTargetFrames
                         resetControllers()
                     }
@@ -220,7 +227,7 @@ class AudioReceiver(
                     // ---- If no packets have arrived for too long -> SLEEP until RX resumes
                     val nowNs = System.nanoTime()
                     if (lastRxNs != 0L && nowNs - lastRxNs > connectionTimeoutNs) {
-                        Log.w("AudioReceiver", "No packets for too long → playout sleeping")
+                        Log.w("AudioPlayer", "No packets for too long → playout sleeping")
                         hardSleepUntilRxResumes()
                         if (!running.get()) break
                         // after wake, expectedSeq may be updated
@@ -241,7 +248,7 @@ class AudioReceiver(
 
                         val dynamicJump = (targetFrames * 3).coerceIn(40, 90)
                         if (gapForward > dynamicJump) {
-                            Log.w("AudioReceiver", "Jump forward: first=$first expected=$exp gapF=$gapForward")
+                            Log.w("AudioPlayer", "Jump forward: first=$first expected=$exp gapF=$gapForward")
                             buffer.dropOlderThan(first)
                             expectedSeq = first
                             resetControllers()
@@ -292,7 +299,7 @@ class AudioReceiver(
                         val head = buffer.firstSeq()
                         val bufNow = buffer.size()
                         if (head != null && bufNow >= targetFrames) {
-                            Log.w("AudioReceiver", "Soft resync: missStreak=$missStreak buf=$bufNow expected=${expectedSeq} -> head=$head")
+                            Log.w("AudioPlayer", "Soft resync: missStreak=$missStreak buf=$bufNow expected=${expectedSeq} -> head=$head")
                             buffer.dropOlderThan(head)
                             expectedSeq = head
                             missStreak = 0
@@ -315,7 +322,13 @@ class AudioReceiver(
 
                         val bufNow = buffer.size()
 
-                        if (!btDraining && bufNow > btHighWater) btDraining = true
+                        if (!btDraining && bufNow > btHighWater){
+                            firebaseCrashlytics.setCustomKey("latency", "buffer size $bufNow")
+                            firebaseCrashlytics.log("Buffer size $bufNow")
+                            firebaseCrashlytics.recordException(Exception("Buffer size $bufNow"))
+
+                            btDraining = true
+                        }
                         if (btDraining && bufNow < btLowWater) btDraining = false
 
                         if (btSecondMarkNs == 0L) btSecondMarkNs = now
@@ -336,7 +349,7 @@ class AudioReceiver(
                             btLastDropNs = now
                             btDropsThisSecond++
 
-                            Log.w("AudioReceiver", "BT drain: dropped $btDropStepFrames frame(s). buf=$bufNow")
+                            Log.w("AudioPlayer", "BT drain: dropped $btDropStepFrames frame(s). buf=$bufNow")
                         }
                     }
 
@@ -366,7 +379,7 @@ class AudioReceiver(
                         }
 
                         Log.d(
-                            "AudioReceiver",
+                            "AudioPlayer",
                             "buf=$bufSize target=$targetFrames lateRate=${"%.3f".format(lateRate)} ok=$okWindow fec=$fecWindow plc=$lateWindow bt=$btMode draining=$btDraining drops1s=$btDropsThisSecond"
                         )
 
@@ -377,13 +390,23 @@ class AudioReceiver(
                     }
                 }
             } catch (e: InterruptedException) {
-                Log.d("AudioReceiver", "Playout thread interrupted, shutting down.")
+                Log.d("AudioPlayer", "Playout thread interrupted, shutting down.")
             } catch (e: Exception) {
-                Log.e("AudioReceiver", "Playout thread error", e)
+                firebaseCrashlytics.setCustomKey("rzThread", "Audio player thread")
+                firebaseCrashlytics.log("Audio player thread error")
+                firebaseCrashlytics.recordException(e)
+                Log.e("AudioPlayer", "Playout thread error", e)
             } finally {
                 safeStopTrack(track)
             }
         }.also { it.start() }
+
+        rxThread?.uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, e ->
+            FirebaseCrashlytics.getInstance().recordException(e)
+        }
+        playoutThread?.uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, e ->
+            FirebaseCrashlytics.getInstance().recordException(e)
+        }
     }
 
     fun stop() {
@@ -456,10 +479,8 @@ class AudioReceiver(
             .setBufferSizeInBytes(bufSize)
 
         // best-effort; some devices ignore/throw
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try { builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
-            catch (_: Throwable) {}
-        }
+        try { builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
+        catch (_: Throwable) {}
 
         return builder.build()
     }
@@ -484,13 +505,12 @@ class AudioReceiver(
     }
 
     private fun applyDriftCorrection(track: AudioTrack, bufSize: Int, target: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
 
         val error = (bufSize - target).coerceIn(-6, 6)
         val speed = (1.0f + error * 0.0025f).coerceIn(0.985f, 1.015f)
 
         try {
-            val pp = track.playbackParams ?: PlaybackParams()
+            val pp = track.playbackParams
             if (abs(pp.speed - speed) > 0.001f) {
                 track.playbackParams = pp.setSpeed(speed).setPitch(1.0f)
             }
