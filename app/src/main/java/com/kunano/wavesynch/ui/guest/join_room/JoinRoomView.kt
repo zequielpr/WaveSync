@@ -96,12 +96,10 @@ fun JoinRoomViewCompose(
                     navigateBack = onBack,
                     onResult = { qrContent ->
                         Log.d("JoinRoomViewCompose", "QrScannerScreen: $qrContent")
-                        val ssid = qrContent.split("/")[0]
-                        val password = qrContent.split("/")[1]
+                        val hostIpAddress = qrContent
 
-
-                        if (ssid.isNotEmpty()) {
-                            viewModel.connectToHotspot(ssid, password)
+                        if (hostIpAddress.isNotEmpty()) {
+                            viewModel.connectToHostOverLocalWifi(hostIpAddress)
                         }
                     }
                 )

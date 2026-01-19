@@ -5,9 +5,8 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.R
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotInfo
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -17,7 +16,6 @@ import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.services.AudioCaptureService
-import com.kunano.wavesynch.services.StartHotspotService
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,58 +49,178 @@ class ActiveRoomViewModel @Inject constructor(
 
     init {
         Log.d("ActiveRoomViewModel", "ActiveRoomViewModel init")
+        collectIsConnectedToWifi()
+        collectHostIpAddress()
         retrieveRoom()
         collectServerStates()
         collectLogs()
         collectHandShakeResults()
-        if (!checkIfDeviceIsGuest()) {
-            startLocalHotSpot()
-        }
-        collectHotSpotInfo()
-        collectHotSpotState()
-
+        collectIsHostStreaming()
+        val c = FirebaseCrashlytics.getInstance()
+        c.setCustomKey("vm", "ActiveRoomViewModel")
+        c.log("ActiveRoomViewModel init reached")
+        c.recordException(IllegalStateException("ActiveRoomViewModel init test @${System.currentTimeMillis()}"))
 
     }
 
 
-    fun checkIfDeviceIsGuest(): Boolean {
-        return guestUseCases.isConnectedToHotspotAsGuest()
-    }
-
-
-    fun stopBeingAGuest() {
+    private fun addTrustedGuest(handShake: HandShake) {
         viewModelScope.launch {
-            val roomLeftSuccessfully = guestUseCases.leaveRoom()
-            Log.d("ActiveRoomViewModel", "stopBeingAGuest: $roomLeftSuccessfully")
-            if (roomLeftSuccessfully) {
-                startLocalHotSpot()
+            val currentRoomId = _uiState.value.room?.id
+            val trustedGuest = TrustedGuest(
+                userId = handShake.userId,
+                userName = handShake.deviceName,
+                deviceName = handShake.deviceName
+            )
+            val result = hostUseCases.createTrustedGuest(trustedGuest)
+
+
+            if (result >= 1) {
+                currentRoomId?.let {
+                    val roomWithTrustedGuest =
+                        RoomWithTrustedGuests(it, handShake.userId)
+                    val result = hostUseCases.addTrustedGuest(roomWithTrustedGuest)
+
+                    if (result >= 1) {
+                        Log.d("ActiveRoomViewModel", "addTrustedGuest: Trusted guest added")
+                    }
+
+                }
+            }
+        }
+
+    }
+
+
+    private fun retrieveRoom() {
+        viewModelScope.launch {
+            hostUseCases.observerRooms().catch {
+                it.printStackTrace()
+            }.catch { throwable ->
+                throwable.printStackTrace()
+            }.collect {
+                if (it.isNotEmpty()) {
+                    val room = it[0]
+                    _uiState.update { state -> state.copy(room = room) }
+                    hostUseCases.setCurrentRoom(room)
+                    collectRoomGuests(room.id)
+                }
+            }
+        }
+    }
+
+    private fun openPortOverLocalWifi(hostIp: String) {
+        hostUseCases.openPortOverLocalWifi(hostIp)
+    }
+
+
+    fun emptyRoom() {
+        viewModelScope.launch {
+            hostUseCases.emptyRoom()
+            _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_emptied)))
+        }
+    }
+
+    fun deleteRoom(roomId: Long) {
+        viewModelScope.launch {
+
+            val result = hostUseCases.deleteRoom(roomId)
+            if (result >= 1) {
+                hostUseCases.finishSessionAsHost()
+                _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_deleted)))
+                _uiEvent.send(UiEvent.NavigateBack(null)) //Navigate back to main screen
+            } else {
+                _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.error_deleting_room)))
             }
         }
     }
 
 
-    //It start the hotspot service in the background
-    fun startLocalHotSpot() {
-        val intent = Intent(appContext, StartHotspotService::class.java)
-        appContext.startForegroundService(intent)
-    }
+    fun editRoomName(roomId: Long, newName: String) {
 
 
-    private fun collectHotSpotInfo() {
-        viewModelScope.launch {
-            hostUseCases.hotspotInfoFlow.collect {
+        if (newName.isNotEmpty()) {
+            viewModelScope.launch {
+                val result = hostUseCases.editRoomName(
+                    roomId = roomId, newName = newName
+                ).runCatching {
 
-                if (it != null) {
-                    Log.d("ActiveRoomViewModel", "collectHotSpotInfo: ${it.password}")
-                    setHotSpotSsidAndPassword(it)
+                }
+
+
+                if (result.isSuccess) {
+                    _uiEvent.send(
+                        UiEvent.ShowSnackBar(
+                            appContext.getString(R.string.room_name_updated)
+                        )
+                    )
                 }
             }
 
+        } else {
+            _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.enter_new_name)))
+        }
+
+
+    }
+
+
+    fun expelGuest(
+        guestId: String? = _uiState.value.guestToBeExpelled?.userId,
+        message: String = appContext.getString(R.string.guest_expelled),
+    ) {
+
+        guestId?.let {
+            hostUseCases.expelGuest(it)
+        }
+
+        setShowAskToExpelGuestState(false, null)
+        _uiEvent.trySend(UiEvent.ShowSnackBar(message))
+    }
+
+    fun playGuest(guestId: String) {
+        hostUseCases.playGuest(guestId)
+    }
+
+    fun pauseGuest(guestId: String) {
+        hostUseCases.pauseGuest(guestId)
+    }
+
+
+    private fun collectIsConnectedToWifi() {
+        viewModelScope.launch {
+            hostUseCases.isConnectedToWifi.collect {
+                if (it && hostUseCases.isHostStreamingFlow.value) {
+                    _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.streaming_audio)))
+                } else if (it) {
+                    _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.ready_to_stream)))
+                } else {
+                    _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.connect_this_device_to_wifi)))
+                }
+
+            }
         }
     }
 
-    private fun setHotSpotSsidAndPassword(hotspotInfo: HotspotInfo?) {
-        _uiState.value = _uiState.value.copy(hotspotInfo = hotspotInfo)
+    private fun collectIsHostStreaming() {
+        viewModelScope.launch {
+            hostUseCases.isHostStreamingFlow.collect {
+                setHostStreamingState(it)
+            }
+        }
+    }
+
+
+    private fun collectHostIpAddress() {
+        viewModelScope.launch {
+            hostUseCases.hostIpAddress.collect { hostIp ->
+                Log.d("ActiveRoomViewModel", "collectHostIpAddress: $hostIp")
+                setWifiLocalPortInfo(hostIp)
+                if (hostIp != null) {
+                    openPortOverLocalWifi(hostIp)
+                }
+            }
+        }
     }
 
 
@@ -141,6 +259,12 @@ class ActiveRoomViewModel @Inject constructor(
                             hostUseCases.addGuestToHostStreamer(it)
                         }
 
+                    }
+
+                    is HandShakeResult.GuestLeftRoom -> {
+                        val userName = answer.handShake?.deviceName
+                        val message = userName + " " + appContext.getString(R.string.guest_left_room)
+                        expelGuest(guestId = answer.handShake?.userId, message = message)
                     }
 
                     else -> {
@@ -195,64 +319,6 @@ class ActiveRoomViewModel @Inject constructor(
     }
 
 
-    private fun addTrustedGuest(handShake: HandShake) {
-        viewModelScope.launch {
-            val currentRoomId = _uiState.value.room?.id
-            val trustedGuest = TrustedGuest(
-                userId = handShake.userId,
-                userName = handShake.deviceName,
-                deviceName = handShake.deviceName
-            )
-            val result = hostUseCases.createTrustedGuest(trustedGuest)
-
-
-            if (result >= 1) {
-                currentRoomId?.let {
-                    val roomWithTrustedGuest =
-                        RoomWithTrustedGuests(it, handShake.userId)
-                    val result = hostUseCases.addTrustedGuest(roomWithTrustedGuest)
-
-                    if (result >= 1) {
-                        Log.d("ActiveRoomViewModel", "addTrustedGuest: Trusted guest added")
-                    }
-
-                }
-            }
-        }
-
-    }
-
-
-    private fun collectLogs() {
-        viewModelScope.launch {
-            hostUseCases.logFlow.collect {
-                Log.d("ActiveRoomViewModel", "WifiDirectManager Logs: $it")
-
-            }
-        }
-    }
-
-
-    private fun retrieveRoom() {
-        viewModelScope.launch {
-            hostUseCases.observerRooms().catch {
-                it.printStackTrace()
-            }.catch { throwable ->
-                throwable.printStackTrace()
-            }.collect {
-                if (it.isNotEmpty()) {
-                    _uiState.value = _uiState.value.copy(room = it[0])
-                    //Only host room if not already running/hosted to avoid re-hosting on config changes/updates
-                    //Or you can rely on the repository to handle idempotency
-                    collectRoomGuests(it[0].id)
-                }
-
-
-            }
-        }
-    }
-
-
     private fun collectRoomGuests(romId: Long?) {
         viewModelScope.launch {
             romId?.let {
@@ -269,60 +335,63 @@ class ActiveRoomViewModel @Inject constructor(
         }
 
     }
-    fun setShowAskToEmptyRoom(show: Boolean){
+
+    private fun collectServerStates() {
+        viewModelScope.launch {
+            _serverState.collect {
+                when (it) {
+                    ServerState.Starting -> {
+                        Log.d("ActiveRoomViewModel", "server state: Starting")
+                    }
+
+                    ServerState.Running -> {
+                        Log.d("ActiveRoomViewModel", "server state: Running")
+
+                    }
+
+                    is ServerState.Error -> {
+                        Log.d("ActiveRoomViewModel", "server state: ${it.message}")
+                    }
+
+                    ServerState.Idle -> {
+                        Log.d("ActiveRoomViewModel", "server state: Idle")
+                    }
+
+                    ServerState.Streaming -> {
+                        Log.d("ActiveRoomViewModel", "server state: Streaming")
+                    }
+
+                    ServerState.Stopped -> {
+                        Log.d("ActiveRoomViewModel", "server state: Stopped")
+                    }
+
+                    ServerState.Stopping -> {
+                        Log.d("ActiveRoomViewModel", "server state: Stopping")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun collectLogs() {
+        viewModelScope.launch {
+            hostUseCases.logFlow.collect {
+                Log.d("ActiveRoomViewModel", "Server manager Logs: $it")
+
+            }
+        }
+    }
+
+    private fun setWifiLocalPortInfo(hostIp: String?) {
+        _uiState.update { uIState ->
+            uIState.copy(hostIp = hostIp)
+        }
+    }
+
+    fun setShowAskToEmptyRoom(show: Boolean) {
         _uiState.update { uIState ->
             uIState.copy(showAskToEmptyRoom = show)
         }
-    }
-
-    fun emptyRoom() {
-        viewModelScope.launch {
-            hostUseCases.emptyRoom()
-            _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_emptied)))
-        }
-    }
-
-    fun deleteRoom(roomId: Long) {
-        viewModelScope.launch {
-
-            val result = hostUseCases.deleteRoom(roomId)
-            if (result >= 1) {
-                hostUseCases.finishSessionAsHost()
-                _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.room_deleted)))
-                _uiEvent.send(UiEvent.NavigateBack(null)) //Navigate back to main screen
-            } else {
-                _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.error_deleting_room)))
-            }
-        }
-    }
-
-
-    fun editRoomName(roomId: Long, newName: String) {
-
-
-        if (newName.isNotEmpty()) {
-            viewModelScope.launch {
-                val result = hostUseCases.editRoomName(
-                    roomId = roomId, newName = newName
-                ).runCatching {
-
-                }
-
-
-                if (result.isSuccess) {
-                    _uiEvent.send(
-                        UiEvent.ShowSnackBar(
-                            appContext.getString(R.string.room_name_updated)
-                        )
-                    )
-                }
-            }
-
-        } else {
-            _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.enter_new_name)))
-        }
-
-
     }
 
 
@@ -335,28 +404,6 @@ class ActiveRoomViewModel @Inject constructor(
             uIState.copy(guestToBeExpelled = guest)
         }
     }
-
-    fun expelGuest() {
-        val guestToExpel = _uiState.value.guestToBeExpelled
-        guestToExpel?.let {
-            hostUseCases.expelGuest(it.userId)
-        }
-
-        setShowAskToExpelGuestState(false, null)
-        _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.guest_expelled)))
-    }
-
-    fun playGuest(guestId: String) {
-        hostUseCases.playGuest(guestId)
-    }
-
-    fun pauseGuest(guestId: String) {
-        hostUseCases.pauseGuest(guestId)
-    }
-
-
-
-
 
     fun setShowAskTrustGuestState(state: Boolean) {
         _uiState.update { uIState ->
@@ -377,86 +424,13 @@ class ActiveRoomViewModel @Inject constructor(
         }
     }
 
-
-    fun setRoomName(): String {
-        return "Room 1"
-    }
-
-
-    fun setQRCode() {
-
-    }
-
-    fun setGuestsList(): List<String> {
-        return listOf("Guest 1", "Guest 2", "Guest 3")
-    }
-
-
-    //When the hotspot is activated, the server is started, otherwise the server is shutdown
-    fun collectHotSpotState() {
-        viewModelScope.launch {
-            hostUseCases.hotSpotStateFlow.collect { it ->
-                when (it) {
-                    HotspotState.Idle -> hostUseCases.stopServer()
-
-                    HotspotState.Running -> {
-                        _uiState.value.room?.let { romId ->
-                            hostUseCases.startServer(romId)
-                        }
-
-                        Log.d("ActiveRoomViewModel", "collectHotSpotState: Running")
-                    }
-
-                    HotspotState.Starting -> {
-                        Log.d("ActiveRoomViewModel", "collectHotSpotState: Starting")
-                    }
-
-                    HotspotState.Stopped -> {}
-                    HotspotState.Stopping -> {}
-                }
-            }
-
-
-        }
-    }
-
-
-    private fun collectServerStates() {
-        viewModelScope.launch {
-            _serverState.collect {
-                when (it) {
-                    ServerState.Starting -> {
-                        Log.d("ActiveRoomViewModel", "server state: Starting")
-                    }
-
-                    ServerState.Running -> {
-                        Log.d("ActiveRoomViewModel", "server state: Running")
-
-                    }
-
-                    is ServerState.Error -> {
-                        Log.d("ActiveRoomViewModel", "server state: ${it.message}")
-                    }
-
-                    ServerState.Idle -> setHostStreamingState(false)
-
-                    ServerState.Streaming -> setHostStreamingState(true)
-
-                    ServerState.Stopped -> setHostStreamingState(false)
-
-                    ServerState.Stopping -> {}
-                }
-            }
-        }
-    }
-
     fun setHostStreamingState(state: Boolean) {
         _uiState.update { uIState ->
             uIState.copy(isHostStreaming = state)
         }
     }
 
-    fun setShowAskStopStreaming(show: Boolean){
+    fun setShowAskStopStreaming(show: Boolean) {
         _uiState.update { uIState ->
             uIState.copy(showAskToStopStreaming = show)
         }
@@ -467,7 +441,6 @@ class ActiveRoomViewModel @Inject constructor(
         appContext.stopService(intent)
         _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.you_have_stopped_streaming)))
     }
-
 
 
 }

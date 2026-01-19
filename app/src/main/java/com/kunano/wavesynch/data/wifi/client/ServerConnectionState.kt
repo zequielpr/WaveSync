@@ -5,6 +5,7 @@ sealed class ServerConnectionState {
     object ConnectingToServer : ServerConnectionState()
     object ConnectedToServer : ServerConnectionState()
     object ReceivingAudioStream : ServerConnectionState()
+    object ConnectionLost : ServerConnectionState()
     object Disconnected : ServerConnectionState()
 
 }

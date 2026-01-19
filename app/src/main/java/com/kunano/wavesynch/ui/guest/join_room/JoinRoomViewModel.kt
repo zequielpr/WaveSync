@@ -6,8 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
-import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
-import com.kunano.wavesynch.data.wifi.hotspot.HotspotState
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
@@ -41,8 +39,6 @@ class JoinRoomViewModel @Inject constructor(
     init {
         collectHandShakeResults()
         collectServerConnectionEvents()
-        collectHotspotState()
-        collectHotspotConnectionState()
 
     }
 
@@ -60,26 +56,6 @@ class JoinRoomViewModel @Inject constructor(
         }
     }
 
-    private fun collectHotspotState() {
-        viewModelScope.launch {
-            hostUseCases.hotSpotStateFlow.collect {
-                when (it) {
-
-                    HotspotState.Running -> updateDeviceStatus(true)
-                    HotspotState.Stopped -> updateDeviceStatus(false)
-                    else -> {}
-                }
-            }
-        }
-    }
-
-    private fun updateDeviceStatus(isHost: Boolean) {
-        _UiState.update { currentState ->
-            currentState.copy(
-                isThisDeviceHost = isHost
-            )
-        }
-    }
 
     private fun updateIsConnectingToHostState(state: Boolean) {
         _UiState.update { currentState ->
@@ -137,53 +113,10 @@ class JoinRoomViewModel @Inject constructor(
         hostUseCases.finishSessionAsHost()
     }
 
-
-    fun connectToHotspot(password: String, ssid: String) {
-        viewModelScope.launch {
-            guestUseCases.connectToHotspot(password, ssid)
-        }
-    }
-
-    private fun connectToServer() {
+    fun connectToHostOverLocalWifi(ip: String) {
         updateWaitingState(true)
-        guestUseCases.connectToServer()
-    }
+        guestUseCases.connectToHostOverLocalWifi(ip)
 
-
-    private fun collectHotspotConnectionState() {
-        viewModelScope.launch {
-            guestUseCases.hotspotConnectionStates.collect {
-                when (it) {
-                    HotSpotConnectionState.Connected -> {
-                        updateIsConnectingToHostState(false)
-                        connectToServer()
-                        Log.d("JoinRoomViewModel", "collectHotspotConnectionState: connected")
-                    }
-
-                    HotSpotConnectionState.Connecting -> {
-                        updateIsConnectingToHostState(true)
-                        Log.d("JoinRoomViewModel", "collectHotspotConnectionState: connecting")
-
-                    }
-
-                    HotSpotConnectionState.ConnectionLost -> {
-                        updateIsConnectingToHostState(false)
-                    }
-
-                    HotSpotConnectionState.ConnectionUnavailable -> {
-                        updateIsConnectingToHostState(false)
-                        _uiEvent.send(UiEvent.ShowSnackBar(app.getString(R.string.connection_unavailable)))
-
-                    }
-
-                    HotSpotConnectionState.Disconnected -> {
-                        updateIsConnectingToHostState(false)
-                        Log.d("JoinRoomViewModel", "collectHotspotConnectionState: disconnected")
-                    }
-                }
-            }
-
-        }
     }
 
 
@@ -214,6 +147,10 @@ class JoinRoomViewModel @Inject constructor(
                             "JoinRoomViewModel",
                             "collectConnectionEvents: receiving audio stream"
                         )
+                    }
+
+                    ServerConnectionState.ConnectionLost -> {
+                        Log.d("JoinRoomViewModel", "collectConnectionEvents: connection lost")
                     }
                 }
 

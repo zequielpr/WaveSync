@@ -1,7 +1,30 @@
-package com.kunano.wavesynch.data.stream.host
-
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
+
+class PcmFrameQueue(capacity: Int) {
+
+    data class Frame(
+        val pcm: ShortArray,
+        val shorts: Int,
+        val seq: Int,
+        val tsMs: Int
+    )
+
+    private val q = ArrayBlockingQueue<Frame>(capacity)
+
+    fun offer(frame: Frame): Boolean = q.offer(frame)
+
+    fun take(timeoutMs: Long): Frame? = q.poll(timeoutMs, TimeUnit.MILLISECONDS)
+
+    @Throws(InterruptedException::class)
+    fun takeBlocking(): Frame = q.take()
+
+    fun drainTo(out: MutableList<Frame>) {
+        q.drainTo(out)
+    }
+
+    fun clear() = q.clear()
+}
 
 /**
  * Reusable PCM buffers (ShortArray) so the capturer never overwrites frames
@@ -20,25 +43,7 @@ class PcmBufferPool(
     fun acquire(): ShortArray? = free.poll()
 
     fun release(buf: ShortArray) {
+        // best-effort; if pool is full, drop it (shouldn’t happen if sizes are sane)
         free.offer(buf)
     }
-}
-
-/** Capturer -> Streamer queue of PCM frames that point to pooled buffers. */
-class PcmFrameQueue(capacity: Int) {
-
-    data class Frame(
-        val pcm: ShortArray,
-        val shorts: Int,
-        val seq: Int,
-        val tsMs: Int
-    )
-
-    private val q = ArrayBlockingQueue<Frame>(capacity)
-
-    fun offer(frame: Frame): Boolean = q.offer(frame)
-
-    fun take(timeoutMs: Long): Frame? = q.poll(timeoutMs, TimeUnit.MILLISECONDS)
-
-    fun clear() = q.clear()
 }

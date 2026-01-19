@@ -154,7 +154,6 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
 
     }
 
-    CheckIfDeviceIsGuest(navigateBack = onBack)
     AskToStopStreaming()
     AskToEmptyRoom()
     AskToExpelGuest(
@@ -192,30 +191,6 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
     }
 }
 
-@Composable
-fun CheckIfDeviceIsGuest(navigateBack: () -> Unit) {
-    val viewModel: ActiveRoomViewModel = hiltViewModel()
-    val isThisDeviceHost = viewModel.checkIfDeviceIsGuest()
-    var showDialog by remember { mutableStateOf(isThisDeviceHost) }
-
-
-    CustomDialogueCompose(
-        title = stringResource(R.string.leave_room),
-        text = stringResource(R.string.you_are_joined_to_room),
-        acceptButtonText = stringResource(R.string.yes),
-        onDismiss = {
-            navigateBack()
-            showDialog = false
-        },
-        onConfirm = {
-            viewModel.stopBeingAGuest()
-            showDialog = false
-        },
-        show = showDialog,
-    )
-
-
-}
 
 @Composable
 fun AskToStopStreaming() {
@@ -440,12 +415,11 @@ fun OverFlowMenuCompose(
 
 @Composable
 fun QrCode(
-    password: String,
-    ssid: String,
+    hostIp: String,
     modifier: Modifier = Modifier,
     size: Int = 200,
 ) {
-    val qrContent = remember(password, ssid) { password + ssid }
+    val qrContent = remember( hostIp) {  hostIp }
     val qrBackgroundColor = MaterialTheme.colorScheme.surface
     val qrBitmap = remember(qrContent) {
         generateQrBitmap(qrContent, size, bgColor = qrBackgroundColor)
@@ -552,8 +526,12 @@ fun QrCardCompose(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val expanded = uiState.isQRCodeExpanded
-    val ssid = uiState.hotspotInfo?.ssid ?: ""
-    val password = uiState.hotspotInfo?.password ?: ""
+    //val ssid = uiState.hotspotInfo?.ssid ?: ""
+    //val password = uiState.hotspotInfo?.password ?: ""
+
+    val hostIp = uiState.hostIp ?: ""
+
+
 
 
     val animSpec: TweenSpec<Dp> = tween<Dp>(durationMillis = 260, easing = FastOutSlowInEasing)
@@ -603,8 +581,8 @@ fun QrCardCompose(
                         .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (ssid.isNotEmpty()) {
-                        QrCode(ssid = ssid, password = password, size = qrSize.value.toInt())
+                    if (hostIp.isNotEmpty()) {
+                        QrCode(hostIp = hostIp, size = qrSize.value.toInt())
                     } else {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp))
                     }
@@ -652,8 +630,8 @@ fun QrCardCompose(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        if (ssid.isNotEmpty()) {
-                            QrCode(ssid = ssid, password = password)
+                        if (hostIp.isNotEmpty()) {
+                            QrCode(hostIp = hostIp)
                         } else {
                             CircularProgressIndicator(modifier = Modifier.size(22.dp))
                             Text(

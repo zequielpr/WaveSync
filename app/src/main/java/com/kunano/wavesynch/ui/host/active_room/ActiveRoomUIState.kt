@@ -16,4 +16,5 @@ data class ActiveRoomUIState(
     val isHostStreaming: Boolean = false,
     val showAskToStopStreaming: Boolean = false,
     val showAskToEmptyRoom: Boolean = false,
+    val hostIp: String? = null,
     )

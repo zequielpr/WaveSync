@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import com.kunano.wavesynch.data.repository.HostRepositoryImpl
 import com.kunano.wavesynch.data.stream.host.HostStreamer
+import com.kunano.wavesynch.data.wifi.WifiController
 import com.kunano.wavesynch.data.wifi.hotspot.LocalHotspotController
 import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.domain.repositories.HostRepository
@@ -42,6 +43,11 @@ abstract class HostRepositoryModule {
         fun provideHostStreamer(
         ): HostStreamer = HostStreamer()
 
+        @Provides
+        @Singleton
+        fun provideWifiController(@ApplicationContext context: Context): WifiController = WifiController(context)
+
+        //This is going to be removed
         @Provides
         @Singleton
         fun provideWifiManager(
