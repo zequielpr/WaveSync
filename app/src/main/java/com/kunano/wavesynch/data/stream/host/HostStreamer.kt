@@ -4,6 +4,8 @@ import android.Manifest
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.PacketCodec
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -21,6 +23,8 @@ class HostStreamer {
 
     private val mtuBytes = 1500
     private val outPkt = ByteArray(mtuBytes)
+    private val _isHostStreamingFlow = MutableStateFlow(false)
+    val isHostStreamingFlow: StateFlow<Boolean> = _isHostStreamingFlow
 
     fun addGuest(id: String, inetSocketAddress: InetSocketAddress) = synchronized(lock) {
         guests[id] = GuestStreamingData(id, inetSocketAddress, isPlaying = true)
@@ -34,6 +38,8 @@ class HostStreamer {
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startStreaming(capturer: HostAudioCapturer) {
         if (running.getAndSet(true)) return
+        _isHostStreamingFlow.tryEmit(true)
+
 
         synchronized(lock) {
             if (udpSocket == null || udpSocket?.isClosed == true) {
@@ -98,5 +104,7 @@ class HostStreamer {
             try { udpSocket?.close() } catch (_: Throwable) {}
             udpSocket = null
         }
+
+        _isHostStreamingFlow.tryEmit(false)
     }
 }

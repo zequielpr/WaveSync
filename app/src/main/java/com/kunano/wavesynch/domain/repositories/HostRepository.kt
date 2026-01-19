@@ -1,13 +1,12 @@
 package com.kunano.wavesynch.domain.repositories
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.Room
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface HostRepository {
     val isConnectedToWifi: Flow<Boolean>
@@ -16,6 +15,8 @@ interface HostRepository {
     val serverStateFlow: Flow<ServerState>
     val logFlow: Flow<String>
     val handShakeResultFlow: Flow<HandShakeResult>
+    val isHostStreamingFlow: StateFlow<Boolean>
+
     fun finishSessionAsHost()
     fun expelGuest(guestId: String)
     fun sendAnswerToGuest(guestId: String, roomName: String? = null, answer: HandShakeResult)

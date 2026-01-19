@@ -9,6 +9,7 @@ import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.repositories.HostRepository
 import com.kunano.wavesynch.domain.repositories.SoundRoomRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 class HostUseCases @Inject constructor(
@@ -21,6 +22,7 @@ class HostUseCases @Inject constructor(
     val logFlow : Flow<String> = hostRepository.logFlow
     val handShakeResultFlow: Flow<HandShakeResult> = hostRepository.handShakeResultFlow
     val connectedGuest: Flow<LinkedHashSet<Guest>?> = hostRepository.connectedGuest
+    val isHostStreamingFlow: StateFlow<Boolean> = hostRepository.isHostStreamingFlow
 
     fun addGuestToHostStreamer(guestId: String) = hostRepository.addGuestToHostStreamer(guestId)
 

@@ -50,7 +50,7 @@ class CurrentRoomViewModel @Inject constructor(
                 Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
                 when (it) {
                     is HandShakeResult.ExpelledByHost -> {
-                        expelledByHost(it.handShake)
+                        onExpelledByHost(it.handShake)
                         Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
 
                     }
@@ -64,7 +64,7 @@ class CurrentRoomViewModel @Inject constructor(
         }
     }
 
-    fun expelledByHost(handShake: HandShake?) {
+    fun onExpelledByHost(handShake: HandShake?) {
         val leavingRoomMessage =
             context.getString(R.string.expelled_by_host) + " ${handShake?.deviceName}"
         leaveRoom(leavingRoomMessage = leavingRoomMessage)

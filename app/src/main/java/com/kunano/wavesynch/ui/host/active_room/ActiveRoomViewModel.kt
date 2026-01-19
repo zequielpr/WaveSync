@@ -10,13 +10,11 @@ import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
 import com.kunano.wavesynch.domain.model.Guest
-import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.model.RoomWithTrustedGuests
 import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.services.AudioCaptureService
-import com.kunano.wavesynch.services.StartHotspotService
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,10 +54,9 @@ class ActiveRoomViewModel @Inject constructor(
         collectServerStates()
         collectLogs()
         collectHandShakeResults()
-
+        collectIsHostStreaming()
     }
 
-    
 
     private fun addTrustedGuest(handShake: HandShake) {
         viewModelScope.launch {
@@ -89,9 +86,6 @@ class ActiveRoomViewModel @Inject constructor(
     }
 
 
-
-
-
     private fun retrieveRoom() {
         viewModelScope.launch {
             hostUseCases.observerRooms().catch {
@@ -112,10 +106,6 @@ class ActiveRoomViewModel @Inject constructor(
     private fun openPortOverLocalWifi(hostIp: String) {
         hostUseCases.openPortOverLocalWifi(hostIp)
     }
-
-
-
-
 
 
     fun emptyRoom() {
@@ -189,17 +179,28 @@ class ActiveRoomViewModel @Inject constructor(
 
 
     private fun collectIsConnectedToWifi() {
-        viewModelScope.launch { 
+        viewModelScope.launch {
             hostUseCases.isConnectedToWifi.collect {
-                if (it) {
+                if (it && hostUseCases.isHostStreamingFlow.value) {
+                    _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.streaming_audio)))
+                }else if(it){
                     _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.ready_to_stream)))
-                }else{
+                } else {
                     _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.connect_this_device_to_wifi)))
                 }
 
             }
         }
     }
+
+    private fun collectIsHostStreaming() {
+        viewModelScope.launch {
+            hostUseCases.isHostStreamingFlow.collect {
+                setHostStreamingState(it)
+            }
+        }
+    }
+
 
     private fun collectHostIpAddress() {
         viewModelScope.launch {
@@ -212,7 +213,6 @@ class ActiveRoomViewModel @Inject constructor(
             }
         }
     }
-
 
 
     private fun collectHandShakeResults() {
@@ -304,11 +304,6 @@ class ActiveRoomViewModel @Inject constructor(
     }
 
 
-
-
-
-
-
     private fun collectRoomGuests(romId: Long?) {
         viewModelScope.launch {
             romId?.let {
@@ -316,7 +311,7 @@ class ActiveRoomViewModel @Inject constructor(
                     Log.d("ActiveRoomViewModel", "collectRoomGuests: $it")
                     if (it != null) {
                         _uiState.update { uIState ->
-                            uIState.copy(guests = it.toList(),)
+                            uIState.copy(guests = it.toList())
                         }
                     }
                 }
@@ -343,13 +338,21 @@ class ActiveRoomViewModel @Inject constructor(
                         Log.d("ActiveRoomViewModel", "server state: ${it.message}")
                     }
 
-                    ServerState.Idle -> setHostStreamingState(false)
+                    ServerState.Idle -> {
+                        Log.d("ActiveRoomViewModel", "server state: Idle")
+                    }
 
-                    ServerState.Streaming -> setHostStreamingState(true)
+                    ServerState.Streaming -> {
+                        Log.d("ActiveRoomViewModel", "server state: Streaming")
+                    }
 
-                    ServerState.Stopped -> setHostStreamingState(false)
+                    ServerState.Stopped -> {
+                        Log.d("ActiveRoomViewModel", "server state: Stopped")
+                    }
 
-                    ServerState.Stopping -> {}
+                    ServerState.Stopping -> {
+                        Log.d("ActiveRoomViewModel", "server state: Stopping")
+                    }
                 }
             }
         }
@@ -366,55 +369,55 @@ class ActiveRoomViewModel @Inject constructor(
 
     private fun setWifiLocalPortInfo(hostIp: String?) {
         _uiState.update { uIState ->
-            uIState.copy(hostIp = hostIp,)
-        }
-    }
-    fun setShowAskToEmptyRoom(show: Boolean){
-        _uiState.update { uIState ->
-            uIState.copy(showAskToEmptyRoom = show,)
+            uIState.copy(hostIp = hostIp)
         }
     }
 
+    fun setShowAskToEmptyRoom(show: Boolean) {
+        _uiState.update { uIState ->
+            uIState.copy(showAskToEmptyRoom = show)
+        }
+    }
 
 
     fun setShowAskToExpelGuestState(state: Boolean, guest: Guest?) {
         _uiState.update { uIState ->
-            uIState.copy(showAskToExpelGuest = state,)
+            uIState.copy(showAskToExpelGuest = state)
         }
 
         _uiState.update { uIState ->
-            uIState.copy(guestToBeExpelled = guest,)
+            uIState.copy(guestToBeExpelled = guest)
         }
     }
 
     fun setShowAskTrustGuestState(state: Boolean) {
         _uiState.update { uIState ->
-            uIState.copy(showJoinRoomRequest = state,)
+            uIState.copy(showJoinRoomRequest = state)
         }
     }
 
     fun setOverFlowMenuExpandedState(state: Boolean) {
         _uiState.update { uIState ->
-            uIState.copy(overFlowMenuExpanded = state,)
+            uIState.copy(overFlowMenuExpanded = state)
         }
     }
 
 
     fun setIsQRCodeExpandedState(state: Boolean) {
         _uiState.update { uIState ->
-            uIState.copy(isQRCodeExpanded = state,)
+            uIState.copy(isQRCodeExpanded = state)
         }
     }
 
     fun setHostStreamingState(state: Boolean) {
         _uiState.update { uIState ->
-            uIState.copy(isHostStreaming = state,)
+            uIState.copy(isHostStreaming = state)
         }
     }
 
-    fun setShowAskStopStreaming(show: Boolean){
+    fun setShowAskStopStreaming(show: Boolean) {
         _uiState.update { uIState ->
-            uIState.copy(showAskToStopStreaming = show,)
+            uIState.copy(showAskToStopStreaming = show)
         }
     }
 
@@ -423,7 +426,6 @@ class ActiveRoomViewModel @Inject constructor(
         appContext.stopService(intent)
         _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.you_have_stopped_streaming)))
     }
-
 
 
 }

@@ -41,6 +41,7 @@ class HostRepositoryImpl @Inject constructor(
     override val isConnectedToWifi: Flow<Boolean> = wifiController.isConnectedToWifiFlow
     override val hostIpAddress: Flow<String?> = wifiController.hostIpFlow
     override val connectedGuest: Flow<LinkedHashSet<Guest>?> = serverManager.connectedGuests
+    override val isHostStreamingFlow: StateFlow<Boolean> = hostStreamer.isHostStreamingFlow
 
     private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
 
@@ -97,7 +98,6 @@ class HostRepositoryImpl @Inject constructor(
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer) {
         hostStreamer.startStreaming(hostAudioCapturer)
-        _serverStateFlow.tryEmit(ServerState.Streaming)
     }
 
     override fun playGuest(guestId: String) {
@@ -120,8 +120,6 @@ class HostRepositoryImpl @Inject constructor(
         hostStreamer.stopStreaming(
             capturer = capturer
         )
-        _serverStateFlow.tryEmit(ServerState.Idle)
-
     }
 
     override fun emptyRoom() {

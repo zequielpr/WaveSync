@@ -37,7 +37,8 @@ class ClientManager(
         MutableSharedFlow<HandShakeResult>(extraBufferCapacity = 20)
     val handShakeResponse: SharedFlow<HandShakeResult> = _handShakeResponseFlow.asSharedFlow()
 
-    private val _serverConnectionsStateFlow = MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
+    private val _serverConnectionsStateFlow =
+        MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
     val serverConnectionsStateFlow = _serverConnectionsStateFlow.asStateFlow()
 
 
@@ -69,11 +70,11 @@ class ClientManager(
                     protocolVersion = 1
                 )
                 sendHandShake(connectionRequestHandShake)
-                while (socket != null && socket!!.isConnected){
+                while (socket != null && socket!!.isConnected) {
                     try {
                         receiveHandShakeResponse()
-                    }catch (e: Exception){
-                        if(e.javaClass == NullPointerException::class.java){
+                    } catch (e: Exception) {
+                        if (e.javaClass == NullPointerException::class.java) {
                             _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
                         }
                         Log.d(TAG, "connectToServer: ${e.javaClass}")
@@ -100,7 +101,7 @@ class ClientManager(
                 output.newLine()
                 output.flush()
                 Log.d(TAG, "Sent handshake: $myJson")
-            }catch (e: Exception){
+            } catch (e: Exception) {
                 Log.d(TAG, "sendHandShake: ${e.message}")
             }
         }
@@ -122,7 +123,10 @@ class ClientManager(
 
     fun openUdpSocket(): DatagramSocket {
 
-        udpSocket?.let { return it }
+        udpSocket?.let {
+            sendUdpSocketStatus(true)
+            return it
+        }
         Log.d(TAG, "Opening UDP socket")
 
         udpSocket = DatagramSocket(null).apply {

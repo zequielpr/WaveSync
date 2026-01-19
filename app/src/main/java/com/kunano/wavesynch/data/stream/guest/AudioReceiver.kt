@@ -420,16 +420,25 @@ class AudioReceiver(
     }
 
     private fun buildAudioTrack(): AudioTrack {
-        val minOut = AudioTrack.getMinBufferSize(
-            AudioStreamConstants.SAMPLE_RATE,
-            AudioStreamConstants.CHANNEL_MASK_OUT,
-            AudioStreamConstants.AUDIO_FORMAT
-        )
+        val sampleRate = AudioStreamConstants.SAMPLE_RATE
+        val channelMask = AudioStreamConstants.CHANNEL_MASK_OUT
+        val encoding = AudioStreamConstants.AUDIO_FORMAT
 
-        val target = AudioStreamConstants.PCM_FRAME_BYTES * 10
-        val bufSize = maxOf(minOut, target)
+        val minOut = AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding)
+        require(minOut > 0) { "Invalid AudioTrack min buffer: $minOut" }
 
-        return AudioTrack.Builder()
+        val frameBytes = AudioStreamConstants.PCM_FRAME_BYTES
+
+        // 2–4 frames keeps latency low. 10 frames is usually too much.
+        val desiredFrames = 4
+        val desiredBytes = frameBytes * desiredFrames
+
+        var bufSize = maxOf(minOut, desiredBytes)
+
+        // round up to frame multiple
+        bufSize = ((bufSize + frameBytes - 1) / frameBytes) * frameBytes
+
+        val builder = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -438,15 +447,21 @@ class AudioReceiver(
             )
             .setAudioFormat(
                 AudioFormat.Builder()
-                    .setSampleRate(AudioStreamConstants.SAMPLE_RATE)
-                    .setEncoding(AudioStreamConstants.AUDIO_FORMAT)
-                    .setChannelMask(AudioStreamConstants.CHANNEL_MASK_OUT)
+                    .setSampleRate(sampleRate)
+                    .setEncoding(encoding)
+                    .setChannelMask(channelMask)
                     .build()
             )
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(bufSize)
-            .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
-            .build()
+
+        // best-effort; some devices ignore/throw
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try { builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
+            catch (_: Throwable) {}
+        }
+
+        return builder.build()
     }
 
     private fun writeFixed(

@@ -114,7 +114,7 @@ class ServerManager(
             } catch (e: Exception) {
                 Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
             } finally {
-                closeGuestSocket(guestId = guestId)
+                //closeGuestSocket(guestId = guestId)
                 try {
                     clientSocket.close()
                 } catch (_: Exception) {
