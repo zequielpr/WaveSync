@@ -10,6 +10,7 @@ import androidx.collection.arrayMapOf
 import androidx.datastore.core.IOException
 import com.kunano.wavesynch.AppIdProvider
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
+import com.kunano.wavesynch.data.wifi.ConnectionProtocol
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.Room
 import com.kunano.wavesynch.domain.usecase.host.GetRoomTrustedGuestsUseCase
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,16 +37,22 @@ class ServerManager(
     private val context: Context,
     private val getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase,
 ) {
-    val PROTOCOL_VERSION = 1
+
     private val scope = CoroutineScope(Dispatchers.IO)
     var serverSocket: ServerSocket? = null
-    private val _logFlow = MutableSharedFlow<String>(extraBufferCapacity = 20)
-    val logFlow: SharedFlow<String> = _logFlow
+    private val _logFlow = MutableSharedFlow<String>(extraBufferCapacity = 20, replay = 1)
+    val logFlow: SharedFlow<String> = _logFlow.asSharedFlow()
     var socketList: ArrayMap<String, Socket> = arrayMapOf<String, Socket>()
     private val _connectedGuests = MutableStateFlow<LinkedHashSet<Guest>?>(linkedSetOf())
     val connectedGuests: Flow<LinkedHashSet<Guest>?> = _connectedGuests.asStateFlow()
     var isServerRunning = false
     private var currentRoom: Room? = null
+
+    private val _handShakeResult = MutableSharedFlow<HandShakeResult>(extraBufferCapacity = 20)
+    val handShakeResultFlow: Flow<HandShakeResult> = _handShakeResult.asSharedFlow()
+
+    private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
+    val serverStateFlow: Flow<ServerState> = _serverStateFlow.asStateFlow()
 
     fun setCurrentRoomOnServer(room: Room) {
         currentRoom = room
@@ -52,16 +60,21 @@ class ServerManager(
 
     fun startServerSocket(
         ipAddress: String,
-        onRunning: () -> Unit = {},
-        inComingHandShakeResult: (handShakeResult: HandShakeResult) -> Unit,
     ): ServerSocket? {
+        _serverStateFlow.tryEmit(ServerState.Starting)
+
         val inetAddress = InetAddress.getByName(ipAddress)
 
-        if (isServerRunning && serverSocket?.inetAddress == inetAddress) {
+
+        if (isServerRunning && serverSocket?.inetAddress?.hostAddress == ipAddress) {
+            _serverStateFlow.tryEmit(ServerState.Running)
+            _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
             return serverSocket
         } else if (serverSocket == null) {
             _logFlow.tryEmit("Server started")
         } else {
+            serverSocket?.close()
+            serverSocket = null
             _logFlow.tryEmit("Server restarted")
         }
         serverSocket = ServerSocket(
@@ -72,13 +85,13 @@ class ServerManager(
         _logFlow.tryEmit("socket open on port ${serverSocket?.localPort}")
 
         isServerRunning = true
-        onRunning()
+        _serverStateFlow.tryEmit(ServerState.Running)
         CoroutineScope(Dispatchers.IO).launch {
             while (isServerRunning) {
                 if (serverSocket?.isClosed != true) {
                     try {
                         val clientSocket = serverSocket?.accept()
-                        handleClient(clientSocket!!,  inComingHandShakeResult)
+                        handleClient(clientSocket!!)
                     } catch (e: Exception) {
                         Log.d("ServerManager", "startServerSocket: ${e.message}")
                         if (serverSocket?.isClosed == true){
@@ -94,8 +107,7 @@ class ServerManager(
     }
 
     private fun handleClient(
-        clientSocket: Socket,
-        inComingHandShakeResult: (handShakeResult: HandShakeResult) -> Unit,
+        clientSocket: Socket
     ) {
         scope.launch {
             var guestId: String = ""
@@ -107,7 +119,7 @@ class ServerManager(
                     guestId = guestHandshake.userId
                     socketList[guestId] = clientSocket
                     val result = verifyHandshake(guestHandshake)
-                    inComingHandShakeResult(result)
+                    _handShakeResult.emit(result)
                 }
             } catch (e: IOException) {
                 Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
@@ -156,7 +168,7 @@ class ServerManager(
                     userId = AppIdProvider.getUserId(context),
                     deviceName = Build.MODEL,
                     roomName = roomName,
-                    protocolVersion = 1,
+                    protocolVersion = ConnectionProtocol.Protocol.PROTOCOL_VERSION,
                     response = answer.intValue
                 )
                 output.write(serializeHandshake(handshake = hostHandshake))
@@ -180,11 +192,14 @@ class ServerManager(
         if (handshake.appIdentifier != AppIdProvider.APP_ID) {
             return HandShakeResult.InvalidAppId(handshake)
         }
-        if (handshake.protocolVersion != PROTOCOL_VERSION) {
+        if (handshake.protocolVersion != ConnectionProtocol.Protocol.PROTOCOL_VERSION) {
             return HandShakeResult.InvalidProtocol(handshake)
         }
         if (handshake.response == HandShakeResult.UdpSocketOpen().intValue) {
             return HandShakeResult.UdpSocketOpen(handshake)
+        }
+        if (handshake.response == HandShakeResult.GuestLeftRoom().intValue) {
+            return HandShakeResult.GuestLeftRoom(handshake)
         }
         return checkIfUserIsTrusted(handShake = handshake)
     }

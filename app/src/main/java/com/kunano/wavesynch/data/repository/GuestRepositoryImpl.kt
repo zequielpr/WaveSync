@@ -66,6 +66,7 @@ class GuestRepositoryImpl @Inject constructor(
 
 
     override suspend fun leaveRoom(): Boolean{
+        clientManager.sendLivingRoomHandShake()
         discConnectFromServer()
         return true
 

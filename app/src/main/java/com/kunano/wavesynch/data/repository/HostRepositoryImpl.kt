@@ -3,15 +3,11 @@ package com.kunano.wavesynch.data.repository
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.host.HostAudioCapturer
 import com.kunano.wavesynch.data.stream.host.HostStreamer
 import com.kunano.wavesynch.data.wifi.WifiController
-
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerManager
 import com.kunano.wavesynch.data.wifi.server.ServerState
@@ -21,11 +17,7 @@ import com.kunano.wavesynch.domain.repositories.HostRepository
 import com.kunano.wavesynch.services.AudioCaptureService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.net.InetSocketAddress
 import javax.inject.Inject
 
@@ -42,15 +34,12 @@ class HostRepositoryImpl @Inject constructor(
     override val hostIpAddress: Flow<String?> = wifiController.hostIpFlow
     override val connectedGuest: Flow<LinkedHashSet<Guest>?> = serverManager.connectedGuests
     override val isHostStreamingFlow: StateFlow<Boolean> = hostStreamer.isHostStreamingFlow
-
-    private val _serverStateFlow = MutableStateFlow<ServerState>(ServerState.Stopped)
-
-    override val serverStateFlow: Flow<ServerState> = _serverStateFlow.asStateFlow()
+    override val serverStateFlow: Flow<ServerState> = serverManager.serverStateFlow
 
     override val logFlow: Flow<String> = serverManager.logFlow
 
-    private val _handShakeResult = MutableSharedFlow<HandShakeResult>(extraBufferCapacity = 20)
-    override val handShakeResultFlow: Flow<HandShakeResult> = _handShakeResult.asSharedFlow()
+
+    override val handShakeResultFlow: Flow<HandShakeResult> = serverManager.handShakeResultFlow
 
 
     override fun finishSessionAsHost() {
@@ -77,10 +66,7 @@ class HostRepositoryImpl @Inject constructor(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-
-
     override fun addGuestToHostStreamer(guestId: String) {
         val guestSocket = serverManager.socketList[guestId]
         val inetSocketAddress: InetSocketAddress =
@@ -93,8 +79,6 @@ class HostRepositoryImpl @Inject constructor(
         serverManager.acceptUserConnection(guest)
     }
 
-
-    @RequiresApi(Build.VERSION_CODES.Q)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun startStreamingAsHost(hostAudioCapturer: HostAudioCapturer) {
         hostStreamer.startStreaming(hostAudioCapturer)
@@ -134,13 +118,6 @@ class HostRepositoryImpl @Inject constructor(
     }
 
     override fun openPortOverLocalWifi(hostIp: String) {
-        _serverStateFlow.tryEmit(ServerState.Starting)
-
-        serverManager.startServerSocket(
-            hostIp,
-            onRunning = { _serverStateFlow.tryEmit(ServerState.Running) },
-            inComingHandShakeResult = {
-                _handShakeResult.tryEmit(it)
-            })
+        serverManager.startServerSocket(hostIp)
     }
 }

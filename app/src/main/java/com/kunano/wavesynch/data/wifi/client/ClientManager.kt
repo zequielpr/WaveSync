@@ -5,6 +5,7 @@ import android.os.Build
 import android.util.Log
 import com.kunano.wavesynch.AppIdProvider
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
+import com.kunano.wavesynch.data.wifi.ConnectionProtocol
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.parseHandshake
@@ -67,7 +68,7 @@ class ClientManager(
                     appIdentifier = AppIdProvider.APP_ID,
                     userId = AppIdProvider.getUserId(context),
                     deviceName = Build.MODEL,
-                    protocolVersion = 1
+                    protocolVersion = ConnectionProtocol.Protocol.PROTOCOL_VERSION
                 )
                 sendHandShake(connectionRequestHandShake)
                 while (socket != null && socket!!.isConnected) {
@@ -89,6 +90,17 @@ class ClientManager(
                 Log.e(TAG, "Error connecting to server", e)
             }
         }
+    }
+
+    fun sendLivingRoomHandShake() {
+        val livingRoomHandShake = HandShake(
+            appIdentifier = AppIdProvider.APP_ID,
+            userId = AppIdProvider.getUserId(context),
+            deviceName = Build.MODEL,
+            protocolVersion = ConnectionProtocol.Protocol.PROTOCOL_VERSION,
+            response = HandShakeResult.GuestLeftRoom().intValue
+        )
+        sendHandShake(livingRoomHandShake)
     }
 
     private fun sendHandShake(handShake: HandShake) {
@@ -148,7 +160,7 @@ class ClientManager(
             appIdentifier = AppIdProvider.APP_ID,
             userId = AppIdProvider.getUserId(context),
             deviceName = Build.MODEL,
-            protocolVersion = 1,
+            protocolVersion = ConnectionProtocol.Protocol.PROTOCOL_VERSION,
             response = response
         )
         sendHandShake(udpSocketStatusHandShake)

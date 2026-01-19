@@ -84,6 +84,7 @@
     <string name="connecting_to_host">Connecting to host</string>
     <string name="ready_to_stream">Ready for audio streaming</string>
     <string name="connect_this_device_to_wifi">Connect this device to wifi</string>
+    <string name="guest_left_room">Left this room</string>
 
 
 </resources>

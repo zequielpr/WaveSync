@@ -159,14 +159,17 @@ class ActiveRoomViewModel @Inject constructor(
     }
 
 
-    fun expelGuest() {
-        val guestToExpel = _uiState.value.guestToBeExpelled
-        guestToExpel?.let {
-            hostUseCases.expelGuest(it.userId)
+    fun expelGuest(
+        guestId: String? = _uiState.value.guestToBeExpelled?.userId,
+        message: String = appContext.getString(R.string.guest_expelled),
+    ) {
+
+        guestId?.let {
+            hostUseCases.expelGuest(it)
         }
 
         setShowAskToExpelGuestState(false, null)
-        _uiEvent.trySend(UiEvent.ShowSnackBar(appContext.getString(R.string.guest_expelled)))
+        _uiEvent.trySend(UiEvent.ShowSnackBar(message))
     }
 
     fun playGuest(guestId: String) {
@@ -183,7 +186,7 @@ class ActiveRoomViewModel @Inject constructor(
             hostUseCases.isConnectedToWifi.collect {
                 if (it && hostUseCases.isHostStreamingFlow.value) {
                     _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.streaming_audio)))
-                }else if(it){
+                } else if (it) {
                     _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.ready_to_stream)))
                 } else {
                     _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.connect_this_device_to_wifi)))
@@ -250,6 +253,12 @@ class ActiveRoomViewModel @Inject constructor(
                             hostUseCases.addGuestToHostStreamer(it)
                         }
 
+                    }
+
+                    is HandShakeResult.GuestLeftRoom -> {
+                        val userName = answer.handShake?.deviceName
+                        val message = userName + " " + appContext.getString(R.string.guest_left_room)
+                        expelGuest(guestId = answer.handShake?.userId, message = message)
                     }
 
                     else -> {
@@ -361,7 +370,7 @@ class ActiveRoomViewModel @Inject constructor(
     private fun collectLogs() {
         viewModelScope.launch {
             hostUseCases.logFlow.collect {
-                Log.d("ActiveRoomViewModel", "WifiDirectManager Logs: $it")
+                Log.d("ActiveRoomViewModel", "Server manager Logs: $it")
 
             }
         }
