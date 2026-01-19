@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.collection.ArrayMap
 import androidx.collection.arrayMapOf
 import com.kunano.wavesynch.AppIdProvider
@@ -117,18 +116,32 @@ class ServerManager(
 
     private fun handleClient(clientSocket: Socket) {
         scope.launch {
-            var guestId: String = ""
+            var guestId: String?
             try {
                 val input = BufferedReader(InputStreamReader(clientSocket.getInputStream()))
                 while (isServerRunning) {
                     val guestHandshake = readIncomingHandShake(input)
-                    guestId = guestHandshake!!.userId
-                    socketList[guestId] = clientSocket
-                    val result = verifyHandshake(guestHandshake)
-                    _handShakeResult.emit(result)
+                    guestId = guestHandshake?.userId
+                    guestId?.let {
+                        socketList[guestId] = clientSocket
+                        val result = verifyHandshake(guestHandshake)
+                        _handShakeResult.emit(result)
+                    }
                 }
             } catch (e: IOException) {
+                CrashReporter.set("operation_tag", "handle_client_io")
+                CrashReporter.record(e)
                 Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
+            } catch (e: SocketTimeoutException) {
+                CrashReporter.set("operation_tag", "handle_client_timeout")
+                CrashReporter.record(e)
+                Log.d("Server", "Client disconnected: ${clientSocket.remoteSocketAddress}")
+            } catch (e: NullPointerException) {
+                CrashReporter.set("operation_tag", "handle_client_null_pointer")
+                CrashReporter.record(e)
+            } catch (e: Exception) {
+                CrashReporter.set("operation_tag", "handle_client_exception")
+                CrashReporter.record(e)
             } finally {
                 try {
                     clientSocket.close()
@@ -178,13 +191,13 @@ class ServerManager(
             } catch (e: IOException) {
                 CrashReporter.set("operation_tag", "send_answer_to_guest")
                 CrashReporter.record(e)
-            }catch (e: NullPointerException) {
+            } catch (e: NullPointerException) {
                 CrashReporter.set("operation_tag", "send_answer_to_guest_npe")
                 CrashReporter.record(e)
-            }catch (e: SecurityException) {
+            } catch (e: SecurityException) {
                 CrashReporter.set("operation_tag", "send_answer_to_guest_security")
                 CrashReporter.record(e)
-            }catch (e: Exception) {
+            } catch (e: Exception) {
                 CrashReporter.set("operation_tag", "send_answer_to_guest")
                 CrashReporter.record(e)
             }

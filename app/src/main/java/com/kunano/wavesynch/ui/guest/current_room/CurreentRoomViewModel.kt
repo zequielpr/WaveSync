@@ -139,7 +139,8 @@ class CurrentRoomViewModel @Inject constructor(
                     ServerConnectionState.Idle -> {}
                     ServerConnectionState.ReceivingAudioStream -> {}
                     ServerConnectionState.ConnectionLost -> {
-                        leaveRoom(leavingRoomMessage = context.getString(R.string.connection_lost))
+                        _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.connection_lost)))
+
                     }
                 }
             }
