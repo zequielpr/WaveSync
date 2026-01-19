@@ -100,8 +100,10 @@ class AudioPlayerService : Service() {
             )
             collectIsplayinState()
 
-            val udpSocket: DatagramSocket = clientManager.openUdpSocket()
-            audioReceiver.start(udpSocket)
+            val udpSocket: DatagramSocket? = clientManager.openUdpSocket()
+            udpSocket?.let {
+                audioReceiver.start(it)
+            }
         }
 
         return START_STICKY

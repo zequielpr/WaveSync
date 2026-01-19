@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1058094224872",
+    "project_id": "wavesync-7f444",
+    "storage_bucket": "wavesync-7f444.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1058094224872:android:86f528a9e4ffe7dfb9805d",
+        "android_client_info": {
+          "package_name": "com.kunano.wavesynch"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADiULxjyvXJmv30pqrti_IQcEpNMHUFT8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

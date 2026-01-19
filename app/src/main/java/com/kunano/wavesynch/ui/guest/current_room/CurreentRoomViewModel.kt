@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.client.ServerConnectionState
-import com.kunano.wavesynch.data.wifi.hotspot.HotSpotConnectionState
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
@@ -41,7 +40,6 @@ class CurrentRoomViewModel @Inject constructor(
         populateCurrentRoom()
         collectServerConnectionEvents()
         collectIsPlayingState()
-        collectHotspotConnectionState()
         collectHandShakeResult()
 
     }
@@ -52,7 +50,7 @@ class CurrentRoomViewModel @Inject constructor(
                 Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
                 when (it) {
                     is HandShakeResult.ExpelledByHost -> {
-                        expelledByHost(it.handShake)
+                        onExpelledByHost(it.handShake)
                         Log.d("CurrentRoomViewModel", "collectHandShakeResult: $it")
 
                     }
@@ -66,8 +64,9 @@ class CurrentRoomViewModel @Inject constructor(
         }
     }
 
-    fun expelledByHost(handShake: HandShake?) {
-        val leavingRoomMessage = context.getString(R.string.expelled_by_host) + " ${handShake?.deviceName}"
+    fun onExpelledByHost(handShake: HandShake?) {
+        val leavingRoomMessage =
+            context.getString(R.string.expelled_by_host) + " ${handShake?.deviceName}"
         leaveRoom(leavingRoomMessage = leavingRoomMessage)
     }
 
@@ -108,15 +107,18 @@ class CurrentRoomViewModel @Inject constructor(
     }
 
 
-    fun leaveRoom(showLeavingRoomMessage: Boolean = true,   leavingRoomMessage: String = context.getString(R.string.room_left_successfully)) {
+    fun leaveRoom(
+        showLeavingRoomMessage: Boolean = true,
+        leavingRoomMessage: String = context.getString(R.string.room_left_successfully),
+    ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             val result = guestUseCases.leaveRoom()
             _uiState.value = _uiState.value.copy(isLoading = false)
             if (result) {
-               if (showLeavingRoomMessage) {
-                   _uIEvents.emit(UiEvent.ShowSnackBar(leavingRoomMessage))
-               }
+                if (showLeavingRoomMessage) {
+                    _uIEvents.emit(UiEvent.ShowSnackBar(leavingRoomMessage))
+                }
                 _uIEvents.emit(UiEvent.NavigateTo(Screen.MainScreen))
             } else {
                 _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.error_leaving_room)))
@@ -126,29 +128,6 @@ class CurrentRoomViewModel @Inject constructor(
         }
     }
 
-    private fun collectHotspotConnectionState() {
-        viewModelScope.launch {
-            guestUseCases.hotspotConnectionStates.collect {
-                when (it) {
-                    //If the connection is lost, leave the room
-                    HotSpotConnectionState.Disconnected -> {
-                        leaveRoom()
-                    }
-
-                    HotSpotConnectionState.ConnectionLost -> {
-                        leaveRoom(leavingRoomMessage = context.getString(R.string.connection_lost))
-                    }
-
-                    else -> {
-                        Log.d("CurrentRoomViewModel", "collectHotspotConnectionState: $it")
-                    }
-
-                }
-
-            }
-
-        }
-    }
 
     private fun collectServerConnectionEvents() {
         viewModelScope.launch {
@@ -159,6 +138,10 @@ class CurrentRoomViewModel @Inject constructor(
                     ServerConnectionState.Disconnected -> {}
                     ServerConnectionState.Idle -> {}
                     ServerConnectionState.ReceivingAudioStream -> {}
+                    ServerConnectionState.ConnectionLost -> {
+                        _uIEvents.emit(UiEvent.ShowSnackBar(context.getString(R.string.connection_lost)))
+
+                    }
                 }
             }
         }

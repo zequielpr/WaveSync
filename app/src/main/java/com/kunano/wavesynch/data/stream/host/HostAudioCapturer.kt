@@ -8,21 +8,23 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Process
 import androidx.annotation.RequiresPermission
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
+    val firebaseCrashlytics = FirebaseCrashlytics.getInstance()
+
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
 
-    /** Shorts per PCM frame (fixed) */
     val frameShorts: Int =
         AudioStreamConstants.SAMPLES_PER_CHANNEL * AudioStreamConstants.CHANNELS
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(queue: PcmFrameQueue, pool: PcmBufferPool) {
+    fun start(onFrame: (pcm: ShortArray, seq: Int, tsMs: Int) -> Unit) {
         if (isCapturing) return
 
         val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
@@ -44,11 +46,13 @@ class HostAudioCapturer(
             encoding
         ).coerceAtLeast(16 * 1024)
 
-        audioRecord = AudioRecord.Builder()
+        val recorder = AudioRecord.Builder()
             .setAudioFormat(format)
             .setBufferSizeInBytes(minBufferBytes)
             .setAudioPlaybackCaptureConfig(config)
             .build()
+
+        audioRecord = recorder
 
         val readBuf = ShortArray(maxOf(frameShorts * 2, 2048))
         val assembler = ShortFrameAssembler(frameShorts)
@@ -58,53 +62,55 @@ class HostAudioCapturer(
         captureThread = Thread {
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
 
-            val recorder = audioRecord ?: return@Thread
-            recorder.startRecording()
+            try {
+                recorder.startRecording()
 
-            var seq = 0
-            while (isCapturing) {
-                val readCount = recorder.read(readBuf, 0, readBuf.size)
-                if (readCount <= 0) continue
+                var seq = 0
+                while (isCapturing && !Thread.currentThread().isInterrupted) {
+                    val readCount = recorder.read(readBuf, 0, readBuf.size)
+                    if (!isCapturing) break
+                    if (readCount <= 0) continue
 
-                assembler.push(readBuf, readCount) { frameView ->
-                    val pcm = pool.acquire()
-                    if (pcm == null) {
-                        // Streamer is lagging; drop frame (do NOT block audio thread)
-                        return@push
-                    }
+                    assembler.push(readBuf, readCount) { frameView ->
+                        val tsMs = (System.nanoTime() / 1_000_000L).toInt()
 
-                    System.arraycopy(frameView, 0, pcm, 0, frameShorts)
-                    val tsMs = (System.nanoTime() / 1_000_000L).toInt()
+                        // MUST copy: assembler reuses its internal buffer
+                        val frameCopy = frameView.copyOf()
 
-                    val ok = queue.offer(PcmFrameQueue.Frame(pcm, frameShorts, seq, tsMs))
-                    if (ok) {
+                        onFrame(frameCopy, seq, tsMs)
                         seq++
-                    } else {
-                        // Queue full; drop + release buffer back to pool
-                        pool.release(pcm)
                     }
                 }
-            }
+            } catch (t: Throwable) {
+                firebaseCrashlytics.setCustomKey("rzThread", "Audio capturer thread")
+                firebaseCrashlytics.log("Audio capturer thread error")
+                firebaseCrashlytics.recordException(t)
 
-            try { recorder.stop() } catch (_: Throwable) {}
+            } finally {
+                try { recorder.stop() } catch (_: Throwable) {}
+            }
         }.apply { start() }
     }
 
     fun stop() {
         isCapturing = false
+
+        // Unblock read()
+        try { audioRecord?.stop() } catch (_: Throwable) {}
+        captureThread?.interrupt()
+
         try { captureThread?.join(500) } catch (_: Throwable) {}
         captureThread = null
 
-        audioRecord?.let { try { it.release() } catch (_: Throwable) {} }
+        try { audioRecord?.release() } catch (_: Throwable) {}
         audioRecord = null
 
         try { mediaProjection.stop() } catch (_: Throwable) {}
     }
 }
 
-
 /**
- * Assembles arbitrary short chunks into fixed frames of frameShorts.
+ * Assembles arbitrary short chunks into fixed frames.
  * It passes an internal buffer to onFrame; caller MUST copy immediately.
  */
 class ShortFrameAssembler(private val frameShorts: Int) {
@@ -126,4 +132,3 @@ class ShortFrameAssembler(private val frameShorts: Int) {
         }
     }
 }
-
