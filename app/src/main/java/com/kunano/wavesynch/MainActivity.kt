@@ -23,6 +23,9 @@ import com.kunano.wavesynch.ui.guest.current_room.CurrentRoomCompose
 import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewCompose
 import com.kunano.wavesynch.ui.host.active_room.ActiveRoomCompose
 import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.AboutUsScreen
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.HelpScreen
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.PrivacyPoliciesScreen
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.onboarding.OnboardingScreen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
@@ -107,6 +110,18 @@ class MainActivity : ComponentActivity() {
                 CurrentRoomCompose(
                     onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) },
                     navigateTo = { navController.navigate(it) })
+            }
+
+            composable<Screen.AboutUsScreen>() {
+                AboutUsScreen(onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) })
+            }
+
+            composable<Screen.PrivacyPoliciesScreen>() {
+                PrivacyPoliciesScreen(onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) })
+            }
+
+            composable<Screen.HelpScreen>() {
+                HelpScreen(onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) })
             }
 
         }
