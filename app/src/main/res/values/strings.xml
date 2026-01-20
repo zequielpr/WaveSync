@@ -136,6 +136,9 @@
     <string name="contact">Contact</string>
     <string name="contact_support">Contact support</string>
     <string name="tip_for_report_issue">Tip: When reporting an issue, include your phone model, Android version, and whether you used a router or hotspot.</string>
+    <string name="privacy_policies_body">Before continuing, please review and accept our Privacy Policy and Terms of Service.</string>
+    <string name="review_privacy_policy"><![CDATA[Review Privacy Policy & Terms]]></string>
+    <string name="policy_agreement">I have read and agree to the Privacy Policy and Terms</string>
 
 
 </resources>

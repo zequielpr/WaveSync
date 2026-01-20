@@ -1,6 +1,7 @@
 package com.kunano.wavesynch.ui.main_screen.drawer.screens
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -8,13 +9,45 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import com.kunano.wavesynch.R
+
+private const val POLICY_URL =
+    "https://sites.google.com/view/wavesync/inicio"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,7 +55,7 @@ fun PrivacyPoliciesScreen(
     modifier: Modifier = Modifier,
     title: String = "Privacy & Policies",
     url: String = "https://sites.google.com/view/wavesync",
-    onBack: (() -> Unit)
+    onBack: (() -> Unit),
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var canGoBack by remember { mutableStateOf(false) }
@@ -33,7 +66,10 @@ fun PrivacyPoliciesScreen(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Image(painter = painterResource(R.drawable.arrow_back_ios_48px), contentDescription = null)
+                        Image(
+                            painter = painterResource(R.drawable.arrow_back_ios_48px),
+                            contentDescription = null
+                        )
                     }
                 }
             )
@@ -60,7 +96,11 @@ fun PrivacyPoliciesScreen(
                         }
 
                         webViewClient = object : WebViewClient() {
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                            override fun onPageStarted(
+                                view: WebView?,
+                                url: String?,
+                                favicon: Bitmap?,
+                            ) {
                                 isLoading = true
                                 canGoBack = view?.canGoBack() == true
                             }
@@ -72,7 +112,7 @@ fun PrivacyPoliciesScreen(
 
                             override fun shouldOverrideUrlLoading(
                                 view: WebView?,
-                                request: WebResourceRequest?
+                                request: WebResourceRequest?,
                             ): Boolean {
                                 // Keep navigation inside this WebView
                                 return false
@@ -103,3 +143,94 @@ fun PrivacyPoliciesScreen(
         }
     }
 }
+
+
+@Composable
+fun PrivacyPolicyDialog(
+    show: Boolean,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    if (!show) return
+
+    val title = stringResource(R.string.privacy_policies)
+    val body = stringResource(R.string.privacy_policies_body)
+    val reviewPrivacyPolicy = stringResource(R.string.review_privacy_policy)
+    val policyAgreement = stringResource(R.string.policy_agreement)
+    val mediumSize = MaterialTheme.typography.bodyMedium
+
+
+    val context = LocalContext.current
+    var accepted by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
+        onDismissRequest = { /* force explicit action */ },
+        title = {
+            Text(title)
+        },
+        text = {
+            Column {
+                Text(
+                    style = mediumSize,
+                    text = body
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TextButton(
+                    onClick = {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            POLICY_URL.toUri()
+                        )
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text(
+                        reviewPrivacyPolicy,
+                        style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = MaterialTheme.colorScheme.primary,
+                            uncheckedColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        checked = accepted,
+                        onCheckedChange = { accepted = it }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        style = mediumSize,
+                        text = policyAgreement
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                enabled = accepted,
+                onClick = onAccept
+            ) {
+                Text(stringResource(R.string.accept), style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDecline) {
+                Text(
+                    stringResource(R.string.decline),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
+            }
+        }
+    )
+}
+

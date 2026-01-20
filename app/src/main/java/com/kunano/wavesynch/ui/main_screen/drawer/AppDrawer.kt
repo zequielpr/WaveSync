@@ -73,17 +73,21 @@ fun AppDrawerContent(
             onClick = { onAction(DrawerAction.Help) }
         )
 
+        /*
         DrawerItem(
             icon = { Image(modifier = drawerItemModifier, painter = painterResource(id = R.drawable.share_48px), contentDescription = null) },
             title = stringResource(R.string.share_this_app),
             onClick = { onAction(DrawerAction.ShareApp) }
         )
+         */
 
+        /*
         DrawerItem(
             icon = { Image(modifier = drawerItemModifier, painter = painterResource(id = R.drawable.star_rate_48px), contentDescription = null) },
             title = stringResource(R.string.rate_app),
             onClick = { onAction(DrawerAction.RateApp) }
         )
+         */
 
         Spacer(Modifier.weight(1f))
         HorizontalDivider()

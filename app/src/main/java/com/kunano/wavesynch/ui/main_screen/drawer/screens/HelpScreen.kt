@@ -150,7 +150,7 @@ fun HelpScreen(
                 SectionTitle(stringResource(R.string.more))
 
                 // Actions row (Rate / Share / Contact)
-                ActionCard(
+                /*ActionCard(
                     titleStyle = cardTitleStyle,
                     cardColors,
                     onRate = { openPlayStore(context, pkg) },
@@ -169,6 +169,8 @@ fun HelpScreen(
                         )
                     }
                 )
+
+                 */
 
                 Text(
                     text = stringResource(R.string.tip_for_report_issue),
@@ -245,6 +247,7 @@ private fun FaqItem(titleStyle: TextStyle, cardColors: CardColors, question: Str
     }
 }
 
+/*
 @Composable
 private fun ActionCard(
     titleStyle: TextStyle,
@@ -300,7 +303,7 @@ private fun ActionCard(
         }
     }
 }
-
+ */
 /* ---------- Intents ---------- */
 
 fun shareApp(context: Context, message: String) {

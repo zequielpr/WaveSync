@@ -26,6 +26,7 @@ import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
 import com.kunano.wavesynch.ui.main_screen.drawer.screens.AboutUsScreen
 import com.kunano.wavesynch.ui.main_screen.drawer.screens.HelpScreen
 import com.kunano.wavesynch.ui.main_screen.drawer.screens.PrivacyPoliciesScreen
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.PrivacyPolicyDialog
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.onboarding.OnboardingScreen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
             WavesynchTheme {
                 val vm: MainActivityViewModel = hiltViewModel()
                 var isFirstOpening by remember { mutableStateOf(vm.getIsFirstOpening()) }
+                var isPrivacyAndPoliciesAccepted by remember { mutableStateOf(vm.getPrivacyAndPoliciesAccepted()) }
 
                 if (isFirstOpening) {
                     OnboardingScreen(navigateToMainScreen = {
@@ -60,7 +62,15 @@ class MainActivity : ComponentActivity() {
                         vm.setIsFirstOpening(false)
                     })
                 } else {
-                    WaveSyncApp(intent)
+                    if (isPrivacyAndPoliciesAccepted) {
+                        WaveSyncApp(intent)
+                    }
+                    PrivacyPolicyDialog(show = !isPrivacyAndPoliciesAccepted,
+                        onAccept = {vm.setPrivacyAndPoliciesAccepted(true)
+                                   isPrivacyAndPoliciesAccepted = true},
+                        onDecline = { vm.setPrivacyAndPoliciesAccepted(false)
+                        finish()})
+
                 }
 
 
@@ -113,15 +123,30 @@ class MainActivity : ComponentActivity() {
             }
 
             composable<Screen.AboutUsScreen>() {
-                AboutUsScreen(onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) })
+                AboutUsScreen(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
             }
 
             composable<Screen.PrivacyPoliciesScreen>() {
-                PrivacyPoliciesScreen(onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) })
+                PrivacyPoliciesScreen(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
             }
 
             composable<Screen.HelpScreen>() {
-                HelpScreen(onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) })
+                HelpScreen(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
             }
 
         }
