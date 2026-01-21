@@ -26,4 +26,8 @@ sealed class Screen {
     @Serializable
     data object HelpScreen : Screen()
 
+    @Serializable
+    data class TrustedUsersScreen(val roomId: Long) : Screen()
+
+
 }

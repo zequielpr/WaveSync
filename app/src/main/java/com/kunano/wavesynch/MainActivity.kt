@@ -19,9 +19,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.ui.guest.current_room.CurrentRoomCompose
 import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewCompose
 import com.kunano.wavesynch.ui.host.active_room.ActiveRoomCompose
+import com.kunano.wavesynch.ui.host.active_room.trusted_guests.TrustedGuestsViewCompose
 import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
 import com.kunano.wavesynch.ui.main_screen.drawer.screens.AboutUsScreen
 import com.kunano.wavesynch.ui.main_screen.drawer.screens.HelpScreen
@@ -43,10 +45,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Force enable collection while testing (remove later if you want)
-        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled =
+        FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled =
             true
 
-        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+        FirebaseCrashlytics.getInstance()
             .log("App started")
 
         enableEdgeToEdge()
@@ -105,7 +107,7 @@ class MainActivity : ComponentActivity() {
                         Screen.MainScreen,
                         inclusive = false
                     )
-                })
+                }, navigateTo = { navController.navigate(it)})
 
             }
 
@@ -147,6 +149,11 @@ class MainActivity : ComponentActivity() {
                         inclusive = false
                     )
                 })
+            }
+
+
+            composable<Screen.TrustedUsersScreen>() {
+                TrustedGuestsViewCompose(onBack = {navController.popBackStack(Screen.ActiveRoomScreen, inclusive = false)})
             }
 
         }

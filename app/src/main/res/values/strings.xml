@@ -139,6 +139,7 @@
     <string name="privacy_policies_body">Before continuing, please review and accept our Privacy Policy and Terms of Service.</string>
     <string name="review_privacy_policy"><![CDATA[Review Privacy Policy & Terms]]></string>
     <string name="policy_agreement">I have read and agree to the Privacy Policy and Terms</string>
+    <string name="trusted_guests">Trusted guests</string>
 
 
 </resources>
