@@ -56,11 +56,6 @@ class ActiveRoomViewModel @Inject constructor(
         collectLogs()
         collectHandShakeResults()
         collectIsHostStreaming()
-        val c = FirebaseCrashlytics.getInstance()
-        c.setCustomKey("vm", "ActiveRoomViewModel")
-        c.log("ActiveRoomViewModel init reached")
-        c.recordException(IllegalStateException("ActiveRoomViewModel init test @${System.currentTimeMillis()}"))
-
     }
 
 

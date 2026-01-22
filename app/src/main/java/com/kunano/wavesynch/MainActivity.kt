@@ -19,10 +19,16 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.ui.guest.current_room.CurrentRoomCompose
 import com.kunano.wavesynch.ui.guest.join_room.JoinRoomViewCompose
 import com.kunano.wavesynch.ui.host.active_room.ActiveRoomCompose
+import com.kunano.wavesynch.ui.host.active_room.trusted_guests.TrustedGuestsViewCompose
 import com.kunano.wavesynch.ui.main_screen.SyncWaveMainScreenWithAppBar
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.AboutUsScreen
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.HelpScreen
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.PrivacyPoliciesScreen
+import com.kunano.wavesynch.ui.main_screen.drawer.screens.PrivacyPolicyDialog
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.onboarding.OnboardingScreen
 import com.kunano.wavesynch.ui.theme.WavesynchTheme
@@ -39,10 +45,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Force enable collection while testing (remove later if you want)
-        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled =
+        FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled =
             true
 
-        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+        FirebaseCrashlytics.getInstance()
             .log("App started")
 
         enableEdgeToEdge()
@@ -50,6 +56,7 @@ class MainActivity : ComponentActivity() {
             WavesynchTheme {
                 val vm: MainActivityViewModel = hiltViewModel()
                 var isFirstOpening by remember { mutableStateOf(vm.getIsFirstOpening()) }
+                var isPrivacyAndPoliciesAccepted by remember { mutableStateOf(vm.getPrivacyAndPoliciesAccepted()) }
 
                 if (isFirstOpening) {
                     OnboardingScreen(navigateToMainScreen = {
@@ -57,7 +64,15 @@ class MainActivity : ComponentActivity() {
                         vm.setIsFirstOpening(false)
                     })
                 } else {
-                    WaveSyncApp(intent)
+                    if (isPrivacyAndPoliciesAccepted) {
+                        WaveSyncApp(intent)
+                    }
+                    PrivacyPolicyDialog(show = !isPrivacyAndPoliciesAccepted,
+                        onAccept = {vm.setPrivacyAndPoliciesAccepted(true)
+                                   isPrivacyAndPoliciesAccepted = true},
+                        onDecline = { vm.setPrivacyAndPoliciesAccepted(false)
+                        finish()})
+
                 }
 
 
@@ -92,7 +107,7 @@ class MainActivity : ComponentActivity() {
                         Screen.MainScreen,
                         inclusive = false
                     )
-                })
+                }, navigateTo = { navController.navigate(it)})
 
             }
 
@@ -107,6 +122,38 @@ class MainActivity : ComponentActivity() {
                 CurrentRoomCompose(
                     onBack = { navController.popBackStack(Screen.MainScreen, inclusive = false) },
                     navigateTo = { navController.navigate(it) })
+            }
+
+            composable<Screen.AboutUsScreen>() {
+                AboutUsScreen(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
+            }
+
+            composable<Screen.PrivacyPoliciesScreen>() {
+                PrivacyPoliciesScreen(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
+            }
+
+            composable<Screen.HelpScreen>() {
+                HelpScreen(onBack = {
+                    navController.popBackStack(
+                        Screen.MainScreen,
+                        inclusive = false
+                    )
+                })
+            }
+
+
+            composable<Screen.TrustedUsersScreen>() {
+                TrustedGuestsViewCompose(onBack = {navController.popBackStack(Screen.ActiveRoomScreen, inclusive = false)})
             }
 
         }

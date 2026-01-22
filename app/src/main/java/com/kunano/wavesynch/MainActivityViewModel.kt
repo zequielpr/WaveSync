@@ -41,6 +41,17 @@ class MainActivityViewModel @Inject constructor(@ApplicationContext private val 
 
     }
 
+    fun setPrivacyAndPoliciesAccepted(value: Boolean){
+        sharedPreferences?.edit()?.putBoolean("privacy_and_policies_accepted", value)?.apply()
+
+    }
+
+    fun getPrivacyAndPoliciesAccepted(): Boolean{
+        return sharedPreferences?.getBoolean("privacy_and_policies_accepted", false) ?: false
+    }
+
+
+
 
     fun handleIntent(intent: Intent) {
         val roomName = intent.getStringExtra("roomName")

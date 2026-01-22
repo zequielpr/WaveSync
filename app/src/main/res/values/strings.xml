@@ -85,6 +85,75 @@
     <string name="ready_to_stream">Ready for audio streaming</string>
     <string name="connect_this_device_to_wifi">Connect this device to wifi</string>
     <string name="guest_left_room">Left this room</string>
+    <string name="menu">Menu</string>
+    <string name="about_us">About us</string>
+    <string name="privacy_policies"><![CDATA[Privacy & policies]]></string>
+    <string name="help">Help</string>
+    <string name="share_this_app">Share this app</string>
+    <string name="share">Share</string>
+    <string name="rate_app">Rate us</string>
+    <string name="about">About</string>
+    <string name="what_is">What is</string>
+    <string name="functionality"> lets multiple people listen to the same audio at the same time, directly over local Wi-Fi.\n\nOne device acts as the host and streams audio in real time, while other devices join instantly and hear the same sound in sync — without using the internet.</string>
+    <string name="why_was_built">Why was it built?</string>
+    <string name="reason_of_creation">Listening together is harder than it should be./Bluetooth is limited./
+        Streaming services add delay. /
+        Sharing headphones or speakers isn’t always practical./WaveSync was built to solve this by creating a fast, direct audio connection between nearby devices — focused on synchronization and low latency. </string>
+    <string name="how_does_it_work">How does it work?</string>
+    <string name="answer_to_how_it_works">
+        One device hosts the audio/
+        Other devices join on the same Wi-Fi network/
+        Audio is streamed in real time to everyone/
+        Playback stays aligned across devices/No accounts, no cloud streaming, no unnecessary complexity.</string>
+    <string name="when_is_it_useful">When is it useful?</string>
+    <string name="when_is_it_useful_answer">
+        Watching videos together/
+        Silent group listening/
+        Sharing music with friends/
+        Any situation where timing matters/If everyone needs to hear the same thing at the same moment, WaveSync is built for that</string>
+    <string name="buil_with_focus">Built with a focus on performance, privacy, and simplicity.</string>
+    <string name="quick_idea">Quick idea</string>
+    <string name="quick_idea_body">works best when all devices are on the same Wi-Fi network and close to the router (or host).</string>
+    <string name="getting_started">Getting started</string>
+    <string name="share_sound_host">Share sound (host a room)</string>
+    <string name="share_sound_host_steps">Connect to Wi-Fi (or create a hotspot)./Open $appName and tap “Share sound”./Start playing audio on the host device (music/video)./Guests can now join the sound room.</string>
+    <string name="join_sound_room_be_guest">Join sound room (be a guest)</string>
+    <string name="join_sound_room_be_guest_steps">Connect to the same Wi-Fi as the host (or to the host’s hotspot)./Open $appName and tap “Join sound room”./Scan the QR code to join the room./If you hear nothing, confirm the host is playing audio.</string>
+    <string name="cannot_joni_room">I can’t find / join the sound room</string>
+    <string name="cannot_joni_room_solution">Both devices must be on the same Wi-Fi (or same hotspot). Turn off VPN on both devices. "Some public Wi-Fi networks block device-to-device connections.</string>
+    <string name="joined_but_not_sound">I joined, but there’s no sound</string>
+    <string name="joined_but_not_sound_solution">Check your volume first, then confirm the host is actually playing audio. If the host paused audio, guests may stop receiving data — press play on the host. Try leaving the room and joining again.</string>
+    <string name="sound_delayed_not_sync">Sound is delayed or not in sync</string>
+    <string name="sound_stutter_cuts">Sound stutters / cuts out</string>
+    <string name="sound_stutter_cuts_solution">This is usually weak or unstable Wi-Fi. Move closer, switch to 5GHz Wi-Fi if available, and reduce interference (busy networks, many devices).</string>
+    <string name="sound_delayed_not_sync_solution">Move closer to the router/host and avoid heavy Wi-Fi usage (downloads, gaming, video calls).Disable Battery Saver for smoother playback.</string>
+    <string name="work_at_home_but_not_public_wifi">It works at home but not on public Wi-Fi</string>
+    <string name="work_at_home_but_not_public_wifi_solution">Some public networks isolate devices for security, which blocks device-to-device connections. If that happens, use a personal hotspot or a normal home router.</string>
+    <string name="best_results">Best results checklist</string>
+    <string name="best_results_checklist_solution">Host + guests on the same Wi-Fi (or same hotspot)/Strong signal (stay close to router/host)/VPN off on all devices/Battery Saver off (especially guests)/Avoid heavy Wi-Fi traffic during streaming</string>
+    <string name="more">More</string>
+    <string name="rate">Rate</string>
+    <string name="contact">Contact</string>
+    <string name="contact_support">Contact support</string>
+    <string name="tip_for_report_issue">Tip: When reporting an issue, include your phone model, Android version, and whether you used a router or hotspot.</string>
+    <string name="privacy_policies_body">Before continuing, please review and accept our Privacy Policy and Terms of Service.</string>
+    <string name="review_privacy_policy"><![CDATA[Review Privacy Policy & Terms]]></string>
+    <string name="policy_agreement">I have read and agree to the Privacy Policy and Terms</string>
+    <string name="trusted_guests">Trusted guests</string>
+    <string name="no_trusted_guests">No trusted guests yet</string>
+    <string name="no_trusted_guests_body">Guests you trust will show up here so they can rejoin faster next time.</string>
+    <string name="delete">delete</string>
+    <string name="select_all">Select all</string>
+    <string name="back">Back</string>
+    <string name="delete_selected">Delete selected</string>
+    <string name="selected">selected</string>
+    <string name="delete_guest">Delete this trusted guest?</string>
+    <string name="delete_guest_body">They’ll need to be trusted again to rejoin quickly.</string>
+    <string name="delete_selected_body">"This will remove "</string>
+    <string name="delete_selected_body_2">guest(s) from your trusted list.</string>
+    <string name="delete_all_trusted_guests">Delete all trusted guests?</string>
+    <string name="delete_all_trusted_guests_body">This will remove everyone from your trusted list.</string>
+    <string name="delete_all">Delete all</string>
 
 
 </resources>
