@@ -11,6 +11,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,6 +30,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -56,8 +58,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -689,6 +693,28 @@ fun ConnectingToHostScreen(
     }
 
 }
+
+@Composable
+fun CustomDropDownMenuItem(title: String, onClick: () -> Unit, modifier: Modifier = Modifier,
+                           painter: Painter, textStyle: TextStyle = MaterialTheme.typography.bodyMedium){
+    DropdownMenuItem(
+
+        leadingIcon = {
+            Image(
+                modifier = modifier,
+                painter = painter,
+                contentDescription = title
+            )
+        }, text = {
+            Text(
+                text = title, style = textStyle
+            )
+        }, onClick = onClick)
+}
+
+
+
+
 
 @Preview(showBackground = true)
 @Composable

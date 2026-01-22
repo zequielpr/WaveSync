@@ -33,7 +33,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,25 +67,115 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.AppDimens
 import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
+import com.kunano.wavesynch.ui.utils.CustomDropDownMenuItem
 import com.kunano.wavesynch.ui.utils.CustomToggleCompose
 import com.kunano.wavesynch.ui.utils.UiEvent
 import com.kunano.wavesynch.ui.utils.generateQrBitmap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 @Composable
-fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: () -> Unit) {
+fun ActiveRoomCompose(
+    viewModel: ActiveRoomViewModel = hiltViewModel(),
+    onBack: () -> Unit,
+    navigateTo: (screen: Screen) -> Unit = {},
+) {
+    val scope = rememberCoroutineScope()
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
+
+    val textColor: Color = MaterialTheme.colorScheme.onSurface
+    var showDeletionDialogue by remember { mutableStateOf(false) }
+    val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
+
+
+    //Bottom sheet properties
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val buttonColor = MaterialTheme.colorScheme.primary
+    val titleStyle: TextStyle =
+        MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    var textFieldValue: String by remember { mutableStateOf("") }
+
+    val contentModifier: Modifier = Modifier.fillMaxWidth()
+
     var askToTrustGuestEvent by remember {
         mutableStateOf<ActiveRoomUiEvent.AskToAcceptGuestRequest?>(
             null
         )
     }
+
+
+
+
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            CustomTopAppBar(onBack = onBack, action = { it ->
+                when (it) {
+                    DropDownMenuActions.DeleteRoom -> {
+                        showDeletionDialogue = true
+                    }
+
+                    DropDownMenuActions.EditRoomName -> {
+                        showBottomSheet = true
+                    }
+
+                    DropDownMenuActions.EmptyRoom -> {
+                        viewModel.setShowAskToEmptyRoom(true)
+                    }
+
+                    DropDownMenuActions.GoToTrustedUsers -> {
+                        uIState.room?.id?.let { roomId ->
+                            scope.launch {
+                                viewModel.setOverFlowMenuExpandedState(false)
+                                delay(80)
+                                navigateTo(Screen.TrustedUsersScreen(roomId))
+                            }
+
+                        }
+
+                    }
+                }
+            })
+        },
+        floatingActionButton = { AudioCaptureRequestCompose() }) {
+        Box(
+
+            modifier = Modifier
+                .background(color = MaterialTheme.colorScheme.surface)
+                .padding(it)
+                .fillMaxWidth()
+        ) {
+
+            Column(
+                modifier = Modifier
+                    .padding(
+                        horizontal = AppDimens.Padding.horizontal,
+                        vertical = AppDimens.Padding.vertical
+                    )
+                    .fillMaxHeight()
+            ) {
+                //Launch audio capture request and start streaming
+
+                QrCardCompose()
+
+                GuestsListCompose(uIState.guests)
+
+            }
+        }
+
+    }
+
+
+
 
     LaunchedEffect(uIState.guests) {
         Log.d("UI", "Guests: ${uIState.guests.map { it.userId to it.isPlaying }}")
@@ -115,44 +205,59 @@ fun ActiveRoomCompose(viewModel: ActiveRoomViewModel = hiltViewModel(), onBack: 
     }
 
 
-
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { CustomTopAppBar(onBack = onBack) },
-        floatingActionButton = { AudioCaptureRequestCompose() }) {
-        Box(
-
+    //Edit room name
+    CustomBottomSheetCompose(conetent = {
+        Column(
             modifier = Modifier
-                .background(color = MaterialTheme.colorScheme.surface)
-                .padding(it)
                 .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Text(text = stringResource(R.string.update_room_name), style = titleStyle)
+            Spacer(modifier = Modifier.height(20.dp))
+            TextField(
+                shape = MaterialTheme.shapes.medium,
+                colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.secondary),
+                textStyle = textStyle,
+                modifier = contentModifier,
+                onValueChange = { it -> textFieldValue = it },
+                value = textFieldValue,
+                label = { Text(text = stringResource(R.string.new_room_name)) },
+            )
 
-            Column(
-                modifier = Modifier
-                    .padding(
-                        horizontal = AppDimens.Padding.horizontal,
-                        vertical = AppDimens.Padding.vertical
-                    )
-                    .fillMaxHeight()
-            ) {
-                //Launch audio capture request and start streaming
-
-                QrCardCompose()
-
-                GuestsListCompose(uIState.guests)
-
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                onClick = {
+                    uIState.room?.id?.let { id ->
+                        viewModel.editRoomName(id, textFieldValue)
+                    }
+                    showBottomSheet = false
+                }) {
+                Text(
+                    text = stringResource(R.string.update),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.surface)
+                )
             }
+            Spacer(modifier = Modifier.height(20.dp))
+
+
         }
+    }, showSheet = showBottomSheet, onDismiss = { showBottomSheet = false })
 
-    }
+    CustomDialogueCompose(
+        title = stringResource(R.string.delete_room),
+        text = stringResource(R.string.ask_to_delete_room),
+        onDismiss = { showDeletionDialogue = false },
+        onConfirm = {
+            viewModel.deleteRoom(uIState.room?.id ?: 0)
+            showDeletionDialogue = false
+        },
+        show = showDeletionDialogue
+    )
 
-    // Floating button overlay
-    @Composable
-    fun FloatingButtonOverlay() {
 
-    }
 
     AskToStopStreaming()
     AskToEmptyRoom()
@@ -242,6 +347,7 @@ fun AskToEmptyRoom() {
 fun CustomTopAppBar(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     onBack: () -> Unit,
+    action: (action: DropDownMenuActions) -> Unit = { },
 ) {
     val uIState = viewModel.uiState.collectAsStateWithLifecycle()
     TopAppBar(
@@ -269,7 +375,7 @@ fun CustomTopAppBar(
 
             }
 
-            OverFlowMenuCompose()
+            OverFlowMenuCompose(action = action)
 
 
         }, title = {
@@ -286,127 +392,52 @@ fun CustomTopAppBar(
 fun OverFlowMenuCompose(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     textColor: Color = MaterialTheme.colorScheme.onSurface,
-
-    ) {
+    action: (action: DropDownMenuActions) -> Unit = { },
+) {
     val modifier: Modifier = Modifier.size(30.dp)
-    val UIState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showDeletionDialogue by remember { mutableStateOf(false) }
+    val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
 
-
-    //Bottom sheet properties
-    var showBottomSheet by remember { mutableStateOf(false) }
-    val buttonColor = MaterialTheme.colorScheme.primary
-    val titleStyle: TextStyle =
-        MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface)
-    var textFieldValue: String by remember { mutableStateOf("") }
-
-    val contentModifier: Modifier = Modifier.fillMaxWidth()
-    CustomBottomSheetCompose(conetent = {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = stringResource(R.string.update_room_name), style = titleStyle)
-            Spacer(modifier = Modifier.height(20.dp))
-            TextField(
-                shape = MaterialTheme.shapes.medium,
-                colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.secondary),
-                textStyle = textStyle,
-                modifier = contentModifier,
-                onValueChange = { it -> textFieldValue = it },
-                value = textFieldValue,
-                label = { Text(text = stringResource(R.string.new_room_name)) },
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
-                onClick = {
-                    UIState.room?.id?.let { id ->
-                        viewModel.editRoomName(id, textFieldValue)
-                    }
-                    showBottomSheet = false
-                }) {
-                Text(text = stringResource(R.string.update), style = textStyle)
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-
-
-        }
-    }, showSheet = showBottomSheet, onDismiss = { showBottomSheet = false })
-
-
-
-
-
-    CustomDialogueCompose(
-        title = stringResource(R.string.delete_room),
-        text = stringResource(R.string.ask_to_delete_room),
-        onDismiss = { showDeletionDialogue = false },
-        onConfirm = {
-            viewModel.deleteRoom(UIState.room?.id ?: 0)
-            showDeletionDialogue = false
-        },
-        show = showDeletionDialogue
-    )
 
 
     DropdownMenu(
         containerColor = MaterialTheme.colorScheme.surface,
-        expanded = UIState.overFlowMenuExpanded,
+        expanded = uIState.overFlowMenuExpanded,
         onDismissRequest = { viewModel.setOverFlowMenuExpandedState(false) },
 
         ) {
-        DropdownMenuItem(
 
-            leadingIcon = {
-                Image(
-                    modifier = modifier,
-                    painter = painterResource(id = R.drawable.unarchive_48px),
-                    contentDescription = "Empty room"
-                )
-            }, text = {
-                Text(
-                    text = stringResource(R.string.empty_room), style = textStyle
-                )
-            }, onClick = {
-                UIState.room?.id?.let { viewModel.setShowAskToEmptyRoom(true) }
-                viewModel.setOverFlowMenuExpandedState(false)
-            })
+        CustomDropDownMenuItem(
+            title = stringResource(R.string.empty_room),
+            onClick = { action(DropDownMenuActions.EmptyRoom) },
+            modifier = modifier,
+            painter = painterResource(id = R.drawable.unarchive_48px),
+            textStyle = textStyle
+        )
 
-        DropdownMenuItem(leadingIcon = {
-            Image(
-                modifier = modifier,
-                painter = painterResource(id = R.drawable.edit_48px),
-                contentDescription = "Edit room name"
-            )
-        }, text = {
-            Text(
-                text = stringResource(R.string.edit_room_name), style = textStyle
-            )
-        }, onClick = {
-            UIState.room?.id?.let { showBottomSheet = true }
-            viewModel.setOverFlowMenuExpandedState(false)
-        })
+        CustomDropDownMenuItem(
+            title = stringResource(R.string.edit_room_name),
+            onClick = { action(DropDownMenuActions.EditRoomName) },
+            modifier = modifier,
+            painter = painterResource(id = R.drawable.edit_48px),
+            textStyle = textStyle
+        )
 
-        DropdownMenuItem(leadingIcon = {
-            Image(
-                modifier = modifier,
-                painter = painterResource(id = R.drawable.delete_48px),
-                contentDescription = "Delete room"
-            )
-        }, text = {
-            Text(
-                text = stringResource(R.string.delete_room), style = textStyle
-            )
-        }, onClick = {
-            UIState.room?.id?.let { showDeletionDialogue = true }
-            viewModel.setOverFlowMenuExpandedState(false)
-        })
+        CustomDropDownMenuItem(
+            title = stringResource(R.string.delete_room),
+            onClick = { action(DropDownMenuActions.DeleteRoom) },
+            modifier = modifier,
+            painter = painterResource(id = R.drawable.delete_48px),
+            textStyle = textStyle
+        )
+        CustomDropDownMenuItem(
+            title = stringResource(R.string.trusted_guests),
+            onClick = { action(DropDownMenuActions.GoToTrustedUsers) },
+            modifier = modifier,
+            painter = painterResource(id = R.drawable.handshake_48px),
+            textStyle = textStyle
+        )
+
 
     }
 
@@ -419,7 +450,7 @@ fun QrCode(
     modifier: Modifier = Modifier,
     size: Int = 200,
 ) {
-    val qrContent = remember( hostIp) {  hostIp }
+    val qrContent = remember(hostIp) { hostIp }
     val qrBackgroundColor = MaterialTheme.colorScheme.surface
     val qrBitmap = remember(qrContent) {
         generateQrBitmap(qrContent, size, bgColor = qrBackgroundColor)
@@ -530,8 +561,6 @@ fun QrCardCompose(
     //val password = uiState.hotspotInfo?.password ?: ""
 
     val hostIp = uiState.hostIp ?: ""
-
-
 
 
     val animSpec: TweenSpec<Dp> = tween<Dp>(durationMillis = 260, easing = FastOutSlowInEasing)

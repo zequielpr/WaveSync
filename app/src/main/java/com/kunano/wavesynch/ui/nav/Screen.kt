@@ -16,4 +16,18 @@ sealed class Screen {
 
     @Serializable
     data object CurrentRoomScreen : Screen()
+
+    @Serializable
+    data object AboutUsScreen : Screen()
+
+    @Serializable
+    data object PrivacyPoliciesScreen : Screen()
+
+    @Serializable
+    data object HelpScreen : Screen()
+
+    @Serializable
+    data class TrustedUsersScreen(val roomId: Long) : Screen()
+
+
 }
