@@ -15,11 +15,12 @@ import androidx.compose.ui.unit.dp
 
 private val DarkColorScheme = darkColorScheme(
     primary = mainButtons,
-    tertiary = Pink80,
+    tertiary = Pink40,
 
     secondary = BlueNeon,
     surface = SurfaceColor,
-    onSurface = TextColor
+    onSurface = TextColor,
+    error = redAccent
 )
 
 private val LightColorScheme = lightColorScheme(
