@@ -92,6 +92,12 @@ class JoinRoomViewModel @Inject constructor(
                         Log.d("JoinRoomViewModel", "collectHandShakeResults: declined by host")
                     }
 
+                    is HandShakeResult.RoomFull -> {
+                        updateWaitingState(false)
+                        showSnackBar(app.getString(R.string.room_full))
+
+                    }
+
                     is HandShakeResult.Error -> {}
 
                     else -> {}
@@ -126,7 +132,6 @@ class JoinRoomViewModel @Inject constructor(
                 Log.d("JoinRoomViewModel", "collectConnectionEvents: $it")
                 when (it) {
                     is ServerConnectionState.ConnectedToServer -> {
-                        guestUseCases.startReceivingAudioStream()
                         Log.d("JoinRoomViewModel", "collectConnectionEvents: connected to server")
                     }
 

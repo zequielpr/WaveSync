@@ -12,6 +12,7 @@ import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.wifi.ConnectionProtocol
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.domain.model.Room
+import com.kunano.wavesynch.domain.model.RoomFeatures
 import com.kunano.wavesynch.domain.usecase.host.GetRoomTrustedGuestsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ class ServerManager(
     private val context: Context,
     private val getRoomTrustedGuestsUseCase: GetRoomTrustedGuestsUseCase,
 ) {
+
 
     private val scope = CoroutineScope(Dispatchers.IO)
     var serverSocket: ServerSocket? = null
@@ -114,6 +116,7 @@ class ServerManager(
         return serverSocket
     }
 
+    //Receives the incoming handshakes and verifies them
     private fun handleClient(clientSocket: Socket) {
         scope.launch {
             var guestId: String?
@@ -203,7 +206,7 @@ class ServerManager(
             }
 
 
-            if (answer == HandShakeResult.DeclinedByHost() || answer == HandShakeResult.ExpelledByHost()) {
+            if (answer == HandShakeResult.DeclinedByHost() || answer == HandShakeResult.ExpelledByHost() || answer == HandShakeResult.RoomFull()) {
                 closeGuestSocket(guestId)
             }
         }
@@ -219,14 +222,19 @@ class ServerManager(
         if (handshake.protocolVersion != ConnectionProtocol.Protocol.PROTOCOL_VERSION) {
             return HandShakeResult.InvalidProtocol(handshake)
         }
+
         if (handshake.response == HandShakeResult.UdpSocketOpen().intValue) {
             return HandShakeResult.UdpSocketOpen(handshake)
         }
         if (handshake.response == HandShakeResult.GuestLeftRoom().intValue) {
             return HandShakeResult.GuestLeftRoom(handshake)
         }
+        if (_connectedGuests.value?.size == RoomFeatures().maxGuests) {
+            return HandShakeResult.RoomFull(handshake)
+        }
         return checkIfUserIsTrusted(handShake = handshake)
     }
+
 
     private suspend fun checkIfUserIsTrusted(handShake: HandShake): HandShakeResult {
         val trustedGuestsList = getRoomTrustedGuestsUseCase(roomId = currentRoom?.id!!)

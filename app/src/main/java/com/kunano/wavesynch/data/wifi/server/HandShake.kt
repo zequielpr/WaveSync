@@ -28,7 +28,8 @@ open class HandShakeResult(val intValue: Int) {
     data class UdpSocketClosed(val handShake: HandShake? = null) : HandShakeResult(10)
     data class ExpelledByHost(val handShake: HandShake? = null) : HandShakeResult(11)
     data class GuestLeftRoom(val handShake: HandShake? = null) : HandShakeResult(12)
-    object None : HandShakeResult(13)
+    data class RoomFull(val handShake: HandShake? = null) : HandShakeResult(13)
+    object None : HandShakeResult(14)
 }
 
 fun parseHandshake(json: String): HandShake? {

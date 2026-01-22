@@ -214,6 +214,11 @@ class ClientManager(
                     isConnectedToHostServer = false
                     _handShakeResponseFlow.tryEmit(HandShakeResult.ExpelledByHost(handShake))
                 }
+
+                HandShakeResult.RoomFull().intValue -> {
+                    isConnectedToHostServer = false
+                    _handShakeResponseFlow.tryEmit(HandShakeResult.RoomFull(handShake))
+                }
             }
         }
     }
