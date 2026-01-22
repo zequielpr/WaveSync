@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,9 +69,9 @@ fun TrustedGuestsViewCompose(
 
     if (confirmDeleteAll) {
         ConfirmDeleteDialog(
-            title = "Delete all trusted guests?",
-            body = "This will remove everyone from your trusted list.",
-            confirmText = "Delete all",
+            title = stringResource(R.string.delete_all_trusted_guests),
+            body = stringResource(R.string.delete_all_trusted_guests_body),
+            confirmText = stringResource(R.string.delete_all),
             onConfirm = {
                 confirmDeleteAll = false
                 viewModel.clearSelection()
@@ -82,9 +83,9 @@ fun TrustedGuestsViewCompose(
 
     if (confirmDeleteSelected) {
         ConfirmDeleteDialog(
-            title = "Delete selected guests?",
-            body = "This will remove ${uIState.selectedIds.size} guest(s) from your trusted list.",
-            confirmText = "Delete",
+            title = stringResource(R.string.delete_selected),
+            body = stringResource(R.string.delete_selected_body) + " ${uIState.selectedIds.size} " + stringResource(R.string.delete_selected_body_2),
+            confirmText = stringResource(R.string.delete),
             onConfirm = {
                 confirmDeleteSelected = false
                 val ids = uIState.selectedIds.toList()
@@ -97,9 +98,9 @@ fun TrustedGuestsViewCompose(
 
     confirmDeleteOne?.let { trustedGuest ->
         ConfirmDeleteDialog(
-            title = "Delete this trusted guest?",
-            body = "They’ll need to be trusted again to rejoin quickly.",
-            confirmText = "Delete",
+            title = stringResource(R.string.delete_guest),
+            body = stringResource(R.string.delete_guest_body),
+            confirmText = stringResource(R.string.delete),
             onConfirm = {
                 confirmDeleteOne = null
                 viewModel.deleteTrustedGuest(trustedGuest)
@@ -114,9 +115,9 @@ fun TrustedGuestsViewCompose(
             TopAppBar(
                 title = {
                     if (uIState.selectionModeActivate) {
-                        Text("${uIState.selectedIds.size} selected")
+                        Text("${uIState.selectedIds.size} " + stringResource(R.string.selected))
                     } else {
-                        Text("Trusted guests")
+                        Text(stringResource(R.string.trusted_guests))
                     }
                 },
                 navigationIcon = {
@@ -126,7 +127,7 @@ fun TrustedGuestsViewCompose(
                         Image(
                             if (uIState.selectionModeActivate) painterResource(R.drawable.close_48px) else painterResource(
                                 R.drawable.arrow_back_ios_48px
-                            ), contentDescription = "Back"
+                            ), contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -140,7 +141,7 @@ fun TrustedGuestsViewCompose(
                                 alpha = if (uIState.trustedGuests.isEmpty()) disabledAlpha else 1f,
                                 painter = if (uIState.isAllSelected) painterResource(id = R.drawable.check_circle_48px) else painterResource(
                                     id = R.drawable.circle_48px
-                                ), contentDescription = "Select all"
+                                ), contentDescription = stringResource(R.string.select_all)
                             )
                         }
 
@@ -151,7 +152,8 @@ fun TrustedGuestsViewCompose(
                             Image(
                                 alpha = if (uIState.selectedIds.isEmpty()) disabledAlpha else 1f,
                                 painter = painterResource(id = R.drawable.delete_48px),
-                                contentDescription = "Delete selected"
+                                contentDescription = stringResource(R.string.delete_selected)
+
                             )
                         }
                     } else {
@@ -162,7 +164,7 @@ fun TrustedGuestsViewCompose(
                         ) {
                             Image(
                                 alpha = if (uIState.trustedGuests.isEmpty()) disabledAlpha else 1f,
-                                painter = painterResource(id = R.drawable.delete_48px),
+                                painter = painterResource(id = R.drawable.delete_sweep_48px),
                                 contentDescription = "Delete all"
                             )
                         }
@@ -263,7 +265,7 @@ private fun TrustedGuestRow(
 
             // Delete one-by-one is always available (even outside selection mode)
             IconButton(onClick = onDeleteOne) {
-                Image(painterResource(R.drawable.delete_48px), contentDescription = null)
+                Image(painterResource(R.drawable.delete_48px), contentDescription = stringResource(R.string.delete))
             }
         }
     }
@@ -276,11 +278,11 @@ private fun EmptyState(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("No trusted guests yet", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.no_trusted_guests), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(
             textAlign = TextAlign.Center,
-            text = "Guests you trust will show up here so they can rejoin faster next time.",
+            text = stringResource(R.string.no_trusted_guests_body),
             style = MaterialTheme.typography.bodyMedium
         )
     }
@@ -295,14 +297,15 @@ private fun ConfirmDeleteDialog(
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            Button(onClick = onConfirm) { Text(confirmText) }
+            Button(onClick = onConfirm) { Text(confirmText, style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onPrimary)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onPrimary)) }
         }
     )
 }

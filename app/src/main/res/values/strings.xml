@@ -140,6 +140,20 @@
     <string name="review_privacy_policy"><![CDATA[Review Privacy Policy & Terms]]></string>
     <string name="policy_agreement">I have read and agree to the Privacy Policy and Terms</string>
     <string name="trusted_guests">Trusted guests</string>
+    <string name="no_trusted_guests">No trusted guests yet</string>
+    <string name="no_trusted_guests_body">Guests you trust will show up here so they can rejoin faster next time.</string>
+    <string name="delete">delete</string>
+    <string name="select_all">Select all</string>
+    <string name="back">Back</string>
+    <string name="delete_selected">Delete selected</string>
+    <string name="selected">selected</string>
+    <string name="delete_guest">Delete this trusted guest?</string>
+    <string name="delete_guest_body">They’ll need to be trusted again to rejoin quickly.</string>
+    <string name="delete_selected_body">"This will remove "</string>
+    <string name="delete_selected_body_2">guest(s) from your trusted list.</string>
+    <string name="delete_all_trusted_guests">Delete all trusted guests?</string>
+    <string name="delete_all_trusted_guests_body">This will remove everyone from your trusted list.</string>
+    <string name="delete_all">Delete all</string>
 
 
 </resources>

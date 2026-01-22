@@ -49,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +77,8 @@ import com.kunano.wavesynch.ui.utils.CustomToggleCompose
 import com.kunano.wavesynch.ui.utils.UiEvent
 import com.kunano.wavesynch.ui.utils.generateQrBitmap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 @Composable
@@ -84,6 +87,7 @@ fun ActiveRoomCompose(
     onBack: () -> Unit,
     navigateTo: (screen: Screen) -> Unit = {},
 ) {
+    val scope = rememberCoroutineScope()
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
 
@@ -130,8 +134,11 @@ fun ActiveRoomCompose(
 
                     DropDownMenuActions.GoToTrustedUsers -> {
                         uIState.room?.id?.let { roomId ->
-                            viewModel.setOverFlowMenuExpandedState(false)
-                            navigateTo(Screen.TrustedUsersScreen(roomId))
+                            scope.launch {
+                                viewModel.setOverFlowMenuExpandedState(false)
+                                delay(80)
+                                navigateTo(Screen.TrustedUsersScreen(roomId))
+                            }
 
                         }
 

@@ -1,12 +1,15 @@
 package com.kunano.wavesynch.ui.main_screen.drawer.screens
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
+import android.view.ContextThemeWrapper
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -44,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.kunano.wavesynch.CrashReporter
 import com.kunano.wavesynch.R
 
 private const val POLICY_URL =
@@ -83,7 +87,7 @@ fun PrivacyPoliciesScreen(
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->
-                    WebView(context).apply {
+                    WebView(ContextThemeWrapper(context, R.style.Theme_Wavesynch)).apply {
                         @SuppressLint("SetJavaScriptEnabled")
                         settings.apply {
                             javaScriptEnabled = true // Google Sites often needs this
@@ -180,11 +184,22 @@ fun PrivacyPolicyDialog(
 
                 TextButton(
                     onClick = {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            POLICY_URL.toUri()
-                        )
-                        context.startActivity(intent)
+                        try {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                POLICY_URL.toUri()
+                            )
+                            context.startActivity(intent)
+                        } catch (e: ActivityNotFoundException) {
+                            CrashReporter.set("url", POLICY_URL)
+                            CrashReporter.log("Error opening $POLICY_URL")
+                            CrashReporter.record(e)
+
+                        }catch (e: Exception){
+                            CrashReporter.set("url", POLICY_URL)
+                            CrashReporter.log("Error opening $POLICY_URL")
+                            CrashReporter.record(e)
+                        }
                     }
                 ) {
                     Text(
@@ -233,4 +248,3 @@ fun PrivacyPolicyDialog(
         }
     )
 }
-
