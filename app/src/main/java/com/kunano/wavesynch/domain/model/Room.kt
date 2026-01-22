@@ -1,5 +1,10 @@
 package com.kunano.wavesynch.domain.model
 
+data class RoomFeatures(
+    val maxGuests: Int = 10
+)
+
+
 data class Room(
     val QRCode: String? = null,
     val id: Long? = null,

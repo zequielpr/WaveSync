@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -90,6 +92,8 @@ fun ActiveRoomCompose(
     val scope = rememberCoroutineScope()
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
+    var dialogTitle by remember { mutableStateOf<String?>(null) }
+    var dialogMessage by remember { mutableStateOf<String?>(null) }
 
     val textColor: Color = MaterialTheme.colorScheme.onSurface
     var showDeletionDialogue by remember { mutableStateOf(false) }
@@ -192,9 +196,16 @@ fun ActiveRoomCompose(
                 }
 
                 is UiEvent.NavigateBack -> onBack()
-                is UiEvent.NavigateTo -> TODO()
                 is UiEvent.ShowSnackBar -> {
                     snackbarHostState.showSnackbar(it.message)
+
+                }
+
+                is UiEvent.NavigateTo -> navigateTo(it.screen)
+
+                is UiEvent.ShowDialog -> {
+                    dialogTitle = it.title
+                    dialogMessage = it.message
 
                 }
             }
@@ -202,6 +213,36 @@ fun ActiveRoomCompose(
 
         }
 
+    }
+
+
+    //Show dialog
+    if (dialogTitle != null && dialogMessage != null) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
+            onDismissRequest = {
+                dialogTitle = null
+                dialogMessage = null
+            },
+            title = {
+                Text(
+                    dialogTitle!!,
+                    style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+                )
+            },
+            text = { Text(dialogMessage!!, style = textStyle) },
+            confirmButton = {
+                TextButton(onClick = {
+                    dialogTitle = null
+                    dialogMessage = null
+                }) {
+                    Text(
+                        text = stringResource(R.string.ok),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                }
+            },
+        )
     }
 
 

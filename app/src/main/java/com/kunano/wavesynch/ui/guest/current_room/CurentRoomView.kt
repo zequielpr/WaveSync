@@ -66,9 +66,8 @@ fun CurrentRoomCompose(
             Log.d("CurrentRoomCompose", "LaunchedEffect: $event")
             when (event) {
                 is UiEvent.ShowSnackBar -> snackBarHostState.showSnackbar(event.message)
-                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> TODO()
-                is UiEvent.NavigateBack -> TODO()
                 is UiEvent.NavigateTo -> navigateTo(event.screen)
+                else -> {Log.d("CurrentRoomCompose", "LaunchedEffect: $event")}
             }
         }
     }

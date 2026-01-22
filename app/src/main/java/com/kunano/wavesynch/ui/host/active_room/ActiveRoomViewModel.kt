@@ -5,12 +5,12 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.data.wifi.server.HandShake
 import com.kunano.wavesynch.data.wifi.server.HandShakeResult
 import com.kunano.wavesynch.data.wifi.server.ServerState
 import com.kunano.wavesynch.domain.model.Guest
+import com.kunano.wavesynch.domain.model.RoomFeatures
 import com.kunano.wavesynch.domain.model.RoomWithTrustedGuests
 import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
@@ -258,8 +258,35 @@ class ActiveRoomViewModel @Inject constructor(
 
                     is HandShakeResult.GuestLeftRoom -> {
                         val userName = answer.handShake?.deviceName
-                        val message = userName + " " + appContext.getString(R.string.guest_left_room)
+                        val message =
+                            userName + " " + appContext.getString(R.string.guest_left_room)
                         expelGuest(guestId = answer.handShake?.userId, message = message)
+                    }
+
+                    is HandShakeResult.ExpelledByHost -> {
+                        answer.handShake?.let {
+                            val roomName = uiState.value.room?.name
+                            hostUseCases.sendAnswerToGuest(it.userId, roomName, answer)
+                        }
+                    }
+
+                    is HandShakeResult.RoomFull -> {
+                        val dialogMessage =
+                            appContext.getString(R.string.this_room_can_host_upt) + " " + RoomFeatures().maxGuests + " " + appContext.getString(
+                                R.string.guests
+                            ) + ". " + appContext.getString(R.string.room_full_message)
+
+                        _uiEvent.trySend(
+                            UiEvent.ShowDialog(
+                                title = appContext.getString(R.string.room_full),
+                                message = dialogMessage
+                            )
+                        )
+
+                        answer.handShake?.let {
+                            val roomName = uiState.value.room?.name
+                            hostUseCases.sendAnswerToGuest(it.userId, roomName, answer)
+                        }
                     }
 
                     else -> {
