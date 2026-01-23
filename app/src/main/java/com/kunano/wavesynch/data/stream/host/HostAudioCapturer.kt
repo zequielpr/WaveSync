@@ -14,17 +14,20 @@ import com.kunano.wavesynch.data.stream.AudioStreamConstants
 class HostAudioCapturer(
     private val mediaProjection: MediaProjection,
 ) {
-    val firebaseCrashlytics = FirebaseCrashlytics.getInstance()
+    private val crashlytics = FirebaseCrashlytics.getInstance()
 
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var isCapturing = false
 
-    val frameShorts: Int =
+    private val frameShorts: Int =
         AudioStreamConstants.SAMPLES_PER_CHANNEL * AudioStreamConstants.CHANNELS
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(onFrame: (pcm: ShortArray, seq: Int, tsMs: Int) -> Unit) {
+    fun start(
+        pool: PcmFramePool,
+        queue: PcmFrameQueue,
+    ) {
         if (isCapturing) return
 
         val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
@@ -62,30 +65,39 @@ class HostAudioCapturer(
         captureThread = Thread {
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
 
+            var seq = 0
             try {
                 recorder.startRecording()
 
-                var seq = 0
                 while (isCapturing && !Thread.currentThread().isInterrupted) {
                     val readCount = recorder.read(readBuf, 0, readBuf.size)
                     if (!isCapturing) break
                     if (readCount <= 0) continue
 
                     assembler.push(readBuf, readCount) { frameView ->
-                        val tsMs = (System.nanoTime() / 1_000_000L).toInt()
+                        if (!isCapturing) return@push
 
-                        // MUST copy: assembler reuses its internal buffer
-                        val frameCopy = frameView.copyOf()
+                        val f = pool.acquire() ?: return@push // pool exhausted -> drop
 
-                        onFrame(frameCopy, seq, tsMs)
+                        // Copy into pooled frame storage
+                        // IMPORTANT: use f.shorts.size (source of truth)
+                        System.arraycopy(frameView, 0, f.shorts, 0, f.shorts.size)
+
+                        f.seq = seq
+                        f.tsMs = (System.nanoTime() / 1_000_000L).toInt()
                         seq++
+
+                        // Enqueue; if full, drop oldest and return it to pool
+                        val dropped = queue.offerDropOldest(f)
+                        if (dropped != null) {
+                            pool.release(dropped)
+                        }
                     }
                 }
             } catch (t: Throwable) {
-                firebaseCrashlytics.setCustomKey("rzThread", "Audio capturer thread")
-                firebaseCrashlytics.log("Audio capturer thread error")
-                firebaseCrashlytics.recordException(t)
-
+                crashlytics.setCustomKey("captureThread", "HostAudioCapturer")
+                crashlytics.log("Audio capture thread error")
+                crashlytics.recordException(t)
             } finally {
                 try { recorder.stop() } catch (_: Throwable) {}
             }
@@ -95,15 +107,17 @@ class HostAudioCapturer(
     fun stop() {
         isCapturing = false
 
-        // Unblock read()
+        // Unblock AudioRecord.read()
         try { audioRecord?.stop() } catch (_: Throwable) {}
-        captureThread?.interrupt()
 
+        captureThread?.interrupt()
         try { captureThread?.join(500) } catch (_: Throwable) {}
         captureThread = null
 
         try { audioRecord?.release() } catch (_: Throwable) {}
         audioRecord = null
+
+        // No queue.wakeAll() in ABQ design; sender unblocks via interrupt()
 
         try { mediaProjection.stop() } catch (_: Throwable) {}
     }
@@ -111,7 +125,7 @@ class HostAudioCapturer(
 
 /**
  * Assembles arbitrary short chunks into fixed frames.
- * It passes an internal buffer to onFrame; caller MUST copy immediately.
+ * It passes an internal buffer to onFrame; caller must copy.
  */
 class ShortFrameAssembler(private val frameShorts: Int) {
     private val buf = ShortArray(frameShorts)
