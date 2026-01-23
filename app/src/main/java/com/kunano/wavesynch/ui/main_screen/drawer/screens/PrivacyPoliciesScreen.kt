@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,10 @@ fun PrivacyPoliciesScreen(
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var canGoBack by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val webView = remember {
+        WebView(ContextThemeWrapper(context, R.style.Theme_Wavesynch))
+    }
 
     Scaffold(
         topBar = {
@@ -86,8 +91,8 @@ fun PrivacyPoliciesScreen(
         ) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    WebView(ContextThemeWrapper(context, R.style.Theme_Wavesynch)).apply {
+                factory = {
+                    webView.apply {
                         @SuppressLint("SetJavaScriptEnabled")
                         settings.apply {
                             javaScriptEnabled = true // Google Sites often needs this
@@ -126,24 +131,30 @@ fun PrivacyPoliciesScreen(
                         loadUrl(url)
                     }
                 },
-                update = { webView ->
-                    canGoBack = webView.canGoBack()
+                update = {
+                    canGoBack = it.canGoBack()
                 }
             )
 
             // Handle back inside WebView first
             BackHandler(enabled = canGoBack) {
-                // go back in web history
-                // (we need a reference; easiest is to use WebView state holder if you want more control)
+                webView.goBack()
             }
 
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(androidx.compose.ui.Alignment.TopCenter)
+                        .align(Alignment.TopCenter)
                 )
             }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webView.stopLoading()
+            webView.destroy()
         }
     }
 }

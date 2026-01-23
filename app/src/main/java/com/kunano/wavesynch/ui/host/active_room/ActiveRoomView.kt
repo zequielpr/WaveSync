@@ -1,5 +1,6 @@
 package com.kunano.wavesynch.ui.host.active_room
 
+import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -18,11 +19,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,7 +35,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -58,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -71,7 +74,6 @@ import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.model.Guest
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.AppDimens
-import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.CustomBottomSheetCompose
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
 import com.kunano.wavesynch.ui.utils.CustomDropDownMenuItem
@@ -91,14 +93,18 @@ fun ActiveRoomCompose(
 ) {
     val scope = rememberCoroutineScope()
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
+
+    // ✅ Orientation
+    val config = LocalConfiguration.current
+    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val snackbarHostState = remember { SnackbarHostState() }
     var dialogTitle by remember { mutableStateOf<String?>(null) }
     var dialogMessage by remember { mutableStateOf<String?>(null) }
 
     val textColor: Color = MaterialTheme.colorScheme.onSurface
     var showDeletionDialogue by remember { mutableStateOf(false) }
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
-
 
     //Bottom sheet properties
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -109,30 +115,25 @@ fun ActiveRoomCompose(
 
     val contentModifier: Modifier = Modifier.fillMaxWidth()
 
-    var askToTrustGuestEvent by remember {
-        mutableStateOf<ActiveRoomUiEvent.AskToAcceptGuestRequest?>(
-            null
-        )
-    }
-
-
-
-
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            CustomTopAppBar(onBack = onBack, action = { it ->
-                when (it) {
+            CustomTopAppBar(onBack = onBack, action = { act ->
+                when (act) {
                     DropDownMenuActions.DeleteRoom -> {
+                        viewModel.setOverFlowMenuExpandedState(false)
                         showDeletionDialogue = true
                     }
 
                     DropDownMenuActions.EditRoomName -> {
+                        viewModel.setOverFlowMenuExpandedState(false)
                         showBottomSheet = true
                     }
 
                     DropDownMenuActions.EmptyRoom -> {
+                        viewModel.setOverFlowMenuExpandedState(false)
                         viewModel.setShowAskToEmptyRoom(true)
                     }
 
@@ -143,62 +144,74 @@ fun ActiveRoomCompose(
                                 delay(80)
                                 navigateTo(Screen.TrustedUsersScreen(roomId))
                             }
-
                         }
-
                     }
                 }
             })
         },
-        floatingActionButton = { AudioCaptureRequestCompose() }) {
-        Box(
+        floatingActionButton = { AudioCaptureRequestCompose() }
+    ) { padding ->
 
+        Box(
             modifier = Modifier
                 .background(color = MaterialTheme.colorScheme.surface)
-                .padding(it)
-                .fillMaxWidth()
+                .padding(padding)
+                .fillMaxSize()
         ) {
+            if (isLandscape) {
+                //LANDSCAPE: QR left, Guests right
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            horizontal = AppDimens.Padding.horizontal,
+                            vertical = AppDimens.Padding.vertical
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(0.45f)
+                            .fillMaxHeight()
+                    ) {
+                        QrCardCompose()
+                    }
 
-            Column(
-                modifier = Modifier
-                    .padding(
-                        horizontal = AppDimens.Padding.horizontal,
-                        vertical = AppDimens.Padding.vertical
-                    )
-                    .fillMaxHeight()
-            ) {
-                //Launch audio capture request and start streaming
-
-                QrCardCompose()
-
-                GuestsListCompose(uIState.guests)
-
+                    Box(
+                        modifier = Modifier
+                            .weight(0.55f)
+                            .fillMaxHeight()
+                    ) {
+                        GuestsListCompose(uIState.guests)
+                    }
+                }
+            } else {
+                //PORTRAIT: QR top, Guests bottom
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            horizontal = AppDimens.Padding.horizontal,
+                            vertical = AppDimens.Padding.vertical
+                        )
+                ) {
+                    QrCardCompose()
+                    GuestsListCompose(uIState.guests)
+                }
             }
         }
-
     }
 
 
 
-
-    LaunchedEffect(uIState.guests) {
-        Log.d("UI", "Guests: ${uIState.guests.map { it.userId to it.isPlaying }}")
-    }
     LaunchedEffect(key1 = Unit) {
         viewModel.uiEvent.collect {
             when (it) {
-                is ActiveRoomUiEvent.AskToAcceptGuestRequest -> {
-                    askToTrustGuestEvent = it
-                    viewModel.setShowAskTrustGuestState(true)
-                    Log.d(
-                        "ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent?.guestName}"
-                    )
-                }
 
                 is UiEvent.NavigateBack -> onBack()
+
                 is UiEvent.ShowSnackBar -> {
                     snackbarHostState.showSnackbar(it.message)
-
                 }
 
                 is UiEvent.NavigateTo -> navigateTo(it.screen)
@@ -206,15 +219,10 @@ fun ActiveRoomCompose(
                 is UiEvent.ShowDialog -> {
                     dialogTitle = it.title
                     dialogMessage = it.message
-
                 }
             }
-
-
         }
-
     }
-
 
     //Show dialog
     if (dialogTitle != null && dialogMessage != null) {
@@ -245,47 +253,52 @@ fun ActiveRoomCompose(
         )
     }
 
-
     //Edit room name
-    CustomBottomSheetCompose(conetent = {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = stringResource(R.string.update_room_name), style = titleStyle)
-            Spacer(modifier = Modifier.height(20.dp))
-            TextField(
-                shape = MaterialTheme.shapes.medium,
-                colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.secondary),
-                textStyle = textStyle,
-                modifier = contentModifier,
-                onValueChange = { it -> textFieldValue = it },
-                value = textFieldValue,
-                label = { Text(text = stringResource(R.string.new_room_name)) },
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
-                onClick = {
-                    uIState.room?.id?.let { id ->
-                        viewModel.editRoomName(id, textFieldValue)
-                    }
-                    showBottomSheet = false
-                }) {
-                Text(
-                    text = stringResource(R.string.update),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.surface)
+    CustomBottomSheetCompose(
+        conetent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = stringResource(R.string.update_room_name), style = titleStyle)
+                Spacer(modifier = Modifier.height(20.dp))
+                TextField(
+                    shape = MaterialTheme.shapes.medium,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.secondary,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.secondary
+                    ),
+                    textStyle = textStyle,
+                    modifier = contentModifier,
+                    onValueChange = { textFieldValue = it },
+                    value = textFieldValue,
+                    label = { Text(text = stringResource(R.string.new_room_name)) },
                 )
+
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                    onClick = {
+                        uIState.room?.id?.let { id ->
+                            viewModel.editRoomName(id, textFieldValue)
+                        }
+                        showBottomSheet = false
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.update),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.surface)
+                    )
+                }
+                Spacer(modifier = Modifier.height(20.dp))
             }
-            Spacer(modifier = Modifier.height(20.dp))
-
-
-        }
-    }, showSheet = showBottomSheet, onDismiss = { showBottomSheet = false })
+        },
+        showSheet = showBottomSheet,
+        onDismiss = { showBottomSheet = false }
+    )
 
     CustomDialogueCompose(
         title = stringResource(R.string.delete_room),
@@ -298,24 +311,23 @@ fun ActiveRoomCompose(
         show = showDeletionDialogue
     )
 
-
-
     AskToStopStreaming()
     AskToEmptyRoom()
     AskToExpelGuest(
         show = uIState.showAskToExpelGuest,
         onConfirm = viewModel::expelGuest,
-        onDismiss = { viewModel.setShowAskToExpelGuestState(false, null) })
+        onDismiss = { viewModel.setShowAskToExpelGuestState(false, null) }
+    )
 
     //Ask to trust guest and connection request
-    if (uIState.showJoinRoomRequest && askToTrustGuestEvent != null) {
+    if (uIState.joiningGuestRequest != null ) {
         var hostTrustGuest by remember { mutableStateOf(false) }
-        Log.d("ActiveRoomCompose", "AskToTrustGuest: ${askToTrustGuestEvent!!.guestName}")
+
         CustomDialogueCompose(
-            title = askToTrustGuestEvent!!.deviceName + ":" + stringResource(R.string.wants_to_join_room),
+            title = uIState.joiningGuestRequest!!.guestName + ":" + stringResource(R.string.wants_to_join_room),
             content = {
                 Column {
-                    Text(askToTrustGuestEvent!!.guestName + ": " + stringResource(R.string.wants_to_join_room))
+                    Text(uIState.joiningGuestRequest!!.guestName + ": " + stringResource(R.string.wants_to_join_room))
                     CustomToggleCompose(stringResource(R.string.trust_guest)) {
                         hostTrustGuest = it
                     }
@@ -324,33 +336,29 @@ fun ActiveRoomCompose(
             acceptButtonText = stringResource(R.string.accept),
             dismissButtonText = stringResource(R.string.decline),
             onDismiss = {
-                askToTrustGuestEvent!!.decision.complete(false)
-                viewModel.setShowAskTrustGuestState(false)
+                uIState.joiningGuestRequest!!.decision.complete(false)
+                viewModel.updateJoiningGuestRequest(null)
             },
             onConfirm = {
-                askToTrustGuestEvent!!.decision.complete(true)
-                askToTrustGuestEvent!!.guestTrusted.complete(hostTrustGuest)
-                viewModel.setShowAskTrustGuestState(false)
+                uIState.joiningGuestRequest!!.decision.complete(true)
+                uIState.joiningGuestRequest!!.guestTrusted.complete(hostTrustGuest)
+                viewModel.updateJoiningGuestRequest(null)
             },
-            show = uIState.showJoinRoomRequest
+            show = true
         )
     }
 }
-
 
 @Composable
 fun AskToStopStreaming() {
     val viewModel: ActiveRoomViewModel = hiltViewModel()
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
 
-
     CustomDialogueCompose(
         title = stringResource(R.string.stop_streaming),
         text = stringResource(R.string.are_you_sure_you_stop_streaming),
         acceptButtonText = stringResource(R.string.yes),
-        onDismiss = {
-            viewModel.setShowAskStopStreaming(false)
-        },
+        onDismiss = { viewModel.setShowAskStopStreaming(false) },
         onConfirm = {
             viewModel.stopStreaming()
             viewModel.setShowAskStopStreaming(false)
@@ -364,31 +372,25 @@ fun AskToEmptyRoom() {
     val viewModel: ActiveRoomViewModel = hiltViewModel()
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
 
-
     CustomDialogueCompose(
         title = stringResource(R.string.empty_room),
         text = stringResource(R.string.are_you_sure_you_empty_room),
         acceptButtonText = stringResource(R.string.yes),
-        onDismiss = {
-            viewModel.setShowAskToEmptyRoom(false)
-        },
+        onDismiss = { viewModel.setShowAskToEmptyRoom(false) },
         onConfirm = {
             viewModel.emptyRoom()
             viewModel.setShowAskToEmptyRoom(false)
         },
         show = uIState.showAskToEmptyRoom,
     )
-
-
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomTopAppBar(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    action: (action: DropDownMenuActions) -> Unit = { },
+    action: (action: DropDownMenuActions) -> Unit = {},
 ) {
     val uIState = viewModel.uiState.collectAsStateWithLifecycle()
     TopAppBar(
@@ -398,56 +400,53 @@ fun CustomTopAppBar(
             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             actionIconContentColor = MaterialTheme.colorScheme.onSurface
-        ), navigationIcon = {
+        ),
+        navigationIcon = {
             IconButton(onClick = onBack) {
                 Image(
                     painter = painterResource(id = R.drawable.arrow_back_ios_48px),
                     contentDescription = "Back"
                 )
             }
-        }, actions = {
-
-            IconButton(onClick = { viewModel.setOverFlowMenuExpandedState(!uIState.value.overFlowMenuExpanded) }) {
+        },
+        actions = {
+            IconButton(onClick = {
+                viewModel.setOverFlowMenuExpandedState(!uIState.value.overFlowMenuExpanded)
+            }) {
                 Image(
                     painter = painterResource(R.drawable.more_vert_48px),
                     contentDescription = "More"
                 )
-
-
             }
-
             OverFlowMenuCompose(action = action)
-
-
-        }, title = {
+        },
+        title = {
             uIState.value.room?.name?.let {
                 Text(
-                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), text = it
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    text = it
                 )
             }
-        })
+        }
+    )
 }
-
 
 @Composable
 fun OverFlowMenuCompose(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     textColor: Color = MaterialTheme.colorScheme.onSurface,
-    action: (action: DropDownMenuActions) -> Unit = { },
+    action: (action: DropDownMenuActions) -> Unit = {},
 ) {
     val modifier: Modifier = Modifier.size(30.dp)
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor)
 
-
-
     DropdownMenu(
         containerColor = MaterialTheme.colorScheme.surface,
         expanded = uIState.overFlowMenuExpanded,
         onDismissRequest = { viewModel.setOverFlowMenuExpandedState(false) },
-
-        ) {
-
+    ) {
         CustomDropDownMenuItem(
             title = stringResource(R.string.empty_room),
             onClick = { action(DropDownMenuActions.EmptyRoom) },
@@ -471,6 +470,7 @@ fun OverFlowMenuCompose(
             painter = painterResource(id = R.drawable.delete_48px),
             textStyle = textStyle
         )
+
         CustomDropDownMenuItem(
             title = stringResource(R.string.trusted_guests),
             onClick = { action(DropDownMenuActions.GoToTrustedUsers) },
@@ -478,31 +478,24 @@ fun OverFlowMenuCompose(
             painter = painterResource(id = R.drawable.handshake_48px),
             textStyle = textStyle
         )
-
-
     }
-
 }
-
 
 @Composable
 fun QrCode(
     hostIp: String,
     modifier: Modifier = Modifier,
-    size: Int = 200,
+    size: Dp = 200.dp,
 ) {
     val qrContent = remember(hostIp) { hostIp }
     val qrBackgroundColor = MaterialTheme.colorScheme.surface
-    val qrBitmap = remember(qrContent) {
-        generateQrBitmap(qrContent, size, bgColor = qrBackgroundColor)
-    }
-
+    val qrBitmap = generateQrBitmap(qrContent, size.value.toInt(), bgColor = qrBackgroundColor)
 
     Image(
         bitmap = qrBitmap.asImageBitmap(),
         contentDescription = "Host QR code",
         modifier = modifier
-            .size(size.dp)
+            .size(size)
             .clip(RoundedCornerShape(16.dp))
     )
 }
@@ -511,14 +504,11 @@ fun QrCode(
 fun GuestsListCompose(
     guestsList: List<Guest> = emptyList(),
 ) {
-
     LazyColumn(
-
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 32.dp)
     ) {
-
         items(guestsList) { guest ->
             Log.d("ActiveRoomCompose", "GuestsListCompose: $guest")
             GuestItem(guest = guest)
@@ -545,8 +535,9 @@ fun GuestItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(id = R.drawable.mobile_48px), // Placeholder icon
-                contentDescription = "Guest Icon", modifier = Modifier.size(40.dp)
+                painter = painterResource(id = R.drawable.mobile_48px),
+                contentDescription = "Guest Icon",
+                modifier = Modifier.size(40.dp)
             )
             Text(
                 text = guest.deviceName,
@@ -555,13 +546,12 @@ fun GuestItem(
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
-                modifier = Modifier.padding(start = 20.dp), onClick = {
-                    if (guest.isPlaying) {
-                        viewModel.pauseGuest(guestId = guest.userId)
-                    } else {
-                        viewModel.playGuest(guestId = guest.userId)
-                    }
-                }) {
+                modifier = Modifier.padding(start = 20.dp),
+                onClick = {
+                    if (guest.isPlaying) viewModel.pauseGuest(guestId = guest.userId)
+                    else viewModel.playGuest(guestId = guest.userId)
+                }
+            ) {
                 if (guest.isPlaying) {
                     Image(
                         painter = painterResource(id = R.drawable.pause_48px),
@@ -570,16 +560,16 @@ fun GuestItem(
                 } else {
                     Image(
                         painter = painterResource(id = R.drawable.play_arrow_48px),
-                        contentDescription = "play"
+                        contentDescription = "Play"
                     )
                 }
-
             }
 
             Spacer(modifier = Modifier.weight(0.05f))
             IconButton(
                 modifier = Modifier.padding(start = 20.dp),
-                onClick = { viewModel.setShowAskToExpelGuestState(true, guest) }) {
+                onClick = { viewModel.setShowAskToExpelGuestState(true, guest) }
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.output_48px),
                     contentDescription = "Expel"
@@ -589,7 +579,6 @@ fun GuestItem(
     }
 }
 
-
 @Composable
 fun QrCardCompose(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
@@ -598,16 +587,16 @@ fun QrCardCompose(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val expanded = uiState.isQRCodeExpanded
-    //val ssid = uiState.hotspotInfo?.ssid ?: ""
-    //val password = uiState.hotspotInfo?.password ?: ""
-
     val hostIp = uiState.hostIp ?: ""
 
+    // Remove big top padding in landscape (so it sits nicely beside the list)
+    val isLandscape =
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val animSpec: TweenSpec<Dp> = tween<Dp>(durationMillis = 260, easing = FastOutSlowInEasing)
+    val animSpec: TweenSpec<Dp> = tween(durationMillis = 260, easing = FastOutSlowInEasing)
 
     val cardHeight by animateDpAsState(
-        targetValue = if (expanded) 420.dp else 180.dp,
+        targetValue = if (expanded && !isLandscape) 420.dp else if (expanded && isLandscape) 250.dp else 180.dp,
         animationSpec = animSpec,
         label = "cardHeight"
     )
@@ -619,19 +608,19 @@ fun QrCardCompose(
     )
 
     val qrSize by animateDpAsState(
-        targetValue = if (expanded) 200.dp else 80.dp, animationSpec = animSpec, label = "qrSize"
+        targetValue = if (expanded && !isLandscape) 200.dp else if (expanded && isLandscape) 120.dp else 80.dp,
+        animationSpec = animSpec,
+        label = "qrSize"
     )
-
 
     val textStyleBig: TextStyle = MaterialTheme.typography.titleLarge.copy(color = textColor)
     val textStyleSmall: TextStyle = MaterialTheme.typography.labelSmall.copy(color = textColor)
-
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(cardHeight)
-            .padding(top = 60.dp)
+            .padding(top = if (isLandscape) 0.dp else 60.dp)
             .clickable { viewModel.setIsQRCodeExpandedState(!expanded) },
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
@@ -647,20 +636,21 @@ fun QrCardCompose(
                 exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (hostIp.isNotEmpty()) {
-                        QrCode(hostIp = hostIp, size = qrSize.value.toInt())
-                    } else {
-                        CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                        QrCode(hostIp = hostIp, size = qrSize)
                     }
 
                     Text(
                         modifier = Modifier.padding(start = 20.dp),
                         textAlign = TextAlign.Start,
-                        text = stringResource(R.string.scan_qr_code_to_connect),
+                        text = if (uiState.isConnectedToWifi) {
+                            stringResource(R.string.scan_qr_code_to_connect)
+                        } else {
+                            stringResource(R.string.not_connected_to_wifi)
+                        },
                         style = textStyleSmall
                     )
 
@@ -675,24 +665,22 @@ fun QrCardCompose(
                 }
             }
 
-            // EXPANDED CONTENT (only exists when expanded)
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn(tween(120)) + expandVertically(tween(220)),
                 exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
             ) {
-
-                Box() {
+                Box {
                     IconButton(
                         onClick = { viewModel.setIsQRCodeExpandedState(false) },
                         modifier = Modifier.align(Alignment.TopEnd)
                     ) {
                         Image(
-                            painter = painterResource(
-                                R.drawable.hide_48px
-                            ), contentDescription = "Hide"
+                            painter = painterResource(R.drawable.hide_48px),
+                            contentDescription = null
                         )
                     }
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -701,33 +689,25 @@ fun QrCardCompose(
                         verticalArrangement = Arrangement.Center
                     ) {
                         if (hostIp.isNotEmpty()) {
-                            QrCode(hostIp = hostIp)
-                        } else {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp))
-                            Text(
-                                stringResource(R.string.generating_qr_code),
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
+                            QrCode(hostIp = hostIp, size = qrSize)
                         }
 
                         Text(
                             modifier = Modifier.padding(top = 30.dp),
                             textAlign = TextAlign.Center,
-                            text = stringResource(R.string.scan_qr_code_to_connect),
+                            text = if (uiState.isConnectedToWifi) {
+                                stringResource(R.string.scan_qr_code_to_connect)
+                            } else {
+                                stringResource(R.string.not_connected_to_wifi)
+                            },
                             style = textStyleBig
                         )
                     }
                 }
             }
-
         }
-
     }
 }
-
 
 @Composable
 fun AskToExpelGuest(show: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -739,14 +719,10 @@ fun AskToExpelGuest(show: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit)
         onConfirm = onConfirm,
         show = show,
     )
-
-
 }
-
 
 @Preview(showBackground = true)
 @Composable
 fun ActiveRoomComposePreview() {
     ActiveRoomCompose(onBack = {})
 }
-

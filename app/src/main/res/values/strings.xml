@@ -159,6 +159,8 @@
     <string name="room_full_message">Expel one or more guests for new guests to join</string>
     <string name="guests">guests</string>
     <string name="this_room_can_host_upt">This room can host up to</string>
+    <string name="not_connected_to_wifi">Not connected to WIFI</string>
+    <string name="scan_host_qr_code">Scan host\'s QR code to join</string>
 
 
 </resources>
