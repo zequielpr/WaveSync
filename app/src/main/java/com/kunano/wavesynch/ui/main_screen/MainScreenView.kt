@@ -4,55 +4,28 @@ package com.kunano.wavesynch.ui.main_screen
 
 import PermissionHandler
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.main_screen.drawer.AppDrawerContent
 import com.kunano.wavesynch.ui.main_screen.drawer.DrawerAction
@@ -66,7 +39,6 @@ import com.kunano.wavesynch.ui.utils.UiEvent
 import com.kunano.wavesynch.ui.utils.openAppSettings
 import kotlinx.coroutines.launch
 
-
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun SyncWaveMainScreenWithAppBar(
@@ -74,49 +46,34 @@ fun SyncWaveMainScreenWithAppBar(
     navigateTo: (screen: Screen) -> Unit,
     viewModel: MainScreenViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.UIState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-
 
     var granted by remember { mutableStateOf(false) }
     var relaunchPermissionHandler by remember { mutableStateOf(false) }
     var showPermissionRationale by remember { mutableStateOf(false) }
     var showPermissionSettings by remember { mutableStateOf(false) }
 
-
     ModalNavigationDrawer(
         modifier = Modifier.background(MaterialTheme.colorScheme.surface),
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface) {
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+            ) {
+
                 AppDrawerContent(
-                    appName = "WaveSync",
+
+                    appName = stringResource(R.string.app_name),
                     onAction = { action ->
-                        // Close drawer first (feels better UX)
                         scope.launch { drawerState.close() }
-
                         when (action) {
-                            DrawerAction.AboutUs -> {
-                                navigateTo(Screen.AboutUsScreen)
-                            }
-
-                            DrawerAction.PrivacyPolicies -> {
-                                navigateTo(Screen.PrivacyPoliciesScreen)
-                            }
-
-                            DrawerAction.Help -> {
-                                navigateTo(Screen.HelpScreen)
-                            }
-
-                            DrawerAction.ShareApp -> {
-                                shareApp(
-                                    context,
-                                    "Check out WaveSync: https://play.google.com/store/apps/details?id=com.your.package"
-                                )
-                            }
+                            DrawerAction.AboutUs -> navigateTo(Screen.AboutUsScreen)
+                            DrawerAction.PrivacyPolicies -> navigateTo(Screen.PrivacyPoliciesScreen)
+                            DrawerAction.Help -> navigateTo(Screen.HelpScreen)
+                            DrawerAction.ShareApp ->
+                                shareApp(context, "Check out WaveSync on Google Play")
 
                             DrawerAction.RateApp -> {}
                         }
@@ -125,144 +82,153 @@ fun SyncWaveMainScreenWithAppBar(
             }
         }
     ) {
-
         Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
             containerColor = MaterialTheme.colorScheme.surface,
             topBar = {
-                TopAppBar(
-                    navigationIcon = { IconButton(onClick = {scope.launch { drawerState.open() }}){
-                        Image(painter = painterResource(R.drawable.menu_48px), contentDescription = null)
-                    } },
-
+                CenterAlignedTopAppBar(
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Image(
+                                painter = painterResource(R.drawable.menu_48px),
+                                contentDescription = null
+                            )
+                        }
+                    },
                     title = {
                         Text(
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
                             text = stringResource(R.string.app_name),
                             style = MaterialTheme.typography.titleLarge.copy(color = textColor)
                         )
                     },
+                    actions = {
+                        // future icons go here
+                    }
                 )
             }
-        )
-        {
-            Box(modifier = Modifier.padding(it)) {
+        ) { padding ->
+            Box(Modifier.padding(padding)) {
                 SynchWaveMainScreen(
                     navigateToJoinRoom = { if (granted) viewModel.joinRoom() },
-                    navigateToActiveRoom = { if (granted) navigateTo(Screen.ActiveRoomScreen)}
+                    navigateToActiveRoom = { if (granted) navigateTo(Screen.ActiveRoomScreen) }
                 )
             }
         }
     }
 
-
-
-
-
-
     if (!granted) {
-        Log.d("MainScreen", "Launching permission handler")
         PermissionHandler(
-            onAllGranted = {
-                Log.d("MainScreen", "Permission granted")
-                granted = true
-            },
-            onNeedUserActionInSettings = {
-                Log.d("MainScreen", "User needs to go to settings")
-                showPermissionSettings = true
-            },
-            onShowRationale = {
-                showPermissionRationale = true
-                Log.d("MainScreen", "Showing permission rationale")
-            }
-        )
-    }
-
-    if (relaunchPermissionHandler) {
-        PermissionHandler(
-            onAllGranted = {
-                Log.d("MainScreen", "Permission granted")
-                granted = true
-            },
+            onAllGranted = { granted = true },
             onNeedUserActionInSettings = { showPermissionSettings = true },
             onShowRationale = { showPermissionRationale = true }
         )
     }
 
-
-    if (showPermissionRationale) {
-        PermissionRationaleDialog(onRetry = {
-            relaunchPermissionHandler = true
-            showPermissionRationale = false
-        }, onCancel = { showPermissionRationale = false })
-
-    } else if (showPermissionSettings) {
-        GoToSettingsDialog(onOpenSettings = {
-            openAppSettings(context = context)
-            showPermissionSettings = false
-        }, onCancel = { showPermissionSettings = false })
-
+    if (relaunchPermissionHandler) {
+        PermissionHandler(
+            onAllGranted = { granted = true },
+            onNeedUserActionInSettings = { showPermissionSettings = true },
+            onShowRationale = { showPermissionRationale = true }
+        )
     }
 
-
+    if (showPermissionRationale) {
+        PermissionRationaleDialog(
+            onRetry = {
+                relaunchPermissionHandler = true
+                showPermissionRationale = false
+            },
+            onCancel = { showPermissionRationale = false }
+        )
+    } else if (showPermissionSettings) {
+        GoToSettingsDialog(
+            onOpenSettings = {
+                openAppSettings(context)
+                showPermissionSettings = false
+            },
+            onCancel = { showPermissionSettings = false }
+        )
+    }
 
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect {
-            when (it) {
-                is UiEvent.NavigateTo -> navigateTo(it.screen)
-                else -> {}
-            }
-
+            if (it is UiEvent.NavigateTo) navigateTo(it.screen)
         }
-
     }
-
-
-
-
 }
 
 @Composable
 fun SynchWaveMainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainScreenViewModel = hiltViewModel(),
-    navigateToActiveRoom: () -> Unit, navigateToJoinRoom: () -> Unit,
+    navigateToActiveRoom: () -> Unit,
+    navigateToJoinRoom: () -> Unit,
 ) {
+    val config = LocalConfiguration.current
+    val isLandscape =
+        config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    val cardSize = 250.dp
+    val spacing = 16.dp
+
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surface
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = AppDimens.Padding.horizontal,
-                    vertical = AppDimens.Padding.vertical
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = AppDimens.Padding.horizontal,
+                        vertical = AppDimens.Padding.vertical
+                    ),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MainActionCard(
+                    modifier = Modifier.size(cardSize),
+                    title = stringResource(R.string.share_sound),
+                    iconPainter = painterResource(R.drawable.create_room),
+                    onClick = { viewModel.shareSound(navigateToActiveRoom) }
+                )
 
-            Spacer(modifier = Modifier.weight(0.1f))
+                Spacer(Modifier.width(spacing))
 
-            // Share sound card
-            MainActionCard(
-                title = stringResource(id = R.string.share_sound),
-                // Replace with your real icon
-                iconPainter = painterResource(R.drawable.create_room),
-                onClick = { viewModel.shareSound(navigateToShareSound = navigateToActiveRoom) }
-            )
+                MainActionCard(
+                    modifier = Modifier.size(cardSize),
+                    title = stringResource(R.string.join_sound_room),
+                    iconPainter = painterResource(R.drawable.join_sound_room),
+                    onClick = navigateToJoinRoom
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = AppDimens.Padding.horizontal,
+                        vertical = AppDimens.Padding.vertical
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                MainActionCard(
+                    modifier = Modifier.size(cardSize),
+                    title = stringResource(R.string.share_sound),
+                    iconPainter = painterResource(R.drawable.create_room),
+                    onClick = { viewModel.shareSound(navigateToActiveRoom) }
+                )
 
-            Spacer(modifier = Modifier.weight(0.1f))
+                Spacer(Modifier.height(spacing))
 
-            // Join room card
-            MainActionCard(
-                title = stringResource(id = R.string.join_sound_room),
-                // Replace with your real icon
-                iconPainter = painterResource(R.drawable.join_sound_room),
-                onClick = navigateToJoinRoom
-            )
-            //An ad banner will be added on this section
-            Spacer(modifier = Modifier.weight(0.5f))
+                MainActionCard(
+                    modifier = Modifier.size(cardSize),
+                    title = stringResource(R.string.join_sound_room),
+                    iconPainter = painterResource(R.drawable.join_sound_room),
+                    onClick = navigateToJoinRoom
+                )
+            }
         }
     }
 }
@@ -277,13 +243,10 @@ private fun MainActionCard(
     containerColor: Color = MaterialTheme.colorScheme.secondary,
 ) {
     Card(
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = modifier
-            .width(300.dp)
-            .height(300.dp) // Increased height to fit everything better
-            .clickable(onClick = onClick)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -295,28 +258,27 @@ private fun MainActionCard(
             Image(
                 painter = iconPainter,
                 contentDescription = title,
-                modifier = Modifier
-                    .size(200.dp) // Explicit size for the icon
-                    .padding(bottom = 16.dp), // Padding instead of spacer if desired, or keep spacer
+                modifier = Modifier.size(150.dp),
                 contentScale = ContentScale.Fit
             )
 
+            Spacer(Modifier.height(12.dp))
+
             Text(
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = textColors
-                )
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium.copy(color = textColors)
             )
         }
     }
 }
 
-
 @Preview(showBackground = true)
 @Composable
-fun WavesynchThemePreview() {
-    WavesynchTheme(darkTheme = false) {
-
+fun PreviewMain() {
+    WavesynchTheme {
         SyncWaveMainScreenWithAppBar(navigateTo = {})
     }
 }

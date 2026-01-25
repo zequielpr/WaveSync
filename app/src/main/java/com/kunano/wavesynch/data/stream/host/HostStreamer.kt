@@ -1,9 +1,11 @@
 package com.kunano.wavesynch.data.stream.host
 
 import android.Manifest
+import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.PacketCodec
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,10 +23,17 @@ class HostStreamer {
     private var udpSocket: DatagramSocket? = null
     private var encoder: OpusHostEncoder? = null
 
+    private var sendThread: Thread? = null
     private val running = AtomicBoolean(false)
 
     private val mtuBytes = 1500
     private val outPkt = ByteArray(mtuBytes)
+    val pool: PcmFramePool = PcmFramePool(
+    frameShorts = AudioStreamConstants.SAMPLES_PER_PACKET,
+    poolSize = 32
+    )
+    val queue: PcmFrameQueue = PcmFrameQueue(capacity = 16)
+
     private val _isHostStreamingFlow = MutableStateFlow(false)
     val isHostStreamingFlow: StateFlow<Boolean> = _isHostStreamingFlow
 
@@ -37,11 +46,14 @@ class HostStreamer {
     fun removeGuest(id: String) = synchronized(lock) { guests.remove(id) }
     fun removeAllGuests() = synchronized(lock) { guests.clear() }
 
+
+
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun startStreaming(capturer: HostAudioCapturer) {
+    fun startStreaming(
+        capturer: HostAudioCapturer,
+    ) {
         if (running.getAndSet(true)) return
         _isHostStreamingFlow.tryEmit(true)
-
 
         synchronized(lock) {
             if (udpSocket == null || udpSocket?.isClosed == true) {
@@ -50,57 +62,93 @@ class HostStreamer {
             if (encoder == null) encoder = OpusHostEncoder()
         }
 
-        var sock: DatagramSocket
-        var enc: OpusHostEncoder
-        var targets: Array<InetSocketAddress>
-        // capturer pushes frames -> we encode+send inline (same capture thread)
-        capturer.start { pcm, seq, tsMs ->
-            if (!running.get()) return@start
+        // Producer: capture thread writes into queue (your capturer must use pool+queue now)
+        capturer.start(pool, queue)
 
+        // Consumer: send thread reads from queue
+        sendThread = Thread {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+            val crashlytics = FirebaseCrashlytics.getInstance()
 
+            try {
+                while (running.get() && !Thread.currentThread().isInterrupted) {
+                    // Blocking take; returns null if interrupted
+                    val frame = queue.takeBlocking() ?: break
 
-            synchronized(lock) {
-                sock = udpSocket ?: return@start
-                if (sock.isClosed) return@start
-                enc = encoder ?: return@start
+                    val sock: DatagramSocket?
+                    val enc: OpusHostEncoder?
+                    val targets: Array<InetSocketAddress>
 
-                targets = guests.values
-                    .asSequence()
-                    .filter { it.isPlaying }
-                    .map { it.inetSocketAddress }
-                    .toList()
-                    .toTypedArray()
-            }
+                    synchronized(lock) {
+                        sock = udpSocket
+                        enc = encoder
+                        targets = guests.values
+                            .asSequence()
+                            .filter { it.isPlaying }
+                            .map { it.inetSocketAddress }
+                            .toList()
+                            .toTypedArray()
+                    }
 
-            if (targets.isEmpty()) return@start
+                    if (sock == null || sock.isClosed || enc == null) {
+                        pool.release(frame)
+                        continue
+                    }
 
-            val opus = enc.encodeInto(pcm)
+                    if (targets.isEmpty()) {
+                        pool.release(frame)
+                        continue
+                    }
 
-            val packetLen = PacketCodec.writeInto(
-                out = outPkt,
-                seq = seq,
-                tsMs = tsMs,
-                payload = opus.buf,
-                payloadLen = opus.len
-            )
-            if (packetLen <= 0) return@start
+                    val opus = enc.encodeInto(frame.shorts)
 
-            for (addr in targets) {
-                try {
-                    sock.send(DatagramPacket(outPkt, packetLen, addr))
-                } catch (e: Exception) {
-                    FirebaseCrashlytics.getInstance().recordException(e)
-                    Log.e("AudioReceiver", "Playout thread error", e)
+                    val packetLen = PacketCodec.writeInto(
+                        out = outPkt,
+                        seq = frame.seq,
+                        tsMs = frame.tsMs,
+                        payload = opus.buf,
+                        payloadLen = opus.len
+                    )
+
+                    // Return frame to pool ASAP
+                    pool.release(frame)
+
+                    if (packetLen <= 0) continue
+
+                    for (addr in targets) {
+                        try {
+                            sock.send(DatagramPacket(outPkt, packetLen, addr))
+                        } catch (ex: Exception) {
+                            crashlytics.recordException(ex)
+                            Log.e("HostStreamer", "UDP send error", ex)
+                        }
+                    }
                 }
+            } catch (t: Throwable) {
+                crashlytics.setCustomKey("sendThread", "HostStreamer")
+                crashlytics.log("Host send thread error")
+                crashlytics.recordException(t)
             }
-        }
+        }.apply { start() }
     }
 
-    fun stopStreaming(capturer: HostAudioCapturer) {
+    fun stopStreaming(
+        capturer: HostAudioCapturer,
+    ) {
         if (!running.getAndSet(false)) return
 
-        // stop capture first so callbacks stop firing
+        // Stop producer first
         try { capturer.stop() } catch (_: Throwable) {}
+
+        // Stop consumer: interrupt unblocks take()
+        sendThread?.interrupt()
+        try { sendThread?.join(500) } catch (_: Throwable) {}
+        sendThread = null
+
+        // Drain leftover frames and return them to pool
+        try {
+            queue.drainAll().forEach { pool.release(it) }
+        } catch (_: Throwable) {}
 
         synchronized(lock) {
             try { encoder?.close() } catch (_: Throwable) {}

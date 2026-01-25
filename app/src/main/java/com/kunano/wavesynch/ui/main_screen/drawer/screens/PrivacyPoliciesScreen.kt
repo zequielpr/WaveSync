@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,20 +50,24 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import com.kunano.wavesynch.CrashReporter
 import com.kunano.wavesynch.R
+import java.util.Locale
 
-private const val POLICY_URL =
-    "https://sites.google.com/view/wavesync/inicio"
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivacyPoliciesScreen(
     modifier: Modifier = Modifier,
-    title: String = "Privacy & Policies",
-    url: String = "https://sites.google.com/view/wavesync",
+    title: String = stringResource(R.string.privacy_policies),
+    url: String = stringResource(R.string.privacy_policies_url),
     onBack: (() -> Unit),
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var canGoBack by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val webView = remember {
+        WebView(ContextThemeWrapper(context, R.style.Theme_Wavesynch))
+    }
 
     Scaffold(
         topBar = {
@@ -86,8 +91,8 @@ fun PrivacyPoliciesScreen(
         ) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    WebView(ContextThemeWrapper(context, R.style.Theme_Wavesynch)).apply {
+                factory = {
+                    webView.apply {
                         @SuppressLint("SetJavaScriptEnabled")
                         settings.apply {
                             javaScriptEnabled = true // Google Sites often needs this
@@ -126,24 +131,30 @@ fun PrivacyPoliciesScreen(
                         loadUrl(url)
                     }
                 },
-                update = { webView ->
-                    canGoBack = webView.canGoBack()
+                update = {
+                    canGoBack = it.canGoBack()
                 }
             )
 
             // Handle back inside WebView first
             BackHandler(enabled = canGoBack) {
-                // go back in web history
-                // (we need a reference; easiest is to use WebView state holder if you want more control)
+                webView.goBack()
             }
 
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(androidx.compose.ui.Alignment.TopCenter)
+                        .align(Alignment.TopCenter)
                 )
             }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webView.stopLoading()
+            webView.destroy()
         }
     }
 }
@@ -162,7 +173,7 @@ fun PrivacyPolicyDialog(
     val reviewPrivacyPolicy = stringResource(R.string.review_privacy_policy)
     val policyAgreement = stringResource(R.string.policy_agreement)
     val mediumSize = MaterialTheme.typography.bodyMedium
-
+    val POLICY_URL = stringResource(R.string.privacy_policies_url)
 
     val context = LocalContext.current
     var accepted by remember { mutableStateOf(false) }
@@ -248,3 +259,4 @@ fun PrivacyPolicyDialog(
         }
     )
 }
+

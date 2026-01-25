@@ -10,17 +10,7 @@ sealed class UiEvent {
     data class NavigateTo(val screen: Screen) : UiEvent()
 }
 
-sealed class ActiveRoomUiEvent: UiEvent() {
-    data class AskToAcceptGuestRequest(
-        val guestName: String,
-        val deviceName: String,
-        val decision: CompletableDeferred<Boolean>,
-        val guestTrusted: CompletableDeferred<Boolean>
-    ) : ActiveRoomUiEvent()
-}
 
 
 
-sealed class JoinRoomUiEvent: UiEvent() {
 
-}

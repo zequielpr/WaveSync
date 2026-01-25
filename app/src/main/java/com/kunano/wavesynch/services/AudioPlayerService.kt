@@ -26,15 +26,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.net.DatagramSocket
 import javax.inject.Inject
+import javax.inject.Provider
 
 @AndroidEntryPoint
 class AudioPlayerService : Service() {
 
     @Inject
-    lateinit var audioReceiver: AudioReceiver
+    lateinit var audioReceiverProvider: Provider<AudioReceiver>
+    private var audioReceiver: AudioReceiver? = null
+    private var isPlayingStateCollector: Job? = null
+
 
     @Inject
     lateinit var clientManager: ClientManager
@@ -74,13 +78,42 @@ class AudioPlayerService : Service() {
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         setMediaSessionCallBack(mediaSession)
         mediaSession.isActive = true
+
+        // Start collecting the UDP socket state
+        collectUdpSocket()
     }
 
-    private fun collectIsplayinState() {
+    private fun collectIsPlayingState() {
+        // Cancel any previous collector before starting a new one
+        isPlayingStateCollector?.cancel()
+        isPlayingStateCollector = serviceScope.launch {
+            audioReceiver?.isPlayingState?.collect { isPlaying ->
+                updatePlaybackState(isPlaying)
+                Log.d("AudioPlayerService", "collectIsPlayingState: $isPlaying")
+            }
+        }
+    }
+
+    private fun collectUdpSocket() {
         serviceScope.launch {
-            audioReceiver.isPlayingState.collect {
-                updatePlaybackState(it)
-                Log.d("AudioPlayerService", "collectIsplayinState: $it")
+            clientManager.udpSocket.collectLatest { socket ->
+                // Stop and release the old receiver before creating a new one
+                serviceScope.launch(Dispatchers.IO) {
+                    audioReceiver?.stop()
+
+                    isPlayingStateCollector?.cancel()
+
+                    if (socket != null && !socket.isClosed) {
+                        Log.d("AudioPlayerService", "New UDP socket received, starting audio receiver.")
+                        audioReceiver = audioReceiverProvider.get()
+                        collectIsPlayingState() // Start collecting state from the new receiver
+                        audioReceiver?.start(socket)
+                    } else {
+                        Log.d("AudioPlayerService", "UDP socket is null or closed, stopping audio receiver.")
+                        // Receiver is already stopped by the start of the new collection
+                    }
+                }
+
             }
         }
     }
@@ -98,12 +131,8 @@ class AudioPlayerService : Service() {
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
-            collectIsplayinState()
-
-            val udpSocket: DatagramSocket? = clientManager.openUdpSocket()
-            udpSocket?.let {
-                audioReceiver.start(it)
-            }
+            // Request to open the socket. The collector will handle the rest.
+            clientManager.openUdpSocket()
         }
 
         return START_STICKY
@@ -112,11 +141,11 @@ class AudioPlayerService : Service() {
     private fun setMediaSessionCallBack(mediaSession: MediaSessionCompat) {
         mediaSession.setCallback(object : MediaSessionCompat.Callback() {
             override fun onPlay() {
-                audioReceiver.resume()
+                audioReceiver?.resume()
             }
 
             override fun onPause() {
-                audioReceiver.pause()
+                audioReceiver?.pause()
             }
 
             override fun onStop() {
@@ -129,13 +158,16 @@ class AudioPlayerService : Service() {
         val notification = buildNotification(isPlaying)
         notificationManager?.notify(NOTIFICATION_ID, notification)
     }
-
+    
     override fun onDestroy() {
         Log.d("AudioPlayerService", "onDestroy: ")
-        audioReceiver.stop()
-        mediaSession.release()// Release the media session
-        clientManager.disconnectFromServer()
-        serviceScope.cancel()  // Cancel all coroutines started by this service
+        serviceScope.launch(Dispatchers.IO) {
+            audioReceiver?.stop()
+            mediaSession.release()// Release the media session
+            clientManager.disconnectFromServer()
+            serviceScope.cancel()
+        }
+         // Cancel all coroutines started by this service
         super.onDestroy()
     }
 

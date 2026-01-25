@@ -16,7 +16,6 @@ import com.kunano.wavesynch.domain.model.TrustedGuest
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases
 import com.kunano.wavesynch.services.AudioCaptureService
-import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -185,6 +184,9 @@ class ActiveRoomViewModel @Inject constructor(
     private fun collectIsConnectedToWifi() {
         viewModelScope.launch {
             hostUseCases.isConnectedToWifi.collect {
+                _uiState.update { uIState ->
+                    uIState.copy(isConnectedToWifi = it)
+                }
                 if (it && hostUseCases.isHostStreamingFlow.value) {
                     _uiEvent.send(UiEvent.ShowSnackBar(appContext.getString(R.string.streaming_audio)))
                 } else if (it) {
@@ -300,13 +302,19 @@ class ActiveRoomViewModel @Inject constructor(
         }
     }
 
+    fun updateJoiningGuestRequest(joiningGuestRequest: JoiningGuestRequest?) {
+        _uiState.update { uIState ->
+            uIState.copy(joiningGuestRequest = joiningGuestRequest)
+
+        }
+    }
 
     fun onRequestHostApproval(handShake: HandShake) {
         viewModelScope.launch {
             val decision = CompletableDeferred<Boolean>()
             val guestTrusted = CompletableDeferred<Boolean>()
-            _uiEvent.send(
-                ActiveRoomUiEvent.AskToAcceptGuestRequest(
+            updateJoiningGuestRequest(
+                JoiningGuestRequest(
                     guestName = handShake.deviceName,
                     deviceName = handShake.deviceName,
                     decision = decision,
@@ -427,11 +435,6 @@ class ActiveRoomViewModel @Inject constructor(
         }
     }
 
-    fun setShowAskTrustGuestState(state: Boolean) {
-        _uiState.update { uIState ->
-            uIState.copy(showJoinRoomRequest = state)
-        }
-    }
 
     fun setOverFlowMenuExpandedState(state: Boolean) {
         _uiState.update { uIState ->

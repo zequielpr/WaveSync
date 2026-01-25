@@ -71,7 +71,7 @@ fun OnboardingScreen(navigateToMainScreen: () -> Unit = {}) {
             onClick = navigateToMainScreen,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 50.dp)
+                .padding(bottom = 100.dp)
                 .width(100.dp)
         ) {
 

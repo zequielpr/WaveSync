@@ -45,6 +45,10 @@ class ClientManager(
         MutableStateFlow<ServerConnectionState>(ServerConnectionState.Idle)
     val serverConnectionsStateFlow = _serverConnectionsStateFlow.asStateFlow()
 
+    private val _udpSocket = MutableStateFlow<DatagramSocket?>(null)
+    val udpSocket = _udpSocket.asStateFlow()
+
+
     var handShakeFromHost: HandShake? = null
     var socket: Socket? = null
     var isConnectedToHostServer: Boolean = false
@@ -151,28 +155,28 @@ class ClientManager(
         }
     }
 
-    var udpSocket: DatagramSocket? = null
-
-    fun openUdpSocket(): DatagramSocket? {
+    fun openUdpSocket() {
         try {
-            udpSocket?.let {
-                sendUdpSocketStatus(true)
-                return it
+            _udpSocket.value?.let {
+                if (!it.isClosed) {
+                    sendUdpSocketStatus(true)
+                    return // Socket already open and valid
+                }
             }
             Log.d(TAG, "Opening UDP socket")
 
-            udpSocket = DatagramSocket(null).apply {
+            val newSocket = DatagramSocket(null).apply {
                 reuseAddress = true
                 soTimeout = 0
                 bind(InetSocketAddress(AudioStreamConstants.UDP_PORT))
             }
+            _udpSocket.value = newSocket
 
             sendUdpSocketStatus(true)
-            return udpSocket
         } catch (e: SocketException) {
             CrashReporter.set("operation_tag", "open_udp_socket")
             CrashReporter.record(e)
-            return null
+            _udpSocket.value = null // Ensure state is consistent on failure
         }
     }
 
@@ -227,14 +231,14 @@ class ClientManager(
         isConnectedToHostServer = false
         try {
             socket?.close()
-            udpSocket?.close()
+            _udpSocket.value?.close()
         } catch (e: IOException) {
             CrashReporter.set("operation_tag", "disconnect_from_server")
             CrashReporter.record(e)
         } finally {
             socket = null
             sessionData = null
-            udpSocket = null
+            _udpSocket.value = null
             _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Disconnected)
         }
     }

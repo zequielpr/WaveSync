@@ -1,28 +1,32 @@
 package com.kunano.wavesynch.ui.guest.current_room
 
+import android.content.res.Configuration
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -41,7 +46,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.ui.nav.Screen
 import com.kunano.wavesynch.ui.theme.AppDimens
-import com.kunano.wavesynch.ui.utils.ActiveRoomUiEvent
 import com.kunano.wavesynch.ui.utils.BlockingLoadingOverlay
 import com.kunano.wavesynch.ui.utils.CustomDialogueCompose
 import com.kunano.wavesynch.ui.utils.UiEvent
@@ -53,6 +57,8 @@ fun CurrentRoomCompose(
     onBack: () -> Unit,
     navigateTo: (screen: Screen) -> Unit,
 ) {
+    val config = LocalConfiguration.current
+    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
     val uIState by viewModel.uiState.collectAsStateWithLifecycle()
     var askToLeaveRoom by remember { mutableStateOf(false) }
     val snackBarHostState = remember { androidx.compose.material3.SnackbarHostState() }
@@ -67,7 +73,9 @@ fun CurrentRoomCompose(
             when (event) {
                 is UiEvent.ShowSnackBar -> snackBarHostState.showSnackbar(event.message)
                 is UiEvent.NavigateTo -> navigateTo(event.screen)
-                else -> {Log.d("CurrentRoomCompose", "LaunchedEffect: $event")}
+                else -> {
+                    Log.d("CurrentRoomCompose", "LaunchedEffect: $event")
+                }
             }
         }
     }
@@ -76,7 +84,7 @@ fun CurrentRoomCompose(
         containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackBarHostState) },
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 navigationIcon = {
                     IconButton(onClick = { navigateTo(Screen.MainScreen) }) {
                         Image(
@@ -95,6 +103,7 @@ fun CurrentRoomCompose(
                     )
                 })
         }) {
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -107,6 +116,7 @@ fun CurrentRoomCompose(
                 .background(color = MaterialTheme.colorScheme.surface)
         ) {
             CurrentRoomCardCompose(
+                isLandscape = isLandscape,
                 uIState = uIState,
                 pauseAudio = { viewModel.pauseAudio() },
                 resumeAudio = { viewModel.resumeAudio() })
@@ -121,11 +131,12 @@ fun CurrentRoomCompose(
                 onClick = { askToLeaveRoom = true }
             ) {
                 Text(
+                    textAlign = TextAlign.Center,
                     text = stringResource(R.string.leave_room),
                     style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
                 )
             }
-            Spacer(modifier = Modifier.padding(50.dp))
+            Spacer(modifier = Modifier.weight(0.8f))
 
         }
     }
@@ -159,6 +170,7 @@ fun CurrentRoomCardCompose(
     uIState: CurrentRoomUIState = CurrentRoomUIState(),
     pauseAudio: () -> Unit = {},
     resumeAudio: () -> Unit = {},
+    isLandscape: Boolean = false,
 ) {
 
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -167,36 +179,67 @@ fun CurrentRoomCardCompose(
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
-        modifier = Modifier.fillMaxWidth()
+        modifier = if (isLandscape) Modifier
+            .width(500.dp)
+            .height(200.dp)
+            .padding(0.dp) else Modifier
+            .fillMaxWidth()
             .height(350.dp)
             .padding(top = 50.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(25.dp)
-        ) {
-            Image(
+
+        if (!isLandscape) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.7f),
-                painter = painterResource(R.drawable.join_sound_room),
-                contentDescription = "current room"
-            )
-
-            IconButton(onClick = { if (uIState.isReceivingAudio) pauseAudio() else resumeAudio() }) {
+                    .padding(25.dp)
+            ) {
                 Image(
-                    painter = if (uIState.isReceivingAudio) painterResource(R.drawable.pause_48px) else painterResource(
-                        R.drawable.play_arrow_48px
-                    ), contentDescription = ""
+                    modifier =  Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.7f),
+                    painter = painterResource(R.drawable.join_sound_room),
+                    contentDescription = "current room"
                 )
-            }
-            Spacer(modifier = Modifier.weight(0.2f))
-            uIState.roomName?.let { Text(text = it, style = hostNameStyle) }
 
+                IconButton(onClick = { if (uIState.isReceivingAudio) pauseAudio() else resumeAudio() }) {
+                    Image(
+                        painter = if (uIState.isReceivingAudio) painterResource(R.drawable.pause_48px) else painterResource(
+                            R.drawable.play_arrow_48px
+                        ), contentDescription = ""
+                    )
+                }
+                Spacer(modifier = Modifier.weight(0.2f))
+                uIState.roomName?.let { Text(text = it, style = hostNameStyle) }
+
+
+            }
+        }else{
+            Row(modifier = Modifier.fillMaxSize().padding(25.dp),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Spacer(modifier = Modifier.width(20.dp))
+                Image(
+                    modifier =  Modifier.size(110.dp),
+                    painter = painterResource(R.drawable.join_sound_room),
+                    contentDescription = "current room"
+                )
+                Spacer(modifier = Modifier.weight(0.1f))
+                uIState.roomName?.let { Text(text = it, style = hostNameStyle) }
+                Spacer(modifier = Modifier.weight(0.2f))
+                IconButton(onClick = { if (uIState.isReceivingAudio) pauseAudio() else resumeAudio() }) {
+                    Image(
+                        painter = if (uIState.isReceivingAudio) painterResource(R.drawable.pause_48px) else painterResource(
+                            R.drawable.play_arrow_48px
+                        ), contentDescription = ""
+                    )
+                }
+                Spacer(modifier = Modifier.width(20.dp))
+            }
 
         }
+
+
     }
 
 
@@ -213,5 +256,5 @@ fun CurrentRoomComposePreview() {
 fun CurrentRoomCardComposePreview() {
     val currentRoomState =
         CurrentRoomUIState(hostName = "Guest", roomName = "Room", isLoading = false)
-    CurrentRoomCardCompose(currentRoomState)
+    CurrentRoomCardCompose(currentRoomState, isLandscape = false)
 }
