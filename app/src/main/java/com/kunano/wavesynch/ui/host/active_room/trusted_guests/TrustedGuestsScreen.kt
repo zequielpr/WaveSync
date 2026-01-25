@@ -3,7 +3,6 @@
 package com.kunano.wavesynch.ui.host.active_room.trusted_guests
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,17 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -61,7 +55,6 @@ fun TrustedGuestsViewCompose(
     val disabledAlpha = 0.50f
 
 
-
     // Confirm dialogs
     var confirmDeleteAll by remember { mutableStateOf(false) }
     var confirmDeleteSelected by remember { mutableStateOf(false) }
@@ -85,7 +78,9 @@ fun TrustedGuestsViewCompose(
     if (confirmDeleteSelected) {
         ConfirmDeleteDialog(
             title = stringResource(R.string.delete_selected),
-            body = stringResource(R.string.delete_selected_body) + " ${uIState.selectedIds.size} " + stringResource(R.string.delete_selected_body_2),
+            body = stringResource(R.string.delete_selected_body) + " ${uIState.selectedIds.size} " + stringResource(
+                R.string.delete_selected_body_2
+            ),
             confirmText = stringResource(R.string.delete),
             onConfirm = {
                 confirmDeleteSelected = false
@@ -113,7 +108,7 @@ fun TrustedGuestsViewCompose(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     if (uIState.selectionModeActivate) {
                         Text("${uIState.selectedIds.size} " + stringResource(R.string.selected))
@@ -140,7 +135,9 @@ fun TrustedGuestsViewCompose(
                         ) {
                             Image(
                                 alpha = if (uIState.trustedGuests.isEmpty()) disabledAlpha else 1f,
-                                painter = if (uIState.isAllSelected) painterResource(id = R.drawable.check_circle_48px) else painterResource(
+                                painter = if (uIState.isAllSelected) painterResource(
+                                    id = R.drawable.check_circle_48px
+                                ) else painterResource(
                                     id = R.drawable.circle_48px
                                 ), contentDescription = stringResource(R.string.select_all)
                             )
@@ -223,7 +220,8 @@ private fun TrustedGuestRow(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
         modifier = Modifier
-            .fillMaxWidth().combinedClickable(
+            .fillMaxWidth()
+            .combinedClickable(
                 onLongClick = onLongPressSelect,
 
                 onClick = onClick
@@ -248,7 +246,7 @@ private fun TrustedGuestRow(
                         Image(painterResource(R.drawable.circle_48px), contentDescription = null)
                     }
                 }
-            }else{
+            } else {
                 Image(painterResource(R.drawable.mobile_48px), contentDescription = null)
             }
             Spacer(Modifier.width(6.dp))
@@ -266,7 +264,10 @@ private fun TrustedGuestRow(
 
             // Delete one-by-one is always available (even outside selection mode)
             IconButton(onClick = onDeleteOne) {
-                Image(painterResource(R.drawable.delete_48px), contentDescription = stringResource(R.string.delete))
+                Image(
+                    painterResource(R.drawable.delete_48px),
+                    contentDescription = stringResource(R.string.delete)
+                )
             }
         }
     }
@@ -279,7 +280,11 @@ private fun EmptyState(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(stringResource(R.string.no_trusted_guests), style = MaterialTheme.typography.titleLarge)
+        Text(
+            stringResource(R.string.no_trusted_guests),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.titleLarge
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             textAlign = TextAlign.Center,
@@ -303,10 +308,20 @@ private fun ConfirmDeleteDialog(
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            Button(onClick = onConfirm) { Text(confirmText, style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onPrimary)) }
+            Button(onClick = onConfirm) {
+                Text(
+                    confirmText,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onPrimary)
+                )
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onPrimary)) }
+            TextButton(onClick = onDismiss) {
+                Text(
+                    stringResource(R.string.cancel),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onPrimary)
+                )
+            }
         }
     )
 }

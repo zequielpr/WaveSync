@@ -174,7 +174,7 @@ fun ActiveRoomCompose(
                             .weight(0.45f)
                             .fillMaxHeight()
                     ) {
-                        QrCardCompose()
+                        QrCardCompose(isLandscape = true)
                     }
 
                     Box(
@@ -584,14 +584,11 @@ fun QrCardCompose(
     viewModel: ActiveRoomViewModel = hiltViewModel(),
     cardColor: Color = MaterialTheme.colorScheme.secondary,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
+    isLandscape: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val expanded = uiState.isQRCodeExpanded
     val hostIp = uiState.hostIp ?: ""
-
-    // Remove big top padding in landscape (so it sits nicely beside the list)
-    val isLandscape =
-        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val animSpec: TweenSpec<Dp> = tween(durationMillis = 260, easing = FastOutSlowInEasing)
 
@@ -620,7 +617,7 @@ fun QrCardCompose(
         modifier = Modifier
             .fillMaxWidth()
             .height(cardHeight)
-            .padding(top = if (isLandscape) 0.dp else 60.dp)
+            .padding(top = if (isLandscape) 0.dp else 20.dp)
             .clickable { viewModel.setIsQRCodeExpandedState(!expanded) },
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {

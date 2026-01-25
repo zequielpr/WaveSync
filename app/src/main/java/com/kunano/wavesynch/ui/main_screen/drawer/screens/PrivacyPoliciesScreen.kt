@@ -50,16 +50,16 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import com.kunano.wavesynch.CrashReporter
 import com.kunano.wavesynch.R
+import java.util.Locale
 
-private const val POLICY_URL =
-    "https://sites.google.com/view/wavesync/inicio"
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivacyPoliciesScreen(
     modifier: Modifier = Modifier,
-    title: String = "Privacy & Policies",
-    url: String = "https://sites.google.com/view/wavesync",
+    title: String = stringResource(R.string.privacy_policies),
+    url: String = stringResource(R.string.privacy_policies_url),
     onBack: (() -> Unit),
 ) {
     var isLoading by remember { mutableStateOf(true) }
@@ -173,7 +173,7 @@ fun PrivacyPolicyDialog(
     val reviewPrivacyPolicy = stringResource(R.string.review_privacy_policy)
     val policyAgreement = stringResource(R.string.policy_agreement)
     val mediumSize = MaterialTheme.typography.bodyMedium
-
+    val POLICY_URL = stringResource(R.string.privacy_policies_url)
 
     val context = LocalContext.current
     var accepted by remember { mutableStateOf(false) }
@@ -259,3 +259,4 @@ fun PrivacyPolicyDialog(
         }
     )
 }
+

@@ -1,0 +1,229 @@
+<resources>
+
+    <!-- App -->
+    <string name="app_name">WaveSync</string>
+
+    <!-- Playback / Streaming -->
+    <string name="start">Iniciar</string>
+    <string name="pause">Pausar</string>
+    <string name="play">Reproducir</string>
+    <string name="start_streaming">Iniciar transmisión</string>
+    <string name="stop_streaming">Detener transmisión</string>
+    <string name="you_have_stopped_streaming">Has detenido la transmisión</string>
+    <string name="are_you_sure_you_stop_streaming">¿Seguro que quieres detener la transmisión?</string>
+    <string name="streaming_audio">Transmitiendo audio</string>
+    <string name="playing_audio_from">Reproduciendo audio desde</string>
+    <string name="audio_capture_service">Captura de audio</string>
+    <string name="ready_to_stream">Listo para transmitir audio</string>
+
+    <!-- Room main actions -->
+    <string name="share_sound">Compartir sonido</string>
+    <string name="join_sound_room">Unirse a la sala de sonido</string>
+    <string name="join_room">Unirse a la sala</string>
+    <string name="leave_room">Salir de la sala</string>
+
+    <!-- Room status / lifecycle -->
+    <string name="default_room_name">Sala</string>
+    <string name="room_ready">Sala lista</string>
+    <string name="waiting_for_guests_to_join">Esperando a que se unan invitados</string>
+    <string name="waiting_for_guest">Esperando invitados</string>
+    <string name="empty_room">Vaciar sala</string>
+    <string name="room_emptied">Sala vaciada</string>
+    <string name="are_you_sure_you_empty_room">¿Seguro que quieres vaciar esta sala?</string>
+
+    <!-- Room management -->
+    <string name="edit_room_name">Editar nombre de la sala</string>
+    <string name="enter_new_name">Introduce un nuevo nombre de sala</string>
+    <string name="new_room_name">Nuevo nombre de sala</string>
+    <string name="update_room_name">Actualizar nombre de la sala</string>
+    <string name="update">Actualizar</string>
+    <string name="room_name_updated">Nombre de la sala actualizado</string>
+
+    <string name="delete_room">Eliminar sala</string>
+    <string name="ask_to_delete_room">¿Seguro que quieres eliminar esta sala?</string>
+    <string name="room_deleted">Sala eliminada</string>
+
+    <!-- Host / join request flow -->
+    <string name="scan_qr_code_to_connect">Escanea el código QR para conectar</string>
+    <string name="scan_host_qr_code">Escanea el código QR del anfitrión para unirte</string>
+    <string name="connecting_to_host">Conectando con el anfitrión</string>
+    <string name="connected_to">Conectado a</string>
+
+    <string name="wants_to_join_room">Quiere unirse a tu sala</string>
+    <string name="ask_to_join_room">¿Quieres unirte a la sala de este anfitrión?</string>
+    <string name="accept">Aceptar</string>
+    <string name="decline">Rechazar</string>
+
+    <string name="waiting_for_host_answer">Esperando respuesta del anfitrión\n</string>
+    <string name="waiting_for_host">Esperando a que el anfitrión acepte</string>
+    <string name="youll_join_automatically_when_host_answers">No cierres la app. Te unirás automáticamente cuando sea aprobado.</string>
+    <string name="generating_qr_code">Generando código QR</string>
+
+    <string name="cancel_request">Cancelar solicitud</string>
+    <string name="are_you_sure_you_want_to_cancel_request">¿Seguro que quieres cancelar esta solicitud?</string>
+
+    <!-- Hosting state -->
+    <string name="start_hosting_room">Iniciar sala</string>
+    <string name="stop_hosting_room">Detener sala</string>
+    <string name="you_are_hosting_room">Estás alojando una sala. ¿Quieres dejar de alojarla para unirte a otra?</string>
+    <string name="ask_to_stop_hosting_room">¿Seguro que quieres dejar de alojar esta sala?</string>
+    <string name="you_are_joined_to_room">Estás unido a una sala. ¿Quieres salir y crear tu propia sala?</string>
+
+    <!-- Guests -->
+    <string name="guest_name">Nombre del invitado</string>
+    <string name="trust_guest">Confiar en invitado</string>
+    <string name="expel">Expulsar invitado</string>
+    <string name="are_you_sure_to_expel">¿Seguro que quieres expulsar a este invitado?</string>
+    <string name="guest_expelled">Invitado expulsado correctamente</string>
+    <string name="guest_left_room">Salió de esta sala</string>
+    <string name="expelled_by_host">Has sido expulsado de esta sala por</string>
+
+    <!-- Capacity / availability -->
+    <string name="room_is_full">La sala está llena</string>
+    <string name="room_not_found">Sala no encontrada</string>
+
+    <!-- Join / leave results & errors -->
+    <string name="success_joining_room">Unido a la sala con éxito</string>
+    <string name="request_declined">Solicitud rechazada</string>
+    <string name="error_joining_room">Error al unirse a la sala</string>
+    <string name="error_joining_room_guest">Error al unirse a la sala (invitado)</string>
+    <string name="error_joining_room_host">Error al unirse a la sala (anfitrión)</string>
+
+    <string name="room_left_successfully">Has salido de la sala</string>
+    <string name="error_leaving_room">Error al salir de la sala</string>
+    <string name="error_leaving_room_host">Error al salir de la sala (anfitrión)</string>
+
+    <string name="are_you_sure_you_want_to_leave_this_room">¿Seguro que quieres salir de esta sala?</string>
+
+    <!-- Discovery -->
+    <string name="searching_for_hosts">Buscando anfitriones…</string>
+    <string name="available_hosts">Anfitriones disponibles</string>
+    <string name="no_hosts_found">No se encontraron anfitriones</string>
+
+    <!-- Network -->
+    <string name="connection_lost">Conexión perdida</string>
+    <string name="connection_unavailable">Conexión no disponible. Activa el WIFI del dispositivo</string>
+    <string name="connect_this_device_to_wifi">Conecta este dispositivo a WiFi</string>
+    <string name="not_connected_to_wifi">No conectado a WIFI</string>
+
+    <!-- Generic errors -->
+    <string name="error_deleting_room">Error al eliminar la sala</string>
+    <string name="error_updating_room_name">Error al actualizar el nombre de la sala</string>
+    <string name="something_went_wrong">Algo salió mal</string>
+
+    <!-- Permissions -->
+    <string name="permission_required">Permisos requeridos</string>
+    <string name="permissions_required_message">Esta app necesita estos permisos para transmitir audio y conectar dispositivos localmente.</string>
+    <string name="permission_required_message">Esta app necesita estos permisos para transmitir audio y conectar dispositivos localmente.</string>
+    <string name="retry">Reintentar</string>
+    <string name="enable_permissions">Habilitar permisos en Ajustes</string>
+    <string name="permission_required_message_go_setting">Los permisos fueron denegados permanentemente. Habilítalos manualmente en los ajustes de la app.</string>
+    <string name="open_settings">Abrir ajustes</string>
+
+    <!-- Common buttons -->
+    <string name="yes">Sí</string>
+    <string name="cancel">Cancelar</string>
+    <string name="ok">OK</string>
+
+    <!-- Menu -->
+    <string name="menu">Menú</string>
+    <string name="about_us">Sobre nosotros</string>
+    <string name="help">Ayuda</string>
+    <string name="privacy_policies"><![CDATA[Privacidad y políticas]]></string>
+    <string name="share_this_app">Compartir esta app</string>
+    <string name="share">Compartir</string>
+    <string name="rate_app">Valóranos</string>
+    <string name="about">Acerca de</string>
+
+    <string name="more">Más</string>
+    <string name="rate">Valorar</string>
+    <string name="contact">Contacto</string>
+    <string name="contact_support">Contactar con soporte</string>
+
+    <!-- About content -->
+    <string name="what_is">Qué es</string>
+    <string name="functionality">Permite que varias personas escuchen el mismo audio al mismo tiempo, directamente a través de Wi-Fi local.\n\nUn dispositivo actúa como anfitrión y transmite el audio en tiempo real, mientras los demás se unen y escuchan el sonido sincronizado, sin usar internet.</string>
+    <string name="why_was_built">¿Por qué se creó?</string>
+    <string name="reason_of_creation">Escuchar juntos es más difícil de lo que debería./Bluetooth es limitado./
+        Los servicios de streaming añaden retraso./
+        Compartir auriculares o altavoces no siempre es práctico./WaveSync fue creado para solucionar esto mediante una conexión de audio rápida y directa entre dispositivos cercanos, enfocada en sincronización y baja latencia.</string>
+
+    <string name="how_does_it_work">¿Cómo funciona?</string>
+    <string name="answer_to_how_it_works">
+        Un dispositivo aloja el audio/
+        Otros dispositivos se unen a la misma red Wi-Fi/
+        El audio se transmite en tiempo real a todos/
+        La reproducción se mantiene sincronizada/Sin cuentas, sin nube, sin complejidad innecesaria.</string>
+
+    <string name="when_is_it_useful">¿Cuándo es útil?</string>
+    <string name="when_is_it_useful_answer">
+        Ver vídeos juntos/
+        Escucha grupal silenciosa/
+        Compartir música con amigos/
+        Cualquier situación donde el tiempo importe/Si todos necesitan escuchar lo mismo al mismo tiempo, WaveSync es la solución.</string>
+
+    <string name="buil_with_focus">Diseñado con enfoque en rendimiento, privacidad y simplicidad.</string>
+    <string name="quick_idea">Idea rápida</string>
+    <string name="quick_idea_body">Funciona mejor cuando todos los dispositivos están en la misma red Wi-Fi y cerca del router (o del anfitrión).</string>
+
+    <!-- Getting started -->
+    <string name="getting_started">Primeros pasos</string>
+    <string name="share_sound_host">Compartir sonido (crear sala)</string>
+    <string name="share_sound_host_steps">Conéctate a Wi-Fi (o crea un hotspot)./Abre $appName y pulsa “Compartir sonido”./Reproduce audio en el dispositivo anfitrión (música/vídeo)./Los invitados ya pueden unirse a la sala.</string>
+
+    <string name="join_sound_room_be_guest">Unirse a una sala (invitado)</string>
+    <string name="join_sound_room_be_guest_steps">Conéctate a la misma Wi-Fi que el anfitrión (o a su hotspot)./Abre $appName y pulsa “Unirse a la sala”./Escanea el código QR./Si no oyes nada, confirma que el anfitrión esté reproduciendo audio.</string>
+
+    <!-- Troubleshooting -->
+    <string name="cannot_joni_room">No puedo encontrar / unirme a la sala</string>
+    <string name="cannot_joni_room_solution">Ambos dispositivos deben estar en la misma Wi-Fi (o hotspot). Desactiva el VPN en ambos. Algunas redes públicas bloquean conexiones entre dispositivos.</string>
+
+    <string name="joined_but_not_sound">Me uní, pero no hay sonido</string>
+    <string name="joined_but_not_sound_solution">Comprueba el volumen y confirma que el anfitrión esté reproduciendo audio. Si pausó el audio, los invitados dejarán de recibir datos. Sal y vuelve a entrar en la sala.</string>
+
+    <string name="sound_delayed_not_sync">El sonido está retrasado o desincronizado</string>
+    <string name="sound_stutter_cuts">El sonido se corta</string>
+    <string name="sound_stutter_cuts_solution">Normalmente es Wi-Fi débil o inestable. Acércate, cambia a Wi-Fi 5GHz si es posible y reduce interferencias.</string>
+    <string name="sound_delayed_not_sync_solution">Acércate al router/anfitrión y evita un uso intenso de la red. Desactiva el ahorro de batería.</string>
+
+    <string name="work_at_home_but_not_public_wifi">Funciona en casa pero no en Wi-Fi público</string>
+    <string name="work_at_home_but_not_public_wifi_solution">Algunas redes públicas aíslan dispositivos por seguridad. En ese caso, usa un hotspot personal o un router doméstico.</string>
+
+    <string name="best_results">Mejores resultados</string>
+    <string name="best_results_checklist_solution">Anfitrión e invitados en la misma Wi-Fi/Señal fuerte/CVPN desactivado/Ahorro de batería desactivado/Evitar tráfico pesado durante la transmisión</string>
+
+    <!-- Policies -->
+    <string name="privacy_policies_body">Antes de continuar, revisa y acepta nuestra Política de Privacidad y Términos de Servicio.</string>
+    <string name="review_privacy_policy"><![CDATA[Revisar Política de Privacidad y Términos]]></string>
+    <string name="policy_agreement">He leído y acepto la Política de Privacidad y los Términos</string>
+    <string name="privacy_policies_url">https://sites.google.com/view/privacy-policy-es-es/inicio</string>
+
+    <!-- Support -->
+    <string name="tip_for_report_issue">Consejo: al reportar un problema, incluye tu modelo de teléfono, versión de Android y si usaste router o hotspot.</string>
+
+    <!-- Trusted guests -->
+    <string name="trusted_guests">Invitados de confianza</string>
+    <string name="no_trusted_guests">Aún no hay invitados de confianza</string>
+    <string name="no_trusted_guests_body">Los invitados de confianza aparecerán aquí para unirse más rápido la próxima vez.</string>
+
+    <!-- Trusted guest actions -->
+    <string name="delete">eliminar</string>
+    <string name="select_all">Seleccionar todo</string>
+    <string name="back">Atrás</string>
+    <string name="delete_selected">Eliminar seleccionados</string>
+    <string name="selected">seleccionado</string>
+    <string name="delete_guest">¿Eliminar este invitado de confianza?</string>
+    <string name="delete_guest_body">Deberá volver a ser confiable para unirse rápidamente.</string>
+    <string name="delete_selected_body">Esto eliminará </string>
+    <string name="delete_selected_body_2">invitado(s) de tu lista de confianza.</string>
+    <string name="delete_all_trusted_guests">¿Eliminar todos los invitados de confianza?</string>
+    <string name="delete_all_trusted_guests_body">Esto eliminará a todos de tu lista de confianza.</string>
+    <string name="delete_all">Eliminar todo</string>
+
+    <!-- Duplicates you included -->
+    <string name="room_full">Sala llena</string>
+    <string name="room_full_message">Expulsa uno o más invitados para permitir nuevas uniones</string>
+    <string name="guests">invitados</string>
+    <string name="this_room_can_host_upt">Esta sala puede alojar hasta</string>
+
+</resources>

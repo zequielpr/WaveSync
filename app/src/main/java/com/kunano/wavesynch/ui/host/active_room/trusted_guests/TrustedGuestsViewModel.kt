@@ -36,16 +36,17 @@ class TrustedGuestsViewModel @Inject constructor(
             selectedIds.add(guestId)
         }
         _uiStateFlow.update { it.copy(selectedIds = selectedIds) }
+        updateIsAllSelected(_uiStateFlow.value.selectedIds.size == _uiStateFlow.value.trustedGuests.size)
     }
 
     fun onLongPressSelect(guestId: String) {
         if (_uiStateFlow.value.selectedIds.isEmpty()) {
             _uiStateFlow.update {
                 it.copy(
-                    selectedIds = setOf(guestId),
-                    selectionModeActivate = true
+                    selectedIds = setOf(guestId), selectionModeActivate = true
                 )
             }
+            updateIsAllSelected(_uiStateFlow.value.selectedIds.size == _uiStateFlow.value.trustedGuests.size)
         }
     }
 
@@ -74,7 +75,7 @@ class TrustedGuestsViewModel @Inject constructor(
 
     }
 
-    fun deleteAllGuests(){
+    fun deleteAllGuests() {
         viewModelScope.launch {
             _uiStateFlow.value.trustedGuests.forEach {
                 hostUseCases.deleteTrustedGuest(it)
@@ -87,10 +88,7 @@ class TrustedGuestsViewModel @Inject constructor(
             selectedIds.forEach {
                 hostUseCases.deleteTrustedGuest(
                     TrustedGuest(
-                        userId = it,
-                        userName = "",
-                        deviceName = "TODO()",
-                        isConnected = false
+                        userId = it, userName = "", deviceName = "TODO()", isConnected = false
                     )
                 )
 

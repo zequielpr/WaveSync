@@ -131,6 +131,7 @@ fun CurrentRoomCompose(
                 onClick = { askToLeaveRoom = true }
             ) {
                 Text(
+                    textAlign = TextAlign.Center,
                     text = stringResource(R.string.leave_room),
                     style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
                 )
