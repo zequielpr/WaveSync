@@ -5,11 +5,13 @@ import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.kunano.wavesynch.CrashReporter
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
 import com.kunano.wavesynch.data.stream.PacketCodec
 import com.kunano.wavesynch.data.stream.guest.GuestStreamingData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -68,8 +70,6 @@ class HostStreamer {
         // Consumer: send thread reads from queue
         sendThread = Thread {
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
-            val crashlytics = FirebaseCrashlytics.getInstance()
-
             try {
                 while (running.get() && !Thread.currentThread().isInterrupted) {
                     // Blocking take; returns null if interrupted
@@ -118,16 +118,24 @@ class HostStreamer {
                     for (addr in targets) {
                         try {
                             sock.send(DatagramPacket(outPkt, packetLen, addr))
-                        } catch (ex: Exception) {
-                            crashlytics.recordException(ex)
+                        }catch (io: IOException){
+                            CrashReporter.log(io.message.toString())
+                            CrashReporter.set("hostStreamer", io.message.toString())
+                            CrashReporter.record(io)
+                        }
+                        catch (ex: Exception) {
+                            CrashReporter.log(ex.message.toString())
+                            CrashReporter.set("hostStreamer", ex.message.toString())
+                            CrashReporter.record(ex)
                             Log.e("HostStreamer", "UDP send error", ex)
                         }
                     }
                 }
             } catch (t: Throwable) {
-                crashlytics.setCustomKey("sendThread", "HostStreamer")
-                crashlytics.log("Host send thread error")
-                crashlytics.recordException(t)
+                CrashReporter.log(t.message.toString())
+                CrashReporter.set("hostStreamer", t.message.toString())
+                CrashReporter.record(t)
+                Log.e("HostStreamer", "sendThread error", t)
             }
         }.apply { start() }
     }

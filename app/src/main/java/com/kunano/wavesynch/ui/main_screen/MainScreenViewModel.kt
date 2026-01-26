@@ -3,6 +3,7 @@ package com.kunano.wavesynch.ui.main_screen
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kunano.wavesynch.CrashReporter
 import com.kunano.wavesynch.R
 import com.kunano.wavesynch.domain.usecase.GuestUseCases
 import com.kunano.wavesynch.domain.usecase.host.HostUseCases

@@ -75,7 +75,20 @@ class ClientManager(
                 sendHandShake(connectionRequestHandShake)
 
                 while (socket?.isConnected == true && isConnectedToHostServer) {
-                    receiveHandShakeResponse()
+                    try {
+                        receiveHandShakeResponse()
+                    } catch (e: IOException) {
+                        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
+                        CrashReporter.set("operation_tag", "receive_handshake_io")
+                        CrashReporter.record(e)
+                        break
+                    } catch (e: NullPointerException) {
+                        _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
+                        CrashReporter.set("operation_tag", "receive_handshake_npe")
+                        CrashReporter.record(e)
+                        break
+                    }
+
                 }
             } catch (e: SocketTimeoutException) {
                 _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
@@ -132,26 +145,18 @@ class ClientManager(
     }
 
     private fun receiveHandShakeResponse() {
-        try {
-            val input = BufferedReader(InputStreamReader(socket?.getInputStream()))
-            val hostJson = input.readLine()
-            if (hostJson == null) {
-                _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
-                return
-            }
-            Log.d(TAG, "Received host handshake: $hostJson")
-            handShakeFromHost = parseHandshake(hostJson)
-            handShakeFromHost?.let {
-                processHandshakeResponse(it)
-            }
-        } catch (e: IOException) {
+
+
+        val input = BufferedReader(InputStreamReader(socket?.getInputStream()))
+        val hostJson = input.readLine()
+        if (hostJson == null) {
             _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
-            CrashReporter.set("operation_tag", "receive_handshake_io")
-            CrashReporter.record(e)
-        } catch (e: NullPointerException) {
-            _serverConnectionsStateFlow.tryEmit(ServerConnectionState.ConnectionLost)
-            CrashReporter.set("operation_tag", "receive_handshake_npe")
-            CrashReporter.record(e)
+            return
+        }
+        Log.d(TAG, "Received host handshake: $hostJson")
+        handShakeFromHost = parseHandshake(hostJson)
+        handShakeFromHost?.let {
+            processHandshakeResponse(it)
         }
     }
 
@@ -231,16 +236,26 @@ class ClientManager(
         isConnectedToHostServer = false
         try {
             socket?.close()
-            _udpSocket.value?.close()
         } catch (e: IOException) {
-            CrashReporter.set("operation_tag", "disconnect_from_server")
+            CrashReporter.set("operation_tag", "disconnect_from_server_tcp")
             CrashReporter.record(e)
         } finally {
             socket = null
             sessionData = null
-            _udpSocket.value = null
             _serverConnectionsStateFlow.tryEmit(ServerConnectionState.Disconnected)
         }
     }
+
+    fun closeUdpSocket() {
+        try {
+            _udpSocket.value?.close()
+        } catch (e: Exception) {
+            CrashReporter.set("operation_tag", "close_udp_socket")
+            CrashReporter.record(e)
+        } finally {
+            _udpSocket.value = null
+        }
+    }
+
 
 }

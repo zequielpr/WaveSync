@@ -36,7 +36,7 @@ class AudioPlayerService : Service() {
 
     @Inject
     lateinit var audioReceiverProvider: Provider<AudioReceiver>
-    private var audioReceiver: AudioReceiver? = null
+    private lateinit var audioReceiver: AudioReceiver
     private var isPlayingStateCollector: Job? = null
 
 
@@ -79,15 +79,18 @@ class AudioPlayerService : Service() {
         setMediaSessionCallBack(mediaSession)
         mediaSession.isActive = true
 
+        // Create the single, reusable AudioReceiver instance
+        audioReceiver = audioReceiverProvider.get()
+        collectIsPlayingState()
+
         // Start collecting the UDP socket state
         collectUdpSocket()
     }
 
     private fun collectIsPlayingState() {
-        // Cancel any previous collector before starting a new one
         isPlayingStateCollector?.cancel()
         isPlayingStateCollector = serviceScope.launch {
-            audioReceiver?.isPlayingState?.collect { isPlaying ->
+            audioReceiver.isPlayingState.collect { isPlaying ->
                 updatePlaybackState(isPlaying)
                 Log.d("AudioPlayerService", "collectIsPlayingState: $isPlaying")
             }
@@ -97,23 +100,17 @@ class AudioPlayerService : Service() {
     private fun collectUdpSocket() {
         serviceScope.launch {
             clientManager.udpSocket.collectLatest { socket ->
-                // Stop and release the old receiver before creating a new one
+                // Always stop the previous run before starting a new one.
                 serviceScope.launch(Dispatchers.IO) {
-                    audioReceiver?.stop()
+                    audioReceiver.stop()
+                }.join() // Wait for stop to complete
 
-                    isPlayingStateCollector?.cancel()
-
-                    if (socket != null && !socket.isClosed) {
-                        Log.d("AudioPlayerService", "New UDP socket received, starting audio receiver.")
-                        audioReceiver = audioReceiverProvider.get()
-                        collectIsPlayingState() // Start collecting state from the new receiver
-                        audioReceiver?.start(socket)
-                    } else {
-                        Log.d("AudioPlayerService", "UDP socket is null or closed, stopping audio receiver.")
-                        // Receiver is already stopped by the start of the new collection
-                    }
+                if (socket != null && !socket.isClosed) {
+                    Log.d("AudioPlayerService", "New UDP socket received, starting audio receiver.")
+                    audioReceiver.start(socket)
+                } else {
+                    Log.d("AudioPlayerService", "UDP socket is null or closed.")
                 }
-
             }
         }
     }
@@ -141,11 +138,11 @@ class AudioPlayerService : Service() {
     private fun setMediaSessionCallBack(mediaSession: MediaSessionCompat) {
         mediaSession.setCallback(object : MediaSessionCompat.Callback() {
             override fun onPlay() {
-                audioReceiver?.resume()
+                audioReceiver.resume()
             }
 
             override fun onPause() {
-                audioReceiver?.pause()
+                audioReceiver.pause()
             }
 
             override fun onStop() {
@@ -158,13 +155,15 @@ class AudioPlayerService : Service() {
         val notification = buildNotification(isPlaying)
         notificationManager?.notify(NOTIFICATION_ID, notification)
     }
-    
+
     override fun onDestroy() {
         Log.d("AudioPlayerService", "onDestroy: ")
         serviceScope.launch(Dispatchers.IO) {
-            audioReceiver?.stop()
+            audioReceiver.stop()
+            audioReceiver.release()
             mediaSession.release()// Release the media session
             clientManager.disconnectFromServer()
+            clientManager.closeUdpSocket()
             serviceScope.cancel()
         }
          // Cancel all coroutines started by this service

@@ -6,8 +6,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.PlaybackParams
-import android.os.Build
 import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kunano.wavesynch.data.stream.AudioStreamConstants
@@ -21,10 +19,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
 class AudioReceiver(
-    private val context: Context
+    private val context: Context,
 ) {
+    private lateinit var decoder: OpusGuestDecoder
+    private var track: AudioTrack
 
-    init { System.loadLibrary("wavesynch") }
+    init {
+        Log.w("AudioReceiver", "Init decoder")
+        System.loadLibrary("wavesynch")
+        track = buildAudioTrack()
+    }
 
     val firebaseCrashlytics = FirebaseCrashlytics.getInstance()
 
@@ -33,14 +37,16 @@ class AudioReceiver(
 
     private val running = AtomicBoolean(false)
 
-    @Volatile private var isPaused = false
+    @Volatile
+    private var isPaused = false
     private var rxThread: Thread? = null
     private var playoutThread: Thread? = null
 
-    @Volatile private var udpSocket: DatagramSocket? = null
+    @Volatile
+    private var udpSocket: DatagramSocket? = null
 
     private val buffer = JitterBuffer(maxFrames = 2048)
-    private lateinit var decoder: OpusGuestDecoder
+
 
     private val padBuf = ShortArray(AudioStreamConstants.SAMPLES_PER_PACKET)
 
@@ -58,11 +64,13 @@ class AudioReceiver(
     // NOTE: big fixed thresholds are fragile; we use a dynamic jump check too.
     private val bufferBehindDropThreshold = 450
 
-    @Volatile private var lastRxNs: Long = 0L
+    @Volatile
+    private var lastRxNs: Long = 0L
     private val connectionTimeoutNs = 2_500_000_000L // 2.5s
 
     // -------- BLUETOOTH MODE (gentle hysteresis drain) --------
-    @Volatile private var btMode: Boolean = false
+    @Volatile
+    private var btMode: Boolean = false
 
     private val btTargetFrames = 28
     private val btHighWater = 35
@@ -76,19 +84,24 @@ class AudioReceiver(
     private var btSecondMarkNs = 0L
     private var btLastDropNs = 0L
 
+
+
+
     fun start(socket: DatagramSocket) {
 
+        Log.d("AudioReceiver", "Track state: ${track.state}")
+
+        track.play()
         if (running.getAndSet(true)) return
+        decoder = OpusGuestDecoder(AudioStreamConstants.SAMPLE_RATE, AudioStreamConstants.CHANNELS)
 
         udpSocket = socket
-        decoder = OpusGuestDecoder(AudioStreamConstants.SAMPLE_RATE, AudioStreamConstants.CHANNELS)
         _isPlayingState.tryEmit(true)
 
         btMode = isBluetoothOutputActive()
         Log.w("AudioReceiver", "Output route: btMode=$btMode")
 
         socket.soTimeout = 50
-        val track = buildAudioTrack()
 
         // ---------------- RX THREAD ----------------
         rxThread = Thread {
@@ -160,8 +173,14 @@ class AudioReceiver(
 
             fun hardSleepUntilRxResumes() {
                 // We consider stream "paused". Stop adding latency inside AudioTrack.
-                try { track.pause() } catch (_: Exception) {}
-                try { track.flush() } catch (_: Exception) {}
+                try {
+                    track.pause()
+                } catch (_: Exception) {
+                }
+                try {
+                    track.flush()
+                } catch (_: Exception) {
+                }
 
                 val mark = lastRxNs
                 synchronized(rxSignal) {
@@ -180,7 +199,10 @@ class AudioReceiver(
                 }
 
                 // restart audio
-                try { track.play() } catch (_: Exception) {}
+                try {
+                    track.play()
+                } catch (_: Exception) {
+                }
 
                 // reset drift/stat logic so it doesn't overreact to the gap
                 resetControllers()
@@ -248,7 +270,10 @@ class AudioReceiver(
 
                         val dynamicJump = (targetFrames * 3).coerceIn(40, 90)
                         if (gapForward > dynamicJump) {
-                            Log.w("AudioPlayer", "Jump forward: first=$first expected=$exp gapF=$gapForward")
+                            Log.w(
+                                "AudioPlayer",
+                                "Jump forward: first=$first expected=$exp gapF=$gapForward"
+                            )
                             buffer.dropOlderThan(first)
                             expectedSeq = first
                             resetControllers()
@@ -277,11 +302,13 @@ class AudioReceiver(
                             okWindow++
                             decoder.decode(payload)
                         }
+
                         nextPayload != null -> {
                             missStreak = 0
                             fecWindow++
                             decoder.decodeWithFEC(nextPayload)
                         }
+
                         else -> {
                             missStreak++
                             lateWindow++
@@ -299,7 +326,10 @@ class AudioReceiver(
                         val head = buffer.firstSeq()
                         val bufNow = buffer.size()
                         if (head != null && bufNow >= targetFrames) {
-                            Log.w("AudioPlayer", "Soft resync: missStreak=$missStreak buf=$bufNow expected=${expectedSeq} -> head=$head")
+                            Log.w(
+                                "AudioPlayer",
+                                "Soft resync: missStreak=$missStreak buf=$bufNow expected=${expectedSeq} -> head=$head"
+                            )
                             buffer.dropOlderThan(head)
                             expectedSeq = head
                             missStreak = 0
@@ -322,7 +352,7 @@ class AudioReceiver(
 
                         val bufNow = buffer.size()
 
-                        if (!btDraining && bufNow > btHighWater){
+                        if (!btDraining && bufNow > btHighWater) {
                             firebaseCrashlytics.setCustomKey("latency", "buffer size $bufNow")
                             firebaseCrashlytics.log("Buffer size $bufNow")
                             firebaseCrashlytics.recordException(Exception("Buffer size $bufNow"))
@@ -349,18 +379,23 @@ class AudioReceiver(
                             btLastDropNs = now
                             btDropsThisSecond++
 
-                            Log.w("AudioPlayer", "BT drain: dropped $btDropStepFrames frame(s). buf=$bufNow")
+                            Log.w(
+                                "AudioPlayer",
+                                "BT drain: dropped $btDropStepFrames frame(s). buf=$bufNow"
+                            )
                         }
                     }
 
                     // -------- Buffer target update (every 1s) --------
                     if (now - lastStatsNs > 1_000_000_000L) {
                         val total = okWindow + fecWindow + lateWindow
-                        val lateRate = if (total == 0) 0.0 else lateWindow.toDouble() / total.toDouble()
+                        val lateRate =
+                            if (total == 0) 0.0 else lateWindow.toDouble() / total.toDouble()
                         val bufSize = buffer.size()
 
                         if (!btMode) {
-                            if (lateRate > 0.02) targetFrames = (targetFrames + 1).coerceAtMost(maxFrames)
+                            if (lateRate > 0.02) targetFrames =
+                                (targetFrames + 1).coerceAtMost(maxFrames)
 
                             if (lateRate < 0.003 && bufSize > targetFrames + 3) {
                                 targetFrames = (targetFrames - 1).coerceAtLeast(minFrames)
@@ -413,23 +448,48 @@ class AudioReceiver(
         if (!running.getAndSet(false)) return
         _isPlayingState.tryEmit(false)
 
-        try { udpSocket?.close() } catch (_: Exception) {}
-        try { rxThread?.interrupt() } catch (_: Exception) {}
-        try { playoutThread?.interrupt() } catch (_: Exception) {}
+        try {
+            udpSocket?.close()
+        } catch (_: Exception) {
+        }
+        try {
+            rxThread?.interrupt()
+        } catch (_: Exception) {
+        }
+        try {
+            playoutThread?.interrupt()
+        } catch (_: Exception) {
+        }
 
         // Wake playout if it's blocked on rxSignal
         synchronized(rxSignal) { rxSignal.notifyAll() }
 
-        try { rxThread?.join(500) } catch (_: Exception) {}
-        try { playoutThread?.join(500) } catch (_: Exception) {}
+        try {
+            rxThread?.join(500)
+        } catch (_: Exception) {
+        }
+        try {
+            playoutThread?.join(500)
+        } catch (_: Exception) {
+        }
 
         rxThread = null
         playoutThread = null
         udpSocket = null
 
         buffer.clear()
+    }
 
-        try { if (::decoder.isInitialized) decoder.close() } catch (_: Exception) {}
+    fun release() {
+        try {
+            decoder.close()
+
+        } catch (_: Exception) {
+        }
+        try {
+            safeStopTrack(track)
+        } catch (_: Exception) {
+        }
     }
 
     fun pause() {
@@ -479,8 +539,10 @@ class AudioReceiver(
             .setBufferSizeInBytes(bufSize)
 
         // best-effort; some devices ignore/throw
-        try { builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
-        catch (_: Throwable) {}
+        try {
+            builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+        } catch (_: Throwable) {
+        }
 
         return builder.build()
     }
@@ -531,10 +593,19 @@ class AudioReceiver(
     }
 
     private fun safeStopTrack(track: AudioTrack) {
-        try { track.pause() } catch (_: Exception) {}
-        try { track.flush() } catch (_: Exception) {}
-        try { track.stop() } catch (_: Exception) {}
-        try { track.release() } catch (_: Exception) {}
+        try {
+            track.pause()
+        } catch (_: Exception) {
+        }
+        try {
+            track.flush()
+        } catch (_: Exception) {
+        }
+        try {
+            track.stop()
+        } catch (_: Exception) {
+        }
+        // Don't release here, so we can reuse it
     }
 }
 
@@ -575,8 +646,11 @@ class JitterBuffer(private val maxFrames: Int = 2048) {
             while (!map.containsKey(seq)) {
                 val remaining = end - System.currentTimeMillis()
                 if (remaining <= 0) break
-                try { lock.wait(remaining) }
-                catch (e: InterruptedException) { Thread.currentThread().interrupt(); break }
+                try {
+                    lock.wait(remaining)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt(); break
+                }
             }
         }
     }
@@ -584,8 +658,11 @@ class JitterBuffer(private val maxFrames: Int = 2048) {
     fun waitForData(waitMs: Long) {
         synchronized(lock) {
             if (map.isEmpty()) {
-                try { lock.wait(waitMs) }
-                catch (e: InterruptedException) { Thread.currentThread().interrupt() }
+                try {
+                    lock.wait(waitMs)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
             }
         }
     }
